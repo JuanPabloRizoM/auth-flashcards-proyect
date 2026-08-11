@@ -1,0 +1,50 @@
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# generated native folders
+/ios
+/android
+
+# Metro
+.metro-health-check*
+
+# tests
+coverage/
+playwright-report/
+test-results/
+.playwright/
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# secretos / entorno local
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
+*.pem
+
+# typescript
+*.tsbuildinfo
+
+# python
+__pycache__/

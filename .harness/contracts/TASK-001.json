@@ -1,0 +1,205 @@
+{
+  "task_id": "TASK-001",
+  "goal": "Dejar el proyecto correctamente inicializado, con las dependencias, configuraciones y herramientas de desarrollo necesarias funcionando, sin implementar todavía funcionalidades del producto.",
+  "requirements_snapshot": [
+    "El proyecto será una aplicación de flashcards.",
+    "Debe poder desarrollarse inicialmente para web y estar preparado para soportar móvil.",
+    "Se debe utilizar TypeScript.",
+    "El entorno debe quedar reproducible a partir del repositorio.",
+    "Las dependencias necesarias deben quedar registradas en el gestor de paquetes del proyecto.",
+    "Deben configurarse las herramientas base necesarias para ejecutar, verificar y probar el proyecto.",
+    "Antes de instalar herramientas, se deben revisar los documentos requeridos y confirmar que cada dependencia corresponde a una necesidad real del proyecto.",
+    "Todas las instalaciones y configuraciones realizadas deben comprobarse con comandos ejecutables.",
+    "Decisiones confirmadas: Expo + React Native, Expo Router, TypeScript, soporte web/Android/iOS desde la misma base, pruebas automatizadas con comandos reproducibles."
+  ],
+  "open_questions": [],
+  "acceptance": [
+    "El agente ha leído los documentos obligatorios antes de decidir qué instalar.",
+    "La versión requerida de Node.js y del gestor de paquetes ha sido comprobada y documentada.",
+    "El proyecto Expo está correctamente inicializado.",
+    "TypeScript está configurado y puede ejecutar una comprobación de tipos sin errores.",
+    "Expo Router está instalado y configurado correctamente.",
+    "El proyecto puede ejecutarse en web sin errores de arranque.",
+    "La configuración base mantiene compatibilidad con Android e iOS.",
+    "Todas las dependencias instaladas están registradas en package.json y en el archivo de lock correspondiente.",
+    "No existen dependencias instaladas sin una razón relacionada con la arquitectura o las herramientas de desarrollo requeridas.",
+    "Existe un comando reproducible para ejecutar la comprobación de TypeScript.",
+    "Existe configuración base para linting.",
+    "Existe configuración base para las pruebas automatizadas definidas por docs/TESTING.md.",
+    "Los comandos de verificación requeridos terminan correctamente.",
+    "El proyecto puede instalarse nuevamente desde cero utilizando únicamente los archivos versionados y el gestor de paquetes.",
+    "No se han implementado funcionalidades del producto durante esta tarea.",
+    "No existen secretos, credenciales ni archivos de entorno privados incluidos en el repositorio.",
+    "La evidencia de instalaciones, versiones, comandos ejecutados y resultados queda registrada en progress/evidence/TASK-001-implementation.md.",
+    "./init.sh termina correctamente al finalizar la tarea."
+  ],
+  "verification_matrix": [
+    {
+      "acceptance": "El agente ha leído los documentos obligatorios antes de decidir qué instalar.",
+      "method": "inspection",
+      "command_or_procedure": "Registro en progress/evidence/TASK-001-implementation.md de los documentos leídos (AGENTS.md, progress/current.md, task, docs/PRODUCT.md, docs/ARCHITECTURE.md, docs/CONVENTIONS.md, docs/TESTING.md, docs/VERIFICATION.md, docs/SECURITY.md) antes del primer cambio de archivos.",
+      "evidence_expected": "Lista de documentos leídos y justificación de cada dependencia derivada de docs/ARCHITECTURE.md y docs/TESTING.md."
+    },
+    {
+      "acceptance": "La versión requerida de Node.js y del gestor de paquetes ha sido comprobada y documentada.",
+      "method": "static",
+      "command_or_procedure": "node -v && npm -v; campo engines en package.json",
+      "evidence_expected": "Salida de versiones registrada y engines declarado en package.json coherente con el requisito de Expo."
+    },
+    {
+      "acceptance": "El proyecto Expo está correctamente inicializado.",
+      "method": "smoke",
+      "command_or_procedure": "npx expo config --type public",
+      "evidence_expected": "Configuración pública resuelta sin errores, con name/slug y plataformas declaradas."
+    },
+    {
+      "acceptance": "TypeScript está configurado y puede ejecutar una comprobación de tipos sin errores.",
+      "method": "static",
+      "command_or_procedure": "npm run typecheck",
+      "evidence_expected": "Exit code 0 y cero errores de tsc."
+    },
+    {
+      "acceptance": "Expo Router está instalado y configurado correctamente.",
+      "method": "smoke",
+      "command_or_procedure": "Inspección de app/_layout.tsx + entry point expo-router/entry en package.json + plugin expo-router en app.json; confirmado por el arranque web y el smoke test.",
+      "evidence_expected": "expo-router presente en dependencies, entry configurado y ruta raíz servida sin error de router."
+    },
+    {
+      "acceptance": "El proyecto puede ejecutarse en web sin errores de arranque.",
+      "method": "smoke",
+      "command_or_procedure": "npm run smoke:web (arranca expo start --web, comprueba HTTP 200 del bundle y ausencia de errores de arranque)",
+      "evidence_expected": "Servidor web responde 200 y el bundle se compila sin errores; salida registrada en evidencia."
+    },
+    {
+      "acceptance": "La configuración base mantiene compatibilidad con Android e iOS.",
+      "method": "inspection",
+      "command_or_procedure": "npx expo config --type public y revisión de app.json (ios/android/web declarados; sin código específico de plataforma que rompa nativo)",
+      "evidence_expected": "app.json declara ios, android y web; dependencias nativas (react-native-screens, react-native-safe-area-context) instaladas en versiones alineadas por expo install."
+    },
+    {
+      "acceptance": "Todas las dependencias instaladas están registradas en package.json y en el archivo de lock correspondiente.",
+      "method": "static",
+      "command_or_procedure": "npm ls --omit=dev --depth=0 && existencia de package-lock.json && npm ci en copia limpia",
+      "evidence_expected": "Sin dependencias extraneous; package-lock.json presente y consistente."
+    },
+    {
+      "acceptance": "No existen dependencias instaladas sin una razón relacionada con la arquitectura o las herramientas de desarrollo requeridas.",
+      "method": "review",
+      "command_or_procedure": "Tabla dependencia -> justificación (docs/ARCHITECTURE.md o docs/TESTING.md) en la evidencia.",
+      "evidence_expected": "Cada dependencia directa de package.json aparece justificada; ninguna dependencia de producto (Supabase, auth, etc.) instalada en esta tarea."
+    },
+    {
+      "acceptance": "Existe un comando reproducible para ejecutar la comprobación de TypeScript.",
+      "method": "static",
+      "command_or_procedure": "npm run typecheck",
+      "evidence_expected": "Script typecheck definido en package.json y ejecutable con exit 0."
+    },
+    {
+      "acceptance": "Existe configuración base para linting.",
+      "method": "static",
+      "command_or_procedure": "npm run lint",
+      "evidence_expected": "eslint.config.js presente y npm run lint con exit 0."
+    },
+    {
+      "acceptance": "Existe configuración base para las pruebas automatizadas definidas por docs/TESTING.md.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit), npm run test:integration (integration), npm run test:e2e (Playwright web)",
+      "evidence_expected": "Los tres niveles existen con configuración ejecutable y al menos un test que verifica un resultado concreto en cada nivel disponible; salidas con exit 0."
+    },
+    {
+      "acceptance": "Los comandos de verificación requeridos terminan correctamente.",
+      "method": "static",
+      "command_or_procedure": "./init.sh (ejecuta typecheck, lint, test, test:integration, test:e2e cuando existen)",
+      "evidence_expected": "Exit code 0 con todos los gates disponibles en [OK]."
+    },
+    {
+      "acceptance": "El proyecto puede instalarse nuevamente desde cero utilizando únicamente los archivos versionados y el gestor de paquetes.",
+      "method": "integration",
+      "command_or_procedure": "Copiar el proyecto sin node_modules a un directorio temporal, ejecutar npm ci y npm run typecheck",
+      "evidence_expected": "npm ci instala desde package-lock.json y typecheck pasa en la copia limpia."
+    },
+    {
+      "acceptance": "No se han implementado funcionalidades del producto durante esta tarea.",
+      "method": "review",
+      "command_or_procedure": "Revisión del árbol de archivos creados: solo configuración, layout raíz mínimo y pantalla placeholder sin lógica de negocio.",
+      "evidence_expected": "src/features vacío; sin mazos, cards, estudio, auth ni acceso a datos."
+    },
+    {
+      "acceptance": "No existen secretos, credenciales ni archivos de entorno privados incluidos en el repositorio.",
+      "method": "inspection",
+      "command_or_procedure": "Búsqueda de archivos .env* en el árbol (excluyendo node_modules) y revisión de .gitignore",
+      "evidence_expected": "No existen .env con valores; .gitignore ignora .env*, node_modules y artefactos de build."
+    },
+    {
+      "acceptance": "La evidencia de instalaciones, versiones, comandos ejecutados y resultados queda registrada en progress/evidence/TASK-001-implementation.md.",
+      "method": "inspection",
+      "command_or_procedure": "Lectura del archivo de evidencia",
+      "evidence_expected": "Archivo existente con versiones, comandos, salidas y tabla acceptance -> evidencia."
+    },
+    {
+      "acceptance": "./init.sh termina correctamente al finalizar la tarea.",
+      "method": "static",
+      "command_or_procedure": "./init.sh",
+      "evidence_expected": "Exit code 0 al cierre de la implementación."
+    }
+  ],
+  "dependency_justification": [
+    { "dependency": "expo", "reason": "Base multiplataforma confirmada en docs/ARCHITECTURE.md." },
+    { "dependency": "react, react-native", "reason": "Runtime requerido por Expo (docs/ARCHITECTURE.md)." },
+    { "dependency": "expo-router", "reason": "Navegación confirmada en docs/ARCHITECTURE.md y en el task." },
+    { "dependency": "react-native-safe-area-context, react-native-screens", "reason": "Peer deps nativas requeridas por expo-router en iOS/Android." },
+    { "dependency": "expo-constants, expo-linking, expo-status-bar", "reason": "Requeridas por expo-router (deep linking / manifest) y barra de estado base." },
+    { "dependency": "react-dom, react-native-web, @expo/metro-runtime", "reason": "Soporte de la plataforma web requerido por el objetivo 'usable en web'." },
+    { "dependency": "typescript, @types/react", "reason": "TypeScript confirmado en docs/ARCHITECTURE.md y docs/CONVENTIONS.md." },
+    { "dependency": "eslint, eslint-config-expo", "reason": "Gate de lint requerido por docs/TESTING.md (Fase 1 Static) e init.sh." },
+    { "dependency": "jest, jest-expo, @testing-library/react-native, @types/jest", "reason": "Unit e integration tests requeridos por docs/ARCHITECTURE.md y docs/TESTING.md (Fases 2-3)." },
+    { "dependency": "@playwright/test", "reason": "E2E web requerido por docs/ARCHITECTURE.md y docs/TESTING.md (Fase 4)." }
+  ],
+  "allowed_paths": [
+    "package.json",
+    "package-lock.json",
+    "app.json",
+    "tsconfig.json",
+    "babel.config.*",
+    "metro.config.*",
+    "eslint.config.*",
+    "jest.config.*",
+    "playwright.config.*",
+    ".gitignore",
+    "app/**",
+    "src/**",
+    "tests/**",
+    "scripts/**",
+    "docs/**",
+    "progress/**",
+    ".harness/**"
+  ],
+  "required_docs": [
+    "docs/PRODUCT.md",
+    "docs/ARCHITECTURE.md",
+    "docs/CONVENTIONS.md",
+    "docs/TESTING.md",
+    "docs/VERIFICATION.md",
+    "docs/SECURITY.md"
+  ],
+  "required_gates": [
+    "baseline",
+    "static",
+    "unit",
+    "integration",
+    "smoke",
+    "installation-reproducibility"
+  ],
+  "out_of_scope": [
+    "Implementar autenticación o elegir método de autenticación.",
+    "Implementar mazos, flashcards, estudio o repetición espaciada.",
+    "Instalar o configurar Supabase / PostgreSQL (no hay decisión de credenciales ni esquema confirmado; se difiere a una tarea futura dirigida por el usuario).",
+    "Diseñar pantallas finales del producto.",
+    "Inicializar Git (.git/** es protected_path en .harness/policies/files.json).",
+    "Añadir dependencias no necesarias para el entorno de desarrollo."
+  ],
+  "baseline_required": true,
+  "regression_required": true,
+  "review_required": true,
+  "qa_required": true
+}

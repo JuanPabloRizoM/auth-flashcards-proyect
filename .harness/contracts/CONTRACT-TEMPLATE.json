@@ -1,0 +1,37 @@
+{
+  "task_id": "TASK-XXX",
+  "goal": "Resultado pactado",
+  "requirements_snapshot": [
+    "Congela aquí los requisitos antes de IMPLEMENTING"
+  ],
+  "open_questions": [],
+  "acceptance": [
+    "Criterio observable"
+  ],
+  "verification_matrix": [
+    {
+      "acceptance": "Criterio observable",
+      "method": "static|unit|integration|e2e|smoke|inspection|review",
+      "command_or_procedure": "Cómo se demostrará",
+      "evidence_expected": "Qué resultado concreto cuenta como PASS"
+    }
+  ],
+  "allowed_paths": [
+    "init.sh",
+    "Solo rutas necesarias"
+  ],
+  "required_docs": [
+    "docs/ARCHITECTURE.md",
+    "docs/CONVENTIONS.md"
+  ],
+  "required_gates": [
+    "Según la tarea"
+  ],
+  "out_of_scope": [
+    "No pedido"
+  ],
+  "baseline_required": true,
+  "regression_required": true,
+  "review_required": true,
+  "qa_required": true
+}

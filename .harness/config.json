@@ -1,0 +1,70 @@
+{
+  "version": "1.3",
+  "project": "flashcards",
+  "one_task_at_a_time": true,
+  "max_retries": 3,
+  "states": [
+    "PENDING",
+    "PLANNING",
+    "READY",
+    "IMPLEMENTING",
+    "VERIFYING",
+    "REVIEWING",
+    "QA",
+    "DONE",
+    "BLOCKED",
+    "TEST_FAILED",
+    "REVIEW_FAILED",
+    "QA_FAILED",
+    "HUMAN_REQUIRED"
+  ],
+  "workflow": {
+    "PENDING": [
+      "PLANNING"
+    ],
+    "PLANNING": [
+      "READY",
+      "BLOCKED"
+    ],
+    "READY": [
+      "IMPLEMENTING"
+    ],
+    "IMPLEMENTING": [
+      "VERIFYING",
+      "BLOCKED"
+    ],
+    "VERIFYING": [
+      "REVIEWING",
+      "TEST_FAILED"
+    ],
+    "TEST_FAILED": [
+      "IMPLEMENTING",
+      "HUMAN_REQUIRED"
+    ],
+    "REVIEWING": [
+      "QA",
+      "REVIEW_FAILED"
+    ],
+    "REVIEW_FAILED": [
+      "IMPLEMENTING",
+      "HUMAN_REQUIRED"
+    ],
+    "QA": [
+      "DONE",
+      "QA_FAILED"
+    ],
+    "QA_FAILED": [
+      "IMPLEMENTING",
+      "HUMAN_REQUIRED"
+    ],
+    "BLOCKED": [
+      "HUMAN_REQUIRED"
+    ],
+    "HUMAN_REQUIRED": [
+      "PLANNING",
+      "IMPLEMENTING",
+      "DONE"
+    ],
+    "DONE": []
+  }
+}

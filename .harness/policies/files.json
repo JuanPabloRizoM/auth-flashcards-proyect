@@ -1,0 +1,19 @@
+{
+  "always_allowed_meta_paths": [
+    ".harness/**",
+    "docs/**",
+    "progress/**",
+    "scripts/**",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "CHECKPOINTS.md",
+    "README.md"
+  ],
+  "protected_paths": [
+    ".git/**",
+    ".env",
+    ".env.production"
+  ],
+  "reviewer_read_only": true,
+  "qa_read_only": true
+}

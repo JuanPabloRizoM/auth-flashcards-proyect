@@ -1,0 +1,28 @@
+{
+  "required_before_implementing": [
+    "baseline_green",
+    "task_exists",
+    "contract_exists",
+    "verification_matrix_exists"
+  ],
+  "required_before_done": [
+    "baseline_recorded",
+    "scope_valid",
+    "static_passed_when_applicable",
+    "unit_passed_when_required",
+    "integration_passed_when_required",
+    "e2e_or_smoke_passed_when_required",
+    "regression_passed",
+    "review_approved",
+    "qa_approved",
+    "final_init_green",
+    "evidence_complete"
+  ],
+  "forbidden": [
+    "disable_tests_to_pass",
+    "change_acceptance_during_implementation",
+    "commit_secrets",
+    "self_approve",
+    "edit_outside_scope"
+  ]
+}

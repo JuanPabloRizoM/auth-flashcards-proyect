@@ -1,0 +1,35 @@
+{
+  "id": "TASK-XXX",
+  "title": "Título definido a partir de la petición actual",
+  "status": "PENDING",
+  "created_from_user_request": "Resumen literal/fiel de lo pedido",
+  "goal": "Resultado observable de esta única tarea",
+  "confirmed_requirements": [
+    "Solo requisitos explícitamente pedidos"
+  ],
+  "confirmed_decisions": [
+    "Solo decisiones ya confirmadas"
+  ],
+  "open_questions": [
+    "Decisiones necesarias todavía no resueltas"
+  ],
+  "out_of_scope": [
+    "Cosas relacionadas pero no pedidas"
+  ],
+  "acceptance": [
+    "Criterio observable 1"
+  ],
+  "allowed_paths": [
+    "Rutas mínimas necesarias; se determinan después de inspeccionar arquitectura"
+  ],
+  "required_docs": [
+    "docs/ARCHITECTURE.md",
+    "docs/CONVENTIONS.md"
+  ],
+  "tests": [
+    "Se decide según el comportamiento: static/unit/integration/e2e/smoke"
+  ],
+  "baseline_required": true,
+  "regression_required": true,
+  "evidence_required": true
+}

@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Flashcards",
+    "slug": "flashcards",
+    "scheme": "flashcards",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": ["expo-router", "expo-status-bar"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.flashcards.app"
+    },
+    "android": {
+      "package": "com.flashcards.app",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    }
+  }
+}
