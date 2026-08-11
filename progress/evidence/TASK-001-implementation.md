@@ -5,9 +5,24 @@
 - Task: TASK-001 — Preparar e instalar el entorno base del proyecto
 - Agente: implementer
 - Contrato: `.harness/contracts/TASK-001.json`
-- Commit/base: repositorio sin Git inicializado (`.git/**` es `protected_path` en `.harness/policies/files.json`)
-- Baseline: `./init.sh` exit 0 antes de editar (2026-08-09)
-- Fecha: 2026-08-09
+- Commit/base: ver "Estado del repositorio" más abajo (cambió entre la implementación inicial y el cierre)
+- Baseline: `./init.sh` exit 0 antes de editar (2026-08-09) y exit 0 antes de la corrección F1-F4 (2026-08-11)
+- Fechas: implementación inicial 2026-08-09; corrección de hallazgos de review 2026-08-11
+
+## Estado del repositorio
+
+Este dato cambió durante la vida de la task, así que se registran ambos estados.
+
+| | Estado anterior (implementación, 2026-08-09) | Estado actual (cierre, 2026-08-11) |
+|---|---|---|
+| Git | no inicializado | inicializado, rama `main`, commit `e9983e8` |
+| Remoto | ninguno | `https://github.com/JuanPabloRizoM/auth-flashcards-proyect.git` |
+| `check_scope.py` | se omitía (`SCOPE: Git no inicializado; omitido`) | se ejecuta y pasa: `SCOPE: OK (TASK-001)` |
+| Gate 3 de `init.sh` (Hygiene) | `[WARN] Git aún no inicializado` | `[OK] Sin temporales/secretos obvios` |
+| Ubicación en disco | `~/Documents/...` (sincronizado por iCloud Drive) | `~/Proyects/...` (fuera de iCloud) |
+
+Consecuencia: el gate de scope ya no es una omisión sino una comprobación real, y el riesgo de
+corrupción de `node_modules` por sincronización de iCloud descrito más abajo ya no aplica.
 
 ## Documentos leídos antes de decidir qué instalar
 
@@ -91,7 +106,7 @@ Desarrollo (`devDependencies`):
 | jest | ^29.7.0 | Runner de unit/integration (fases 2-3) |
 | jest-expo | ~57.0.3 | Preset Jest para Expo/RN |
 | @testing-library/react-native | ^13.3.3 | Asserts sobre comportamiento renderizado |
-| react-test-renderer | 19.2.3 | Peer de @testing-library/react-native, fijada a la versión de React del SDK |
+| react-test-renderer | 19.2.3 (exacta) | Peer de @testing-library/react-native, fijada exactamente a la versión de React del SDK (ver corrección F4) |
 | @types/jest | ^29.5.14 | Tipos de Jest para el typecheck |
 | @playwright/test | ^1.62.1 | E2E web (docs/ARCHITECTURE.md, docs/TESTING.md fase 4) |
 
@@ -146,7 +161,7 @@ $ npx expo-doctor@latest          -> exit 0, 20/20 checks passed
 $ ./init.sh                       # final                          -> exit 0
 ```
 
-Reinstalación desde cero (solo archivos versionados + npm):
+### Reproducibilidad — prueba 1 (copia local, 2026-08-09)
 
 ```text
 $ rsync -a --exclude node_modules --exclude .expo --exclude dist <repo>/ <tmp>/
@@ -156,6 +171,42 @@ $ npm run lint                    -> exit 0
 $ npm test                        -> exit 0 (1 test PASS)
 $ npm run test:integration        -> exit 0 (2 tests PASS)
 ```
+
+### Reproducibilidad — prueba 2: clon limpio desde GitHub (2026-08-11)
+
+Prueba definitiva de la acceptance "El proyecto puede instalarse nuevamente desde cero utilizando
+únicamente los archivos versionados y el gestor de paquetes". A diferencia de la prueba 1, que
+copiaba el working copy, esta parte del **remoto real**: demuestra que lo que está versionado y
+publicado basta para reconstruir el entorno, y no que el proyecto funcione por estado residual de
+la máquina de desarrollo.
+
+```text
+$ git clone https://github.com/JuanPabloRizoM/auth-flashcards-proyect.git clonetest
+  -> CLONE OK
+$ cd clonetest && git log --oneline -1
+  -> e9983e8 chore: bootstrap flashcards project and harness
+$ npm ci                          -> exit 0
+$ npm run typecheck               -> exit 0
+$ npm run lint                    -> exit 0
+$ npm test                        -> exit 0 (1 suite / 1 test PASS)
+$ npm run test:integration        -> exit 0 (1 suite / 2 tests PASS)
+$ ./init.sh                       -> exit 0
+     [OK] Harness válido
+     SCOPE: OK (TASK-001)   [OK] Scope válido
+     [OK] Sin temporales/secretos obvios
+     [OK] typecheck   [OK] lint   [OK] test   [OK] test:integration   [OK] test:e2e
+     EVIDENCE: OK           [OK] Evidencia coherente
+     [OK] Estado verificable
+```
+
+Salvedad: en este clon `test:e2e` pasó porque el binario de chromium ya está en la caché global de
+Playwright de esta máquina (`~/Library/Caches/ms-playwright`). En una máquina nueva hay que
+ejecutar `npm run e2e:install` una vez antes de `npm run test:e2e`.
+
+Nota de método: el log de `init.sh` debe escribirse **fuera** del árbol del repositorio. Un primer
+intento lo redirigió a `clonetest/init-clone.log` y `check_scope.py` lo marcó correctamente como
+`fuera de scope: init-clone.log`, haciendo fallar el gate. El fallo era del propio artefacto de
+prueba, no del repositorio; repetido con el log fuera del árbol, `init.sh` termina en exit 0.
 
 Config Expo resuelta (`npx expo config --type public`):
 
@@ -178,7 +229,8 @@ $ grep -rInE "(SUPABASE_(URL|KEY)|api[_-]?key|secret|password|token)\s*[:=]\s*['
     --exclude-dir=node_modules --exclude=package-lock.json .
 (sin resultados)
 .gitignore ignora: node_modules/, .expo/, dist/, web-build/, coverage/,
-playwright-report/, test-results/, .env, .env.* (excepto .env.example), *.key, *.p12, *.pem
+playwright-report/, test-results/, .env, .env.* (excepto .env.example), *.key, *.p12, *.pem,
+.DS_Store y .claude/settings.local.json (ver corrección F3)
 ```
 
 ## Acceptance -> evidencia
@@ -218,9 +270,53 @@ playwright-report/, test-results/, .env, .env.* (excepto .env.example), *.key, *
 - **npm como gestor de paquetes**: es el que asume `init.sh` y el predeterminado de Expo. Lockfile `package-lock.json`.
 - **`react-server-dom-webpack` no instalado**: es peer de `jest-expo` pero su versión publicada exige `react ^19.2.4`, incompatible con el `react 19.2.3` que fija Expo SDK 57. No se usan React Server Components, y todos los tests pasan sin él. Si en el futuro se usan RSC, habrá que revisarlo.
 - **Binarios de Playwright**: no viven en el repositorio. Tras clonar hay que ejecutar `npm run e2e:install` una vez antes de `npm run test:e2e`.
-- **`node_modules` duplicado por sincronización de iCloud**: durante la tarea aparecieron 7 directorios duplicados (`@typescript-eslint/scope-manager 2`, etc.) dentro de `node_modules`, lo que hizo fallar `eslint` con `Cannot find module`. Se resolvió con `rm -rf node_modules && npm ci` y quedó verificado a 0 duplicados. Causa probable: el proyecto vive en `~/Documents`, sincronizado por iCloud Drive. **Riesgo abierto para el usuario**: conviene excluir el proyecto de iCloud o moverlo fuera de `~/Documents`.
+- **`node_modules` duplicado por sincronización de iCloud** *(resuelto)*: durante la implementación aparecieron 7 directorios duplicados (`@typescript-eslint/scope-manager 2`, etc.) dentro de `node_modules`, lo que hizo fallar `eslint` con `Cannot find module`. Se resolvió con `rm -rf node_modules && npm ci`. La causa era que el proyecto vivía en `~/Documents`, sincronizado por iCloud Drive. **El usuario movió el proyecto a `~/Proyects`**, fuera de iCloud, por lo que el riesgo ya no aplica.
 - **Sin iconos de aplicación**: `assets/**` queda fuera de `allowed_paths`; se usan los iconos por defecto de Expo. Pendiente para una tarea futura si el usuario lo pide.
-- **Git no inicializado**: `.git/**` es `protected_path`, por lo que `check_scope.py` se omite y `init.sh` deja un `[WARN]`. Decisión del usuario.
+- **Git** *(resuelto)*: durante la implementación no existía repositorio, por lo que `check_scope.py` se omitía y `init.sh` dejaba un `[WARN]`. **El usuario inicializó Git y publicó el remoto en GitHub**, así que el gate de scope se ejecuta y pasa (`SCOPE: OK (TASK-001)`). `.git/**` sigue siendo `protected_path`; no se ha modificado su contenido directamente.
+
+## Corrección de hallazgos del review #1 (2026-08-11)
+
+La revisión #1 (`progress/evidence/TASK-001-review.md`) emitió **CHANGES_REQUIRED** con cuatro
+hallazgos, ninguno crítico ni alto. La task volvió a `REVIEW_FAILED -> IMPLEMENTING` únicamente
+para cerrarlos. No se cambió funcionalidad ni se amplió el scope.
+
+Baseline antes de editar: `./init.sh` exit 0 (2026-08-11).
+
+| ID | Corrección | Archivos |
+|---|---|---|
+| F1 | Se añadió la sección "Estado del repositorio" con el estado anterior y el actual, y se marcaron como *(resuelto)* los riesgos de Git e iCloud, conservando el registro histórico. | `progress/evidence/TASK-001-implementation.md` |
+| F2 | Se eliminaron de "Preguntas abiertas" los puntos de Git e iCloud, ya resueltos por el usuario, y se movieron a decisiones/estado. | `progress/current.md` |
+| F3 | `.claude/settings.local.json` sacado del tracking con `git rm --cached` (el archivo permanece en disco) y añadido a `.gitignore`. `.claude/settings.json` se mantiene versionado porque contiene la configuración compartida del harness. | `.gitignore`, índice de Git |
+| F4 | `react-test-renderer` pasa de `^19.2.3` a `19.2.3`, alineado exactamente con `react`. Lockfile actualizado con `npm install`. | `package.json`, `package-lock.json` |
+
+Verificación de que F3 no rompe el harness: `.claude/settings.local.json` contiene solo
+`permissions.allow` (allowlist de comandos de la máquina local, con rutas absolutas de sesiones
+anteriores). No es requerido por `scripts/verify.py` ni por ningún gate de `init.sh`.
+
+Verificación de que F4 no arrastró otras dependencias:
+
+```text
+$ git diff -U0 package-lock.json | grep -E '^[+-]' | grep -v '^\+\+\+\|^---' \
+    | grep -v '"dev": true' | grep -v '"devOptional": true'
+-        "react-test-renderer": "^19.2.3",
++        "react-test-renderer": "19.2.3",
+```
+
+El único cambio sustantivo del lockfile es el spec. Los otros 93 cambios son reclasificaciones de
+metadatos `"dev": true` -> `"devOptional": true` que hizo npm al recalcular el grafo: ninguna
+versión, URL resuelta ni hash de integridad cambió.
+
+Gates tras la corrección:
+
+```text
+$ ./init.sh                       -> exit 0
+     [OK] Harness válido
+     SCOPE: OK (TASK-001)   [OK] Scope válido
+     [OK] Sin temporales/secretos obvios
+     [OK] typecheck   [OK] lint   [OK] test   [OK] test:integration   [OK] test:e2e
+     EVIDENCE: OK           [OK] Evidencia coherente
+     [OK] Estado verificable
+```
 
 ## No verificado
 

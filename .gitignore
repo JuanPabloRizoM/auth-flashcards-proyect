@@ -43,6 +43,9 @@ yarn-error.*
 .DS_Store
 *.pem
 
+# ajustes locales de la máquina (settings.json sí se versiona)
+.claude/settings.local.json
+
 # typescript
 *.tsbuildinfo
 

@@ -1,7 +1,7 @@
 {
   "id": "TASK-001",
   "title": "Preparar e instalar el entorno base del proyecto",
-  "status": "REVIEWING",
+  "status": "DONE",
   "created_from_user_request": "Revisar la documentación actual del proyecto, determinar las herramientas y dependencias necesarias para la arquitectura ya definida, instalarlas, configurarlas y comprobar que el entorno queda listo para comenzar la implementación.",
   "goal": "Dejar el proyecto correctamente inicializado, con las dependencias, configuraciones y herramientas de desarrollo necesarias funcionando, sin implementar todavía funcionalidades del producto.",
   "confirmed_requirements": [
