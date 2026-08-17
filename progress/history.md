@@ -28,3 +28,23 @@ Ciclo completo del harness ejecutado hasta el cierre.
 - **Observación para el planner** (no corregida a propósito, cambiarla durante la implementación habría violado "acceptance congelado"): el `allowed_paths` del contrato omite `.claude/**`, que el task sí incluye y es el que aplica `check_scope.py`.
 - Evidencia: `progress/evidence/TASK-001-implementation.md`, `progress/evidence/TASK-001-review.md` (revisiones #1 y #2), `progress/evidence/TASK-001-qa.md`.
 
+## 2026-08-17 — TASK-002 cerrada: DONE
+
+Base visual responsive y navegación principal. Ciclo completo del harness en una sola pasada.
+
+- **Sistema de diseño** en `src/theme/`: tokens únicos de color, tipografía, espaciado, radios, tamaños y breakpoint. Cero literales de color fuera de `src/theme/`.
+- **Componentes compartidos** en `src/components/ui/`: Button, Input, Card, Loading, EmptyState y Message. Solo los que exige la acceptance; `docs/DESIGN.md` lista más, pero `docs/CONVENTIONS.md` pide el cambio mínimo. `Input` reutiliza `Message` para su error, de modo que hay una sola forma de mostrar errores.
+- **Layout y navegación** en `src/components/layout/`: `AppShell` se aplica una vez en el layout raíz; sidebar en desktop y barra inferior compacta en móvil, según `docs/DESIGN.md`. Un único `NavigationItemButton` sirve a ambas disposiciones. Responsive con `useWindowDimensions` y un breakpoint en los tokens, no con media queries CSS, para que funcione igual en web, Android e iOS.
+- **Pantallas de andamiaje**: `/` (Inicio) y `/componentes` (catálogo). Demuestran el sistema visual sin simular mazos, login, estudio ni estadísticas.
+- **Bug encontrado y corregido**: los destinos de primer nivel usaban `router.navigate`, que apilaba una segunda instancia de la pantalla al volver a una ruta ya visitada. Lo detectó el E2E multi-dispositivo, no los tests de integración iniciales. Corregido con `router.replace`.
+- **Cobertura por dispositivo**: Playwright pasa de 1 a 3 proyectos — desktop-chrome (1280x800), mobile-chrome (Pixel 5) y mobile-safari (iPhone 13, motor WebKit de iOS). Verifican navegación, disposición por tamaño, ausencia de overflow horizontal y objetivos táctiles de 44px.
+- **Sin dependencias nuevas**: `package-lock.json` no cambió. El único cambio de `package.json` es que `e2e:install` instala también webkit.
+- **Review #1: CHANGES_REQUIRED**. El hallazgo importante (severidad alta) fue que el test presentado como regresión del bug de navegación era **vacuo**: el reviewer revirtió la corrección y demostró que el test pasaba igual, porque contaba nodos montados y en `renderRouter` la pantalla anterior se desmonta. El guardián real era el E2E. También: `current.md` desactualizado e `Input.multiline` sin consumidor.
+- **Corrección**: el test de regresión pasa a comprobar el historial (`router.canGoBack() === false`), que es lo que de verdad distingue `replace` de `navigate`. Verificado empíricamente que ahora falla al reintroducir el bug y pasa con la corrección.
+- **Review #2: APPROVED**, tras repetir el experimento de forma independiente y confirmar que ni se añadió ni se eliminó ningún test para conseguir verde.
+- **QA: APPROVED**, 27/27 acceptance. Validación observable propia con un script Playwright en `/tmp`: 8 viewports x 2 rutas = 16 comprobaciones en las que exactamente una navegación existe y la otra tiene count 0, nunca coexisten; el corte cae exactamente en el breakpoint declarado (768 sidebar / 767 barra compacta); overflow horizontal de 0 px en las 16, incluido un ancho de 320 px; 45 mediciones de objetivo táctil, ninguna por debajo de 44x44; y consola sin errores en los 8 viewports.
+- **Lección de proceso**: un test que acompaña a una corrección no cuenta como regresión hasta que se demuestra que falla sin la corrección. El review #1 lo comprobó reintroduciendo el bug, y esa comprobación es la que evitó cerrar la tarea con un guardián falso.
+- **Gates finales**: `./init.sh` exit 0. 36 unit + 8 integration + 19 e2e (+2 skipped, los táctiles en desktop, con motivo declarado).
+- **Commits**: `146cca4 feat(TASK-002): base visual responsive y navegación principal`.
+- Evidencia: `progress/evidence/TASK-002-implementation.md`, `progress/evidence/TASK-002-review.md` (revisiones #1 y #2), `progress/evidence/TASK-002-qa.md`.
+

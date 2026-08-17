@@ -1,7 +1,7 @@
 {
   "id": "TASK-002",
   "title": "Crear la base visual responsive y la estructura principal de navegación",
-  "status": "REVIEWING",
+  "status": "DONE",
   "created_from_user_request": "Crear una base visual moderna y cuidada para la aplicación de flashcards, preparada desde el principio para funcionar correctamente en web y celular, sin implementar todavía funcionalidades del producto.",
   "goal": "Dejar construida una estructura visual reutilizable y responsive para la aplicación, con navegación base, sistema de diseño y componentes fundamentales, de forma que las siguientes funcionalidades puedan implementarse sin inventar estilos o estructuras distintas en cada tarea.",
   "confirmed_requirements": [

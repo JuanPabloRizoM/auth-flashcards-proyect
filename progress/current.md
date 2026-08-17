@@ -1,73 +1,45 @@
 # Sesión actual
 
-- **Task:** TASK-002 — Crear la base visual responsive y la estructura principal de navegación
-- **Estado:** _REVIEWING_ (review #1 = CHANGES_REQUIRED; hallazgos R1-R3 corregidos; pendiente review #2)
-- **Agente:** _implementer (correcciones entregadas)_
-- **Contrato:** `.harness/contracts/TASK-002.json` (congelado, `open_questions: []`)
-- **Inicio:** 2026-08-17
-- **Repositorio:** `main`, remoto `https://github.com/JuanPabloRizoM/auth-flashcards-proyect.git`
+- **Task activa:** ninguna — proyecto en estado IDLE
+- **Última tarea cerrada:** TASK-002 — Crear la base visual responsive y la estructura principal de navegación (`DONE`, 2026-08-17)
+- **Estado del harness:** `./init.sh` exit 0
+- **Repositorio:** rama `main`, remoto `https://github.com/JuanPabloRizoM/auth-flashcards-proyect.git`
 
-## Baseline
+No hay tarea en curso. El usuario decide cuál es la siguiente; el harness no propone roadmap.
 
-`./init.sh` ejecutado antes de modificar ningún archivo: **exit 0**.
+## Estado del proyecto
 
-```text
-[OK] Harness válido
-SCOPE: sin tarea de ejecución activa   [OK] Scope válido
-[OK] Sin temporales/secretos obvios
-[OK] typecheck   [OK] lint   [OK] test   [OK] test:integration   [OK] test:e2e
-EVIDENCE: OK     [OK] Evidencia coherente
-[OK] Estado verificable
-```
+Entorno (TASK-001) y base visual (TASK-002) terminados. No hay ninguna funcionalidad de producto
+implementada.
 
-Base de Git: `4b2d30f chore(TASK-001): cerrar entorno base tras review y QA`, working tree limpio
-salvo la propia task `TASK-002.json` sin commitear.
+- Expo SDK 57, React Native, Expo Router, TypeScript. Plataformas declaradas: iOS, Android y web.
+- Sistema de diseño en `src/theme/`: única fuente de color, tipografía, espaciado, radios, tamaños
+  y breakpoint.
+- Componentes compartidos en `src/components/ui/`: Button, Input, Card, Loading, EmptyState, Message.
+- Layout en `src/components/layout/`: `AppShell` con sidebar en desktop y barra compacta en móvil.
+- Rutas existentes: `/` (Inicio) y `/componentes` (catálogo del sistema visual). Ambas son
+  andamiaje; no representan secciones de producto.
+- Gates: `typecheck`, `lint`, `test` (36), `test:integration` (8), `test:e2e` (19 + 2 skipped sobre
+  desktop-chrome, mobile-chrome y mobile-safari), más `smoke:web` y `e2e:install`.
+- `src/features/` sigue vacío.
 
-## Petición actual del usuario
+## Pendientes registrados (ninguno bloquea el harness)
 
-Ejecutar TASK-002 de principio a fin con el harness, en una sola pasada, sin confirmaciones
-intermedias salvo decisión de producto material. Las pruebas deben cubrir cada dispositivo que
-aparece en los archivos del proyecto.
+- **Playwright en máquina nueva**: ejecutar `npm run e2e:install` una vez (instala chromium y
+  webkit) antes de `npm run test:e2e`.
+- **Botón Atrás del navegador** entre destinos de primer nivel: `router.replace` no deja historial.
+  Es el comportamiento habitual de una navegación por tabs y fue una decisión consciente, pero si
+  el usuario quiere historial habría que replantearlo.
+- **Estado activo de navegación en web**: se transmite por color; react-native-web no traduce
+  `accessibilityState.selected` a `aria-current` sobre `role="link"`.
+- **Contrato vs task de TASK-001**: el `allowed_paths` del contrato omite `.claude/**`, que el task
+  sí incluye y es el que aplica `check_scope.py`. Para el planner en una tarea futura.
+- **Sin iconos propios** ni modo oscuro: ninguno lo pide una acceptance; los tokens están
+  centralizados, así que añadir tema oscuro después no obliga a tocar los componentes uno a uno.
+- **Decisiones de producto no tomadas**: Supabase/PostgreSQL, autenticación, mazos, flashcards,
+  estudio, repetición espaciada y estadísticas siguen sin decidir ni implementar.
 
-## Plan corto
+## Evidencia
 
-1. Baseline `./init.sh` verde. — hecho
-2. Lectura obligatoria (AGENTS, current, task, PRODUCT, ARCHITECTURE, CONVENTIONS, DESIGN, TESTING, VERIFICATION). — hecho
-3. Contrato con verification_matrix (27 acceptance). — hecho
-4. Sistema de diseño en `src/theme/`. — hecho
-5. Componentes compartidos en `src/components/`. — hecho
-6. Layout + navegación responsive (sidebar desktop / tabs móvil). — hecho
-7. Pantallas de demostración del sistema visual. — hecho
-8. Tests unit + responsive + integration + e2e multi-dispositivo. — hecho
-9. Gates + evidencia. — hecho
-10. Review #1 independiente. — hecho (**CHANGES_REQUIRED**: R1 test de regresión vacuo, R2 `current.md` desactualizado, R3 `Input.multiline` sin consumidor)
-11. Corrección de R1-R3. — hecho
-12. Review #2 independiente. — **pendiente**
-13. Commit del candidato, QA, cierre. — **pendiente**
-
-## Decisiones técnicas de esta sesión
-
-Registradas en `technical_decisions` del contrato. Las relevantes:
-
-- Navegación base con dos rutas de andamiaje (`/` Inicio y `/componentes` Catálogo). Describen el
-  propio sistema visual; no se inventan secciones de producto.
-- Responsive con `useWindowDimensions` y un breakpoint en los tokens, no con media queries CSS,
-  para que funcione igual en web, Android e iOS.
-- Sidebar en desktop y barra compacta inferior en móvil, según `docs/DESIGN.md`.
-- Solo los componentes que exige la acceptance: Button, Input, Card, Loading, EmptyState, Message.
-- Playwright pasa de 1 a 3 proyectos: desktop-chrome, mobile-chrome (Pixel 5), mobile-safari (iPhone 13).
-- Ninguna dependencia de producción nueva.
-
-## Preguntas abiertas
-
-- Ninguna. Todo lo necesario se deriva de requisitos ya confirmados, de `docs/DESIGN.md` y de la
-  arquitectura existente.
-
-## Evidencia disponible
-
-- `progress/evidence/TASK-002-implementation.md`
-- `progress/evidence/TASK-002-review.md` (review #1: CHANGES_REQUIRED)
-
-## Próximo paso
-
-Review #2 independiente (read-only). Si emite `APPROVED`: commit del candidato, push, QA y cierre.
+- TASK-001: `progress/evidence/TASK-001-{implementation,review,qa}.md`
+- TASK-002: `progress/evidence/TASK-002-{implementation,review,qa}.md`
