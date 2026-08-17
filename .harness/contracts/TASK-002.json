@@ -1,0 +1,293 @@
+{
+  "task_id": "TASK-002",
+  "goal": "Dejar construida una estructura visual reutilizable y responsive para la aplicación, con navegación base, sistema de diseño y componentes fundamentales, de forma que las siguientes funcionalidades puedan implementarse sin inventar estilos o estructuras distintas en cada tarea.",
+  "requirements_snapshot": [
+    "La aplicación será de flashcards tipo Anki.",
+    "La interfaz debe verse moderna, limpia y cuidada.",
+    "Debe funcionar correctamente en web.",
+    "Debe estar preparada desde el principio para utilizarse también en celular.",
+    "La interfaz debe adaptarse correctamente a diferentes tamaños de pantalla.",
+    "Los componentes visuales comunes deben ser reutilizables.",
+    "La navegación debe tener una estructura base que pueda ampliarse posteriormente.",
+    "Esta tarea debe crear únicamente la base visual y estructural, no funcionalidades del producto.",
+    "Decisiones confirmadas: Expo + React Native + Expo Router + TypeScript; una misma base para web, Android e iOS; arquitectura existente del proyecto; evitar diseños inconsistentes entre features; centralizar los componentes compartidos; diseñar para desktop y móvil.",
+    "docs/DESIGN.md fija la navegación: sidebar en desktop, navegación compacta por tabs en móvil.",
+    "El usuario pidió explícitamente que las pruebas cubran cada dispositivo que aparece en los archivos del proyecto."
+  ],
+  "open_questions": [],
+  "acceptance": [
+    "Existe un sistema de diseño base centralizado para colores, tipografía, espaciados, radios y tamaños reutilizables.",
+    "Existe una estructura de layout principal reutilizable.",
+    "La aplicación dispone de una estructura de navegación base mediante Expo Router.",
+    "La navegación funciona sin errores en web.",
+    "La estructura utilizada es compatible con Android e iOS.",
+    "La interfaz se adapta correctamente a una vista desktop.",
+    "La interfaz se adapta correctamente a una vista móvil.",
+    "No existe overflow horizontal no intencionado en los tamaños de pantalla probados.",
+    "Los elementos interactivos principales mantienen tamaños utilizables en pantallas táctiles.",
+    "Existe un componente Button reutilizable.",
+    "Existe un componente Input reutilizable.",
+    "Existe un componente Card reutilizable.",
+    "Existe un componente o estructura para estados de carga.",
+    "Existe un componente o estructura para estados vacíos.",
+    "Existe una forma consistente de mostrar errores o mensajes al usuario.",
+    "Los componentes compartidos no contienen lógica específica de una feature futura.",
+    "Existe una pantalla inicial temporal que utiliza los componentes y el layout creados para demostrar el sistema visual.",
+    "La pantalla temporal no implementa funcionalidades falsas de mazos, login, estadísticas o estudio.",
+    "Los estilos importantes no están duplicados innecesariamente entre componentes.",
+    "La implementación respeta docs/ARCHITECTURE.md y docs/CONVENTIONS.md.",
+    "Los componentes reutilizables relevantes tienen tests que validan su comportamiento básico.",
+    "Existe al menos una prueba que verifica el comportamiento responsive importante definido en esta tarea.",
+    "La navegación base dispone de una prueba de integración.",
+    "La aplicación sigue arrancando correctamente mediante el smoke/E2E web existente.",
+    "La suite completa anterior continúa pasando sin regresiones.",
+    "./init.sh termina con exit code 0 al finalizar la tarea.",
+    "La evidencia completa queda registrada en progress/evidence/TASK-002-implementation.md."
+  ],
+  "verification_matrix": [
+    {
+      "acceptance": "Existe un sistema de diseño base centralizado para colores, tipografía, espaciados, radios y tamaños reutilizables.",
+      "method": "unit",
+      "command_or_procedure": "Inspección de src/theme/** + npm test (tests/unit/theme.test.ts): los tokens exponen colors, typography, spacing, radius y sizes, y las escalas son coherentes.",
+      "evidence_expected": "src/theme/ exporta tokens tipados; el test verifica que la escala de espaciado es estrictamente creciente, que existen los tokens exigidos y que el tamaño táctil mínimo es >= 44."
+    },
+    {
+      "acceptance": "Existe una estructura de layout principal reutilizable.",
+      "method": "integration",
+      "command_or_procedure": "Inspección de src/components/layout/** + npm run test:integration: el layout envuelve las rutas y se reutiliza desde app/_layout.tsx sin duplicarse por pantalla.",
+      "evidence_expected": "Un único AppShell aplicado en el layout raíz; las pantallas no reimplementan cabecera ni navegación."
+    },
+    {
+      "acceptance": "La aplicación dispone de una estructura de navegación base mediante Expo Router.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration (tests/integration/navigation.test.tsx) con renderRouter de expo-router/testing-library.",
+      "evidence_expected": "Las rutas declaradas en app/ se resuelven; navegar entre ellas cambia el contenido renderizado."
+    },
+    {
+      "acceptance": "La navegación funciona sin errores en web.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e: navegación real por la UI, capturando console errors.",
+      "evidence_expected": "El clic en la navegación cambia de ruta, la URL cambia y el array de errores de consola queda vacío."
+    },
+    {
+      "acceptance": "La estructura utilizada es compatible con Android e iOS.",
+      "method": "inspection",
+      "command_or_procedure": "npx expo config --type public + revisión de que no se usan APIs exclusivas de web (document/window) ni etiquetas DOM en los componentes compartidos.",
+      "evidence_expected": "platforms incluye ios, android y web; los componentes usan solo primitivas de react-native; useWindowDimensions en lugar de media queries CSS."
+    },
+    {
+      "acceptance": "La interfaz se adapta correctamente a una vista desktop.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e proyecto 'desktop-chrome' (1280x800).",
+      "evidence_expected": "La navegación lateral (sidebar) es visible en desktop y la navegación compacta inferior no lo es."
+    },
+    {
+      "acceptance": "La interfaz se adapta correctamente a una vista móvil.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e proyectos 'mobile-chrome' (Pixel 5) y 'mobile-safari' (iPhone 13).",
+      "evidence_expected": "La navegación compacta inferior es visible en móvil y el sidebar no lo es; el contenido sigue siendo legible y alcanzable."
+    },
+    {
+      "acceptance": "No existe overflow horizontal no intencionado en los tamaños de pantalla probados.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e: en cada proyecto se compara document.documentElement.scrollWidth con clientWidth en todas las rutas base.",
+      "evidence_expected": "scrollWidth <= clientWidth en desktop, Pixel 5 e iPhone 13, en todas las rutas."
+    },
+    {
+      "acceptance": "Los elementos interactivos principales mantienen tamaños utilizables en pantallas táctiles.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e en los proyectos móviles: se mide el boundingBox de cada control interactivo visible.",
+      "evidence_expected": "Todo control interactivo visible mide >= 44px de alto y de ancho (mínimo táctil de las guías de accesibilidad), verificado también por unit test sobre el token de tamaño."
+    },
+    {
+      "acceptance": "Existe un componente Button reutilizable.",
+      "method": "unit",
+      "command_or_procedure": "npm test (tests/unit/button.test.tsx).",
+      "evidence_expected": "Renderiza su label, invoca onPress, no invoca onPress cuando está disabled o loading, y aplica el alto táctil mínimo."
+    },
+    {
+      "acceptance": "Existe un componente Input reutilizable.",
+      "method": "unit",
+      "command_or_procedure": "npm test (tests/unit/input.test.tsx).",
+      "evidence_expected": "Renderiza label y valor, propaga onChangeText con el texto exacto, y expone el mensaje de error reutilizando el componente Message compartido con accessibilityRole 'alert'."
+    },
+    {
+      "acceptance": "Existe un componente Card reutilizable.",
+      "method": "unit",
+      "command_or_procedure": "npm test (tests/unit/card.test.tsx).",
+      "evidence_expected": "Renderiza su contenido hijo y su título opcional, y aplica los tokens de radio y espaciado del tema."
+    },
+    {
+      "acceptance": "Existe un componente o estructura para estados de carga.",
+      "method": "unit",
+      "command_or_procedure": "npm test (tests/unit/loading.test.tsx).",
+      "evidence_expected": "Loading expone un rol/accesibilidad de progreso y muestra el mensaje recibido."
+    },
+    {
+      "acceptance": "Existe un componente o estructura para estados vacíos.",
+      "method": "unit",
+      "command_or_procedure": "npm test (tests/unit/empty-state.test.tsx).",
+      "evidence_expected": "EmptyState muestra título y descripción, y renderiza la acción opcional solo cuando se pasa."
+    },
+    {
+      "acceptance": "Existe una forma consistente de mostrar errores o mensajes al usuario.",
+      "method": "unit",
+      "command_or_procedure": "npm test (tests/unit/message.test.tsx).",
+      "evidence_expected": "Un único componente Message cubre las variantes info/success/error con estilo derivado de los tokens, y expone accessibilityRole alert en la variante de error."
+    },
+    {
+      "acceptance": "Los componentes compartidos no contienen lógica específica de una feature futura.",
+      "method": "review",
+      "command_or_procedure": "grep sobre src/components/** buscando términos de features no autorizadas (deck, mazo, card de estudio, login, auth, supabase, estadística, scheduler, repetición).",
+      "evidence_expected": "Cero coincidencias de lógica de feature; los componentes solo reciben props visuales genéricas."
+    },
+    {
+      "acceptance": "Existe una pantalla inicial temporal que utiliza los componentes y el layout creados para demostrar el sistema visual.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration + inspección de app/index.tsx.",
+      "evidence_expected": "La pantalla inicial monta Button, Input, Card, Loading, EmptyState y Message dentro del layout, sin recrearlos localmente."
+    },
+    {
+      "acceptance": "La pantalla temporal no implementa funcionalidades falsas de mazos, login, estadísticas o estudio.",
+      "method": "review",
+      "command_or_procedure": "grep sobre app/** de términos de producto y revisión del contenido textual de las pantallas.",
+      "evidence_expected": "Los textos describen el propio sistema visual; no hay formularios de login, listas de mazos, contadores de estudio ni estadísticas simuladas."
+    },
+    {
+      "acceptance": "Los estilos importantes no están duplicados innecesariamente entre componentes.",
+      "method": "review",
+      "command_or_procedure": "grep de literales de color, radio y espaciado fuera de src/theme/**.",
+      "evidence_expected": "Cero literales hexadecimales de color fuera de src/theme/; los componentes consumen los tokens."
+    },
+    {
+      "acceptance": "La implementación respeta docs/ARCHITECTURE.md y docs/CONVENTIONS.md.",
+      "method": "review",
+      "command_or_procedure": "Revisión de la organización de carpetas (src/components, src/theme) y de las reglas de convenciones (sin any, sin logs de debug, sin TODOs sin contexto) + npm run lint + npm run typecheck.",
+      "evidence_expected": "Estructura conforme a docs/ARCHITECTURE.md; lint y typecheck en exit 0; sin any injustificado."
+    },
+    {
+      "acceptance": "Los componentes reutilizables relevantes tienen tests que validan su comportamiento básico.",
+      "method": "unit",
+      "command_or_procedure": "npm test",
+      "evidence_expected": "Cada componente compartido tiene al menos un test que verifica un resultado concreto, no la mera ausencia de excepción."
+    },
+    {
+      "acceptance": "Existe al menos una prueba que verifica el comportamiento responsive importante definido en esta tarea.",
+      "method": "unit",
+      "command_or_procedure": "npm test (tests/unit/responsive.test.tsx) forzando anchos de pantalla distintos, más los proyectos móviles de Playwright.",
+      "evidence_expected": "El test demuestra que por debajo del breakpoint se muestra la navegación compacta y por encima el sidebar, sobre el mismo componente."
+    },
+    {
+      "acceptance": "La navegación base dispone de una prueba de integración.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration",
+      "evidence_expected": "Test que monta el router real, resuelve las rutas base y comprueba el cambio de pantalla."
+    },
+    {
+      "acceptance": "La aplicación sigue arrancando correctamente mediante el smoke/E2E web existente.",
+      "method": "smoke",
+      "command_or_procedure": "npm run smoke:web && npm run test:e2e",
+      "evidence_expected": "smoke:web devuelve HTTP 200 y SMOKE WEB: OK; la suite e2e pasa en los tres proyectos."
+    },
+    {
+      "acceptance": "La suite completa anterior continúa pasando sin regresiones.",
+      "method": "integration",
+      "command_or_procedure": "./init.sh (typecheck + lint + unit + integration + e2e completos)",
+      "evidence_expected": "Los tests heredados de TASK-001 siguen pasando o se actualizan solo cuando la propia acceptance de TASK-002 cambia el texto observable, documentando el motivo."
+    },
+    {
+      "acceptance": "./init.sh termina con exit code 0 al finalizar la tarea.",
+      "method": "static",
+      "command_or_procedure": "./init.sh",
+      "evidence_expected": "Exit code 0 con todos los gates en [OK]."
+    },
+    {
+      "acceptance": "La evidencia completa queda registrada en progress/evidence/TASK-002-implementation.md.",
+      "method": "inspection",
+      "command_or_procedure": "Lectura del archivo de evidencia.",
+      "evidence_expected": "Baseline, archivos modificados, acceptance -> evidencia, comandos, resultados, tests, riesgos, decisiones técnicas y lo no verificado."
+    }
+  ],
+  "technical_decisions": [
+    {
+      "decision": "La navegación base tendrá dos rutas de andamiaje: '/' (Inicio) y '/componentes' (catálogo del sistema visual).",
+      "reason": "La acceptance exige una navegación base demostrable y una pantalla que demuestre el sistema visual, pero out_of_scope prohíbe inventar secciones de producto. Ambas rutas describen el propio andamiaje visual, no features. No se crean secciones de mazos, estudio ni estadísticas."
+    },
+    {
+      "decision": "Responsive mediante useWindowDimensions de react-native y un breakpoint en los tokens, no mediante media queries CSS.",
+      "reason": "Debe funcionar igual en web, Android e iOS desde la misma base (docs/ARCHITECTURE.md). Las media queries CSS no existen en nativo."
+    },
+    {
+      "decision": "Sidebar en desktop y barra de navegación compacta inferior en móvil.",
+      "reason": "Fijado explícitamente por docs/DESIGN.md, sección Navegación."
+    },
+    {
+      "decision": "Se implementan solo los componentes exigidos por la acceptance (Button, Input, Card, Loading, EmptyState, Message).",
+      "reason": "docs/DESIGN.md lista más componentes base, pero docs/CONVENTIONS.md exige el cambio más pequeño que cumpla la tarea y no introducir abstracciones sin necesidad concreta. El resto se creará cuando una tarea lo requiera."
+    },
+    {
+      "decision": "Playwright pasa de un proyecto a tres: desktop-chrome (1280x800), mobile-chrome (Pixel 5) y mobile-safari (iPhone 13).",
+      "reason": "El usuario pidió cobertura de cada dispositivo que aparece en los archivos. app.json declara ios, android y web; DESIGN.md exige desktop y móvil. mobile-safari usa WebKit, el motor de iOS."
+    },
+    {
+      "decision": "No se añade ninguna dependencia nueva de producción.",
+      "reason": "docs/CONVENTIONS.md regla 8. Todo se resuelve con react-native, expo-router y los tokens propios."
+    }
+  ],
+  "allowed_paths": [
+    "app/**",
+    "src/components/**",
+    "src/theme/**",
+    "src/types/**",
+    "src/lib/**",
+    "tests/**",
+    "package.json",
+    "package-lock.json",
+    "app.json",
+    "tsconfig.json",
+    "eslint.config.js",
+    "jest.config.js",
+    "playwright.config.ts",
+    "progress/**",
+    ".harness/**",
+    "docs/**"
+  ],
+  "required_docs": [
+    "docs/PRODUCT.md",
+    "docs/ARCHITECTURE.md",
+    "docs/CONVENTIONS.md",
+    "docs/DESIGN.md",
+    "docs/TESTING.md",
+    "docs/VERIFICATION.md"
+  ],
+  "required_gates": [
+    "baseline",
+    "scope",
+    "static",
+    "unit",
+    "integration",
+    "responsive",
+    "e2e",
+    "regression"
+  ],
+  "out_of_scope": [
+    "Implementar registro o inicio de sesión.",
+    "Implementar autenticación con Google, correo, Apple u otros proveedores.",
+    "Conectar Supabase.",
+    "Crear tablas o esquemas de base de datos.",
+    "Implementar creación de mazos.",
+    "Implementar creación de flashcards.",
+    "Implementar sesiones de estudio.",
+    "Implementar repetición espaciada.",
+    "Implementar estadísticas.",
+    "Implementar sincronización.",
+    "Implementar lógica de negocio.",
+    "Elegir o implementar funcionalidades futuras que no hayan sido solicitadas.",
+    "Crear los componentes de docs/DESIGN.md que la acceptance no exige (TextArea, Modal, Dialog, Tabs, Badge, ProgressBar, Toast, IconButton).",
+    "Modo oscuro: no lo pide la acceptance ni hay decisión de producto."
+  ],
+  "baseline_required": true,
+  "regression_required": true,
+  "review_required": true,
+  "qa_required": true
+}

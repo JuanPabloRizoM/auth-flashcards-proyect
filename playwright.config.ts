@@ -14,10 +14,20 @@ export default defineConfig({
     baseURL: BASE_URL,
     trace: 'on-first-retry',
   },
+  // Un proyecto por cada tipo de dispositivo que declara el proyecto (app.json: ios, android, web)
+  // y por cada disposición que exige docs/DESIGN.md (desktop y móvil).
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      name: 'desktop-chrome',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+    },
+    {
+      name: 'mobile-chrome',
+      use: { ...devices['Pixel 5'] },
+    },
+    {
+      name: 'mobile-safari',
+      use: { ...devices['iPhone 13'] },
     },
   ],
   webServer: {
