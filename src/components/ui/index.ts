@@ -4,6 +4,8 @@ export { Card } from './Card';
 export type { CardProps } from './Card';
 export { EmptyState } from './EmptyState';
 export type { EmptyStateProps } from './EmptyState';
+export { FlashcardFace, FlashcardSurface } from './FlashcardFace';
+export type { FlashcardFaceProps } from './FlashcardFace';
 export { Input } from './Input';
 export type { InputProps } from './Input';
 export { Loading } from './Loading';

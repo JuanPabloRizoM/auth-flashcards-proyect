@@ -56,6 +56,24 @@ describe('Sistema de diseño', () => {
     });
   });
 
+  it('aplica exactamente la paleta confirmada', () => {
+    expect(colors.background).toBe('#F7F5F0');
+    expect(colors.surface).toBe('#FFFFFF');
+    expect(colors.text).toBe('#20242A');
+    expect(colors.textMuted).toBe('#6B7280');
+    expect(colors.primary).toBe('#315B7D');
+    expect(colors.primarySurface).toBe('#E7EEF4');
+    expect(colors.success).toBe('#52705A');
+    expect(colors.border).toBe('#DDDAD3');
+    expect(colors.warning).toBe('#A86F32');
+    expect(colors.danger).toBe('#A84A4A');
+  });
+
+  it('define una familia serif para el contenido de las flashcards', () => {
+    expect(typeof typography.family.serif).toBe('string');
+    expect(typography.family.serif).toMatch(/serif|Georgia|Palatino/i);
+  });
+
   it('define un breakpoint móvil/desktop utilizable', () => {
     expect(breakpoints.md).toBe(768);
   });

@@ -4,31 +4,50 @@
  * Única fuente de verdad para color, tipografía, espaciado, radios y tamaños.
  * Ningún componente debe declarar literales de color o de espaciado por su cuenta
  * (docs/DESIGN.md: "No crear variantes visuales nuevas sin necesidad").
+ *
+ * Dirección visual confirmada: aplicación de estudio limpia, académica, tranquila y
+ * profesional. Sin gradientes, sin sombras de color y sin brillos.
  */
 
+import { Platform } from 'react-native';
+
 export const colors = {
-  background: '#F6F7F9',
+  background: '#F7F5F0',
   surface: '#FFFFFF',
-  surfaceMuted: '#EEF1F6',
-  border: '#DCE1E9',
-  borderStrong: '#C3CBD7',
-  text: '#141A22',
-  textMuted: '#5B6673',
+  surfaceMuted: '#EFEDE7',
+  border: '#DDDAD3',
+  borderStrong: '#C6C2B8',
+  text: '#20242A',
+  textMuted: '#6B7280',
   textInverse: '#FFFFFF',
-  primary: '#3B5BDB',
-  primaryHover: '#2F49B2',
-  primarySurface: '#E8ECFB',
-  danger: '#C92A2A',
-  dangerSurface: '#FCEBEB',
-  success: '#2B8A3E',
-  successSurface: '#E9F5EC',
-  info: '#1971C2',
-  infoSurface: '#E7F1FB',
-  disabled: '#B7BFCA',
-  disabledSurface: '#E9ECF1',
+  primary: '#315B7D',
+  primaryHover: '#274964',
+  primarySurface: '#E7EEF4',
+  danger: '#A84A4A',
+  dangerSurface: '#F6EAEA',
+  success: '#52705A',
+  successSurface: '#EAF0EB',
+  warning: '#A86F32',
+  warningSurface: '#F5EDE3',
+  info: '#315B7D',
+  infoSurface: '#E7EEF4',
+  disabled: '#A9A69E',
+  disabledSurface: '#EFEDE7',
 } as const;
 
 export const typography = {
+  /**
+   * Sans para toda la interfaz; serif reservada al contenido de las flashcards
+   * (docs/DESIGN.md). En nativo hay que nombrar una fuente real, no una pila CSS.
+   */
+  family: {
+    serif: Platform.select({
+      web: 'Iowan Old Style, Palatino, Georgia, serif',
+      ios: 'Georgia',
+      android: 'serif',
+      default: 'serif',
+    }),
+  },
   size: {
     xs: 12,
     sm: 14,
@@ -50,6 +69,10 @@ export const typography = {
     lg: 28,
     xl: 34,
     xxl: 40,
+  },
+  letterSpacing: {
+    /** Etiquetas en mayúsculas: sin abrir un poco el interletraje se leen apretadas. */
+    label: 0.6,
   },
 } as const;
 
@@ -82,6 +105,8 @@ export const sizes = {
   tabBarHeight: 64,
   headerHeight: 56,
   contentMaxWidth: 960,
+  /** Alto mínimo de la carta en la pantalla de estudio, para que no salte al revelar. */
+  studyCardMinHeight: 220,
 } as const;
 
 /**

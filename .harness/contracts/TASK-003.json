@@ -1,0 +1,331 @@
+{
+  "task_id": "TASK-003",
+  "goal": "Que una persona pueda crear un mazo, entrar en él, crear flashcards con frente y reverso, verlas listadas y estudiarlas con el ciclo Frente -> Mostrar respuesta -> Frente + Reverso -> Siguiente carta, todo sobre la dirección visual confirmada y con navegación real entre secciones.",
+  "requirements_snapshot": [
+    "Adoptar la nueva dirección visual: aplicación de estudio limpia, académica, tranquila y profesional. La paleta forma parte de esta tarea.",
+    "Nada de estética de IA, neón, glow ni futurismo.",
+    "Sans-serif para la interfaz; serif reservada al contenido de las flashcards.",
+    "Navegación real; sección Mis mazos; crear mazo; entrar al detalle de un mazo; crear flashcards Frente/Reverso; mostrar las cartas dentro de su mazo.",
+    "Los botones visibles de estas pantallas deben tener comportamiento real.",
+    "Estudio simple: Frente -> Mostrar respuesta -> Frente + Reverso -> Siguiente carta. Sin calificación.",
+    "Los bocetos aprobados son referencia visual, adaptados a desktop y móvil, sin copiarlos ciegamente si hay un problema de usabilidad.",
+    "La zona de calificación puede eliminarse o quedar como espacio estructural no interactivo, sin aparentar funcionalidad disponible.",
+    "Decisiones ya confirmadas en docs/PRODUCT.md el 2026-08-18 y reflejadas en docs/DESIGN.md."
+  ],
+  "open_questions": [
+    "NO BLOQUEANTE, para el usuario: ¿deben permitirse dos mazos con el mismo nombre? Hoy se permiten, porque prohibirlos sería una decisión de producto que el agente no puede tomar. Surgió durante el review #1 y no impide cerrar TASK-003."
+  ],
+  "acceptance": [
+    "La paleta confirmada está aplicada en src/theme/tokens.ts y ningún componente ni pantalla declara colores propios.",
+    "La interfaz usa sans-serif y la serif aparece únicamente en el frente y el reverso de las flashcards.",
+    "No existe estética de IA, neón, glow ni futurismo: sin gradientes decorativos, sin sombras de color ni brillos.",
+    "La navegación entre secciones funciona de verdad en web, no es un maquetado.",
+    "Existe una sección Mis mazos que lista los mazos existentes.",
+    "Mis mazos muestra un estado vacío cuando todavía no hay mazos.",
+    "Se puede crear un mazo desde la interfaz y aparece en la lista sin recargar.",
+    "La creación de mazo valida su entrada y muestra un error legible cuando no es válida.",
+    "Se puede entrar al detalle de un mazo desde la lista.",
+    "El detalle del mazo muestra el nombre del mazo y sus cartas.",
+    "El detalle del mazo muestra un estado vacío cuando el mazo no tiene cartas.",
+    "Se puede crear una flashcard con Frente y Reverso desde el detalle del mazo.",
+    "La creación de flashcard valida su entrada y muestra un error legible cuando no es válida.",
+    "Las cartas creadas se muestran dentro de su mazo y solo dentro de su mazo.",
+    "Todos los botones visibles de estas pantallas ejecutan una acción real; ninguno es decorativo.",
+    "La experiencia de estudio muestra primero solo el frente de la carta.",
+    "Al pulsar Mostrar respuesta se muestran frente y reverso a la vez.",
+    "Siguiente carta avanza a la carta siguiente mostrando de nuevo solo su frente.",
+    "El estudio indica el progreso dentro de la sesión y comunica su final.",
+    "No existe ningún control de calificación ni ningún elemento que aparente una funcionalidad de repetición espaciada disponible.",
+    "No se ha implementado autenticación, Supabase, importación, modo oscuro, estadísticas, subcategorías anidadas, IA ni sincronización.",
+    "La interfaz se adapta correctamente a desktop y a móvil.",
+    "No existe overflow horizontal no intencionado en los tamaños de pantalla probados.",
+    "Los elementos interactivos mantienen tamaños utilizables en pantallas táctiles.",
+    "La lógica de mazos, cartas y sesión de estudio es testeable sin interfaz.",
+    "Existen tests unitarios de la lógica de mazos y cartas, incluidos sus casos de error.",
+    "Existen tests unitarios de la sesión de estudio que cubren el ciclo completo.",
+    "Existen tests de integración de los flujos crear mazo, crear carta y estudiar.",
+    "Existe cobertura E2E de los flujos anteriores en desktop y móvil.",
+    "La suite completa anterior continúa pasando sin regresiones.",
+    "./init.sh termina con exit code 0 al finalizar la tarea.",
+    "La evidencia completa queda registrada en progress/evidence/TASK-003-implementation.md."
+  ],
+  "verification_matrix": [
+    {
+      "acceptance": "La paleta confirmada está aplicada en src/theme/tokens.ts y ningún componente ni pantalla declara colores propios.",
+      "method": "unit",
+      "command_or_procedure": "npm test (tests/unit/theme.test.ts comprueba los diez valores exactos) + grep de literales de color y rgba fuera de src/theme/.",
+      "evidence_expected": "Los diez tokens valen exactamente los hex confirmados; cero literales de color fuera de src/theme/."
+    },
+    {
+      "acceptance": "La interfaz usa sans-serif y la serif aparece únicamente en el frente y el reverso de las flashcards.",
+      "method": "review",
+      "command_or_procedure": "grep de la familia serif en app/ y src/: solo puede aparecer en el componente de cara de flashcard y en el token tipográfico que lo define.",
+      "evidence_expected": "Un único punto de uso de la serif, aplicado a frente y reverso; ningún título ni control la usa."
+    },
+    {
+      "acceptance": "No existe estética de IA, neón, glow ni futurismo: sin gradientes decorativos, sin sombras de color ni brillos.",
+      "method": "review",
+      "command_or_procedure": "grep de gradient, glow, blur, shadowColor y textShadow en app/ y src/.",
+      "evidence_expected": "Cero gradientes y cero sombras de color; las únicas sombras admitidas son neutras y sutiles."
+    },
+    {
+      "acceptance": "La navegación entre secciones funciona de verdad en web, no es un maquetado.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e: navegación real por la interfaz comprobando URL, contenido y ausencia de errores de consola.",
+      "evidence_expected": "Los destinos cambian la URL y el contenido renderizado, en los tres proyectos de dispositivo."
+    },
+    {
+      "acceptance": "Existe una sección Mis mazos que lista los mazos existentes.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration + npm run test:e2e.",
+      "evidence_expected": "La ruta raíz lista los mazos creados, con su número de cartas."
+    },
+    {
+      "acceptance": "Mis mazos muestra un estado vacío cuando todavía no hay mazos.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration con la biblioteca vacía.",
+      "evidence_expected": "Se renderiza EmptyState con un texto que explica qué hacer; no aparece una lista vacía sin explicación."
+    },
+    {
+      "acceptance": "Se puede crear un mazo desde la interfaz y aparece en la lista sin recargar.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration: escribir el nombre, pulsar el botón y comprobar la lista. Confirmado además por E2E.",
+      "evidence_expected": "El mazo aparece en la lista tras la acción, sin recarga, y el formulario queda limpio."
+    },
+    {
+      "acceptance": "La creación de mazo valida su entrada y muestra un error legible cuando no es válida.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test sobre la lógica pura (nombre vacío, solo espacios) y npm run test:integration sobre el error mostrado y el campo al que se ancla.",
+      "evidence_expected": "La lógica devuelve un error tipado por cada caso y la interfaz lo muestra con el componente Message."
+    },
+    {
+      "acceptance": "Se puede entrar al detalle de un mazo desde la lista.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration: pulsar el mazo y comprobar que se resuelve su ruta de detalle.",
+      "evidence_expected": "Cambia la ruta a la del mazo y se renderiza su detalle."
+    },
+    {
+      "acceptance": "El detalle del mazo muestra el nombre del mazo y sus cartas.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration.",
+      "evidence_expected": "El nombre del mazo aparece como título y cada carta aparece con su frente y su reverso."
+    },
+    {
+      "acceptance": "El detalle del mazo muestra un estado vacío cuando el mazo no tiene cartas.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration sobre un mazo recién creado.",
+      "evidence_expected": "Se renderiza EmptyState explicando que hay que crear la primera carta."
+    },
+    {
+      "acceptance": "Se puede crear una flashcard con Frente y Reverso desde el detalle del mazo.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration + npm run test:e2e.",
+      "evidence_expected": "Tras rellenar frente y reverso y confirmar, la carta aparece en la lista del mazo y el formulario queda limpio."
+    },
+    {
+      "acceptance": "La creación de flashcard valida su entrada y muestra un error legible cuando no es válida.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test sobre la lógica pura (frente vacío, reverso vacío, ambos vacíos) y npm run test:integration sobre el error mostrado.",
+      "evidence_expected": "Error tipado por cada caso y mensaje visible en la interfaz."
+    },
+    {
+      "acceptance": "Las cartas creadas se muestran dentro de su mazo y solo dentro de su mazo.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test sobre la lógica de pertenencia y npm run test:integration con dos mazos distintos.",
+      "evidence_expected": "Una carta creada en el mazo A no aparece en el detalle del mazo B."
+    },
+    {
+      "acceptance": "Todos los botones visibles de estas pantallas ejecutan una acción real; ninguno es decorativo.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e: se enumeran los controles interactivos visibles de cada pantalla y se comprueba que cada uno tiene destino o acción.",
+      "evidence_expected": "Ningún control visible carece de efecto observable; los inhabilitados lo están por una razón declarada (por ejemplo, estudiar sin cartas)."
+    },
+    {
+      "acceptance": "La experiencia de estudio muestra primero solo el frente de la carta.",
+      "method": "unit + e2e",
+      "command_or_procedure": "npm test sobre la sesión y npm run test:e2e sobre la pantalla.",
+      "evidence_expected": "En el estado inicial el reverso no está en el DOM."
+    },
+    {
+      "acceptance": "Al pulsar Mostrar respuesta se muestran frente y reverso a la vez.",
+      "method": "unit + e2e",
+      "command_or_procedure": "npm test + npm run test:e2e.",
+      "evidence_expected": "Tras la acción, frente y reverso son visibles simultáneamente."
+    },
+    {
+      "acceptance": "Siguiente carta avanza a la carta siguiente mostrando de nuevo solo su frente.",
+      "method": "unit + e2e",
+      "command_or_procedure": "npm test + npm run test:e2e.",
+      "evidence_expected": "Cambia el frente al de la carta siguiente y el reverso vuelve a estar oculto."
+    },
+    {
+      "acceptance": "El estudio indica el progreso dentro de la sesión y comunica su final.",
+      "method": "unit + e2e",
+      "command_or_procedure": "npm test sobre progreso y final de sesión; npm run test:e2e recorriendo la sesión entera.",
+      "evidence_expected": "Se muestra la posición dentro del total y, al terminar, un cierre explícito con salida hacia el mazo."
+    },
+    {
+      "acceptance": "No existe ningún control de calificación ni ningún elemento que aparente una funcionalidad de repetición espaciada disponible.",
+      "method": "review",
+      "command_or_procedure": "grep de términos de calificación y repetición en app/ y src/, y revisión de la pantalla de estudio.",
+      "evidence_expected": "Cero controles de calificación. Si se conserva espacio estructural, no es interactivo y no sugiere una acción disponible."
+    },
+    {
+      "acceptance": "No se ha implementado autenticación, Supabase, importación, modo oscuro, estadísticas, subcategorías anidadas, IA ni sincronización.",
+      "method": "review",
+      "command_or_procedure": "grep de los términos correspondientes en app/, src/ y package.json.",
+      "evidence_expected": "Cero coincidencias funcionales y ninguna dependencia nueva relacionada."
+    },
+    {
+      "acceptance": "La interfaz se adapta correctamente a desktop y a móvil.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e en los tres proyectos: desktop-chrome, mobile-chrome y mobile-safari.",
+      "evidence_expected": "Sidebar en desktop y navegación compacta en móvil, en todas las rutas nuevas; nunca ambas a la vez."
+    },
+    {
+      "acceptance": "No existe overflow horizontal no intencionado en los tamaños de pantalla probados.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e comparando scrollWidth con clientWidth en todas las rutas, incluidas las nuevas.",
+      "evidence_expected": "scrollWidth <= clientWidth en los tres proyectos y en todas las rutas."
+    },
+    {
+      "acceptance": "Los elementos interactivos mantienen tamaños utilizables en pantallas táctiles.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e en los proyectos móviles midiendo el boundingBox de cada control visible.",
+      "evidence_expected": "Todo control interactivo visible mide al menos 44x44."
+    },
+    {
+      "acceptance": "La lógica de mazos, cartas y sesión de estudio es testeable sin interfaz.",
+      "method": "unit",
+      "command_or_procedure": "npm test: los tests de lógica importan funciones puras, sin render.",
+      "evidence_expected": "Los módulos de lógica no importan react-native ni componentes; sus tests no montan nada."
+    },
+    {
+      "acceptance": "Existen tests unitarios de la lógica de mazos y cartas, incluidos sus casos de error.",
+      "method": "unit",
+      "command_or_procedure": "npm test",
+      "evidence_expected": "Cobertura de creación válida, nombre vacío, nombre solo con espacios, nombre repetido permitido, frente vacío, reverso vacío y mazo inexistente."
+    },
+    {
+      "acceptance": "Existen tests unitarios de la sesión de estudio que cubren el ciclo completo.",
+      "method": "unit",
+      "command_or_procedure": "npm test",
+      "evidence_expected": "Cobertura de inicio oculto, revelado, avance, progreso, final de sesión y sesión sin cartas."
+    },
+    {
+      "acceptance": "Existen tests de integración de los flujos crear mazo, crear carta y estudiar.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration con el router real.",
+      "evidence_expected": "Los tres flujos se recorren montando las pantallas reales, no mocks."
+    },
+    {
+      "acceptance": "Existe cobertura E2E de los flujos anteriores en desktop y móvil.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "El recorrido completo crear mazo -> crear carta -> estudiar pasa en los tres proyectos de dispositivo."
+    },
+    {
+      "acceptance": "La suite completa anterior continúa pasando sin regresiones.",
+      "method": "integration",
+      "command_or_procedure": "./init.sh",
+      "evidence_expected": "Los tests heredados siguen pasando, o se actualizan solo cuando una acceptance de TASK-003 cambia el comportamiento observable, documentando el motivo."
+    },
+    {
+      "acceptance": "./init.sh termina con exit code 0 al finalizar la tarea.",
+      "method": "static",
+      "command_or_procedure": "./init.sh",
+      "evidence_expected": "Exit code 0 con todos los gates en [OK]."
+    },
+    {
+      "acceptance": "La evidencia completa queda registrada en progress/evidence/TASK-003-implementation.md.",
+      "method": "inspection",
+      "command_or_procedure": "Lectura del archivo de evidencia.",
+      "evidence_expected": "Baseline, archivos, acceptance -> evidencia, comandos, resultados, tests, riesgos, decisiones técnicas y lo no verificado."
+    }
+  ],
+  "technical_decisions": [
+    {
+      "decision": "Los datos viven en memoria, en un proveedor de React dentro de src/lib/. No se persisten.",
+      "reason": "Supabase y la base de datos están fuera de scope y la persistencia local no ha sido decidida. La memoria es la solución mínima que satisface todas las acceptance sin añadir dependencias ni inventar una decisión de almacenamiento. Consecuencia declarada: al recargar la página se pierden los datos."
+    },
+    {
+      "decision": "La lógica de mazos, cartas y sesión de estudio son funciones puras, separadas de la interfaz y del proveedor.",
+      "reason": "docs/ARCHITECTURE.md regla 1 (la UI no contiene lógica compleja) y regla 3 (lo que gobierna el estudio debe ser testeable sin UI)."
+    },
+    {
+      "decision": "Los destinos de primer nivel (Mis mazos, Componentes) siguen usando replace; el detalle del mazo y el estudio se apilan y ofrecen una vuelta explícita.",
+      "reason": "Mantiene la semántica de pestañas de TASK-002 y a la vez permite una jerarquía real de detalle, que es lo que exige entrar en un mazo."
+    },
+    {
+      "decision": "RETIRADA tras el review #1. Se permiten nombres de mazo repetidos.",
+      "reason": "La versión inicial los rechazaba. El reviewer señaló que ninguna acceptance lo exige y que prohibirlos es una decisión de producto que el usuario no ha tomado: el contrato lo escribió el mismo agente, así que no vale como confirmación. La validación se limita al nombre vacío, que sí satisface la acceptance. Queda como pregunta abierta para el usuario, no resuelta por el agente."
+    },
+    {
+      "decision": "La zona de calificación del boceto se elimina por completo en lugar de conservarse como espacio estructural.",
+      "reason": "El usuario admite ambas opciones. Eliminarla es la más segura respecto a la exigencia de no aparentar funcionalidad disponible, y la más simple según docs/CONVENTIONS.md."
+    },
+    {
+      "decision": "La pantalla de acceso del boceto no se implementa.",
+      "reason": "Autenticación está en out_of_scope. El boceto es referencia visual, no una lista de pantallas a construir."
+    },
+    {
+      "decision": "Los contadores nuevas/aprendiendo/repasar del boceto no se implementan; el detalle del mazo muestra el número real de cartas.",
+      "reason": "Esos contadores presuponen el algoritmo de repetición espaciada, que está en out_of_scope. Mostrarlos sería aparentar una funcionalidad no disponible."
+    },
+    {
+      "decision": "No se añade ninguna dependencia nueva.",
+      "reason": "docs/CONVENTIONS.md regla 8. Todo se resuelve con react, react-native, expo-router y los componentes ya existentes."
+    }
+  ],
+  "allowed_paths": [
+    "app/**",
+    "src/**",
+    "tests/**",
+    "package.json",
+    "package-lock.json",
+    "app.json",
+    "tsconfig.json",
+    "eslint.config.js",
+    "jest.config.js",
+    "playwright.config.ts",
+    "docs/**",
+    "progress/**",
+    ".harness/**"
+  ],
+  "required_docs": [
+    "docs/PRODUCT.md",
+    "docs/ARCHITECTURE.md",
+    "docs/CONVENTIONS.md",
+    "docs/DESIGN.md",
+    "docs/TESTING.md",
+    "docs/VERIFICATION.md"
+  ],
+  "required_gates": [
+    "baseline",
+    "scope",
+    "static",
+    "unit",
+    "integration",
+    "responsive",
+    "e2e",
+    "regression"
+  ],
+  "out_of_scope": [
+    "Implementar autenticación, correo/contraseña, Google o Apple.",
+    "Conectar Supabase o cualquier base de datos.",
+    "Persistir datos entre recargas.",
+    "Implementar importación desde Anki.",
+    "Implementar modo oscuro.",
+    "Implementar algoritmo de repetición espaciada, botones o escalas de calificación.",
+    "Implementar estadísticas.",
+    "Implementar subcategorías anidadas.",
+    "Implementar IA.",
+    "Implementar sincronización.",
+    "Editar o borrar mazos y cartas: el usuario no lo ha pedido.",
+    "Crear componentes de docs/DESIGN.md que la acceptance no exige."
+  ],
+  "baseline_required": true,
+  "regression_required": true,
+  "review_required": true,
+  "qa_required": true
+}

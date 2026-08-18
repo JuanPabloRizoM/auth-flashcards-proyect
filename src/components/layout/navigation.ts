@@ -1,8 +1,8 @@
 /**
- * Rutas de la navegación base.
+ * Destinos de primer nivel.
  *
- * Son andamiaje del propio sistema visual: no representan features de producto.
- * Ampliar esta lista es el punto de extensión cuando una tarea futura añada secciones reales.
+ * Sustituyen la ruta actual, no se apilan. Las pantallas de detalle (un mazo, el estudio)
+ * no viven aquí: se apilan sobre el destino activo y ofrecen una vuelta explícita.
  */
 export type NavigationItem = {
   href: '/' | '/componentes';
@@ -11,6 +11,6 @@ export type NavigationItem = {
 };
 
 export const navigationItems: readonly NavigationItem[] = [
-  { href: '/', label: 'Inicio', testID: 'nav-inicio' },
+  { href: '/', label: 'Mis mazos', testID: 'nav-mazos' },
   { href: '/componentes', label: 'Componentes', testID: 'nav-componentes' },
 ] as const;

@@ -80,14 +80,14 @@ describe('AppShell responsive', () => {
   it('ofrece los mismos destinos de navegación en ambas disposiciones', async () => {
     useLayoutModeMock.mockReturnValue('compact');
     renderShell();
-    expect(await screen.findByTestId('nav-inicio')).toBeTruthy();
+    expect(await screen.findByTestId('nav-mazos')).toBeTruthy();
     expect(screen.getByTestId('nav-componentes')).toBeTruthy();
 
     screen.unmount();
 
     useLayoutModeMock.mockReturnValue('expanded');
     renderShell();
-    expect(await screen.findByTestId('nav-inicio')).toBeTruthy();
+    expect(await screen.findByTestId('nav-mazos')).toBeTruthy();
     expect(screen.getByTestId('nav-componentes')).toBeTruthy();
   });
 

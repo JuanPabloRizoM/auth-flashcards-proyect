@@ -37,7 +37,11 @@ export function Input({
         testID={testID}
         value={value}
       />
-      {hasError ? <Message variant="error">{error}</Message> : null}
+      {hasError ? (
+        <Message testID={testID ? `${testID}-error` : undefined} variant="error">
+          {error}
+        </Message>
+      ) : null}
       {!hasError && helperText ? <Text style={styles.helper}>{helperText}</Text> : null}
     </View>
   );

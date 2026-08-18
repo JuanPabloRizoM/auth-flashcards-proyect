@@ -1,7 +1,15 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Button, Card, EmptyState, Input, Loading, Message } from '../src/components/ui';
+import {
+  Button,
+  Card,
+  EmptyState,
+  FlashcardFace,
+  Input,
+  Loading,
+  Message,
+} from '../src/components/ui';
 import { colors, spacing, typography } from '../src/theme';
 
 /**
@@ -61,6 +69,11 @@ export default function ComponentesScreen() {
         <Message title="Error" variant="error">
           Mensaje de error.
         </Message>
+      </Card>
+
+      <Card title="FlashcardFace">
+        <FlashcardFace label="Frente" text="to overlook" />
+        <FlashcardFace label="Reverso" text="pasar por alto" tone="back" />
       </Card>
 
       <Card title="Loading y EmptyState">

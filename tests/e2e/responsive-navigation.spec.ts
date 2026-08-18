@@ -26,15 +26,15 @@ test.describe('Navegación base', () => {
     });
 
     await page.goto('/');
-    await expect(page.getByTestId('demo-card')).toBeVisible();
+    await expect(page.getByTestId('create-deck-button')).toBeVisible();
 
     await page.getByTestId('nav-componentes').click();
     await expect(page.getByRole('heading', { name: 'Componentes' })).toBeVisible();
     await expect(page).toHaveURL(/\/componentes$/);
     await expect(page.getByTestId('catalogo-button-primary')).toBeVisible();
 
-    await page.getByTestId('nav-inicio').click();
-    await expect(page.getByTestId('demo-card')).toBeVisible();
+    await page.getByTestId('nav-mazos').click();
+    await expect(page.getByTestId('create-deck-button')).toBeVisible();
     await expect(page).toHaveURL(/\/$/);
 
     expect(consoleErrors).toEqual([]);

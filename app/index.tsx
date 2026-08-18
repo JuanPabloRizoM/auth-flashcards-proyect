@@ -1,64 +1,82 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { Button, Card, EmptyState, Input, Loading, Message } from '../src/components/ui';
-import { colors, spacing, typography } from '../src/theme';
+import { ScreenHeader } from '../src/components/layout';
+import { Button, Card, EmptyState, Input } from '../src/components/ui';
+import { countCardsOfDeck, libraryErrorMessage } from '../src/features/decks/library';
+import { useLibrary } from '../src/lib/LibraryProvider';
+import { spacing } from '../src/theme';
 
-/**
- * Pantalla inicial temporal.
- *
- * Su única función es demostrar el layout y los componentes compartidos.
- * No implementa mazos, login, estudio ni estadísticas: esas decisiones no están tomadas.
- */
-export default function IndexScreen() {
-  const [nota, setNota] = useState('');
+/** Mis mazos: lista los mazos y permite crear uno nuevo. */
+export default function MisMazosScreen() {
+  const router = useRouter();
+  const { library, createDeck } = useLibrary();
+  const [name, setName] = useState('');
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  const total = library.decks.length;
+
+  const onCreate = () => {
+    const result = createDeck(name);
+    if (!result.ok) {
+      setError(libraryErrorMessage(result.error));
+      return;
+    }
+    setName('');
+    setError(undefined);
+  };
+
+  const onChangeName = (value: string) => {
+    setName(value);
+    if (error) {
+      setError(undefined);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <View style={styles.intro}>
-        <Text accessibilityRole="header" style={styles.title}>
-          Flashcards
-        </Text>
-        <Text style={styles.subtitle}>
-          Base visual lista. Esta pantalla existe para comprobar el sistema de diseño y la
-          navegación; todavía no hay funcionalidades del producto.
-        </Text>
-      </View>
+      <ScreenHeader
+        subtitle={total === 1 ? '1 mazo' : `${total} mazos`}
+        title="Mis mazos"
+      />
 
-      <Message title="Estado del proyecto" variant="info">
-        El entorno y la base visual están preparados. Las siguientes tareas reutilizarán estos
-        componentes en lugar de crear estilos nuevos.
-      </Message>
-
-      <Card
-        description="Los mismos componentes se reutilizan en cualquier pantalla."
-        footer={
-          <>
-            <Button label="Acción principal" testID="demo-primary" />
-            <Button label="Acción secundaria" testID="demo-secondary" variant="secondary" />
-          </>
-        }
-        testID="demo-card"
-        title="Componentes compartidos"
-      >
+      <Card title="Crear un mazo">
         <Input
-          helperText="Campo de demostración: no guarda nada."
-          label="Campo de ejemplo"
-          onChangeText={setNota}
-          placeholder="Escribe para probar el campo"
-          testID="demo-input"
-          value={nota}
+          error={error}
+          helperText="Por ejemplo: Inglés, Anatomía, Vocabulario técnico."
+          label="Nombre del mazo"
+          onChangeText={onChangeName}
+          placeholder="Nombre del mazo"
+          testID="deck-name-input"
+          value={name}
         />
+        <Button label="Crear mazo" onPress={onCreate} testID="create-deck-button" />
       </Card>
 
-      <Card title="Estados de la interfaz">
-        <Loading message="Cargando contenido…" testID="demo-loading" />
+      {total === 0 ? (
         <EmptyState
-          description="Así se verá una sección sin contenido todavía."
-          testID="demo-empty"
-          title="Sin contenido"
+          description="Crea tu primer mazo arriba y empieza a añadirle cartas."
+          testID="decks-empty"
+          title="Todavía no tienes mazos"
         />
-      </Card>
+      ) : (
+        <View style={styles.list} testID="decks-list">
+          {library.decks.map((deck) => {
+            const cards = countCardsOfDeck(library, deck.id);
+            return (
+              <Card
+                accessibilityLabel={`Abrir el mazo ${deck.name}`}
+                description={cards === 1 ? '1 carta' : `${cards} cartas`}
+                key={deck.id}
+                onPress={() => router.push(`/mazo/${deck.id}`)}
+                testID={`deck-${deck.id}`}
+                title={deck.name}
+              />
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }
@@ -68,18 +86,8 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
     width: '100%',
   },
-  intro: {
+  list: {
     gap: spacing.sm,
-  },
-  subtitle: {
-    color: colors.textMuted,
-    fontSize: typography.size.md,
-    lineHeight: typography.lineHeight.md,
-  },
-  title: {
-    color: colors.text,
-    fontSize: typography.size.xxl,
-    fontWeight: typography.weight.bold,
-    lineHeight: typography.lineHeight.xxl,
+    width: '100%',
   },
 });

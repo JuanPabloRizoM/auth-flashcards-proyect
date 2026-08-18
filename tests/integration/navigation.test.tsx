@@ -1,51 +1,43 @@
 import { router } from 'expo-router';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
-import ComponentesScreen from '../../app/componentes';
-import RootLayout from '../../app/_layout';
-import IndexScreen from '../../app/index';
 import { navigationItems } from '../../src/components/layout';
-
-const routes = {
-  _layout: RootLayout,
-  index: IndexScreen,
-  componentes: ComponentesScreen,
-};
+import { routes } from './routes';
 
 describe('Navegación base', () => {
-  it('expone un destino de navegación por cada ruta declarada', async () => {
+  it('expone un destino de navegación por cada ruta de primer nivel', async () => {
     renderRouter(routes, { initialUrl: '/' });
 
-    await screen.findByTestId('demo-card');
+    await screen.findByTestId('create-deck-button');
 
     for (const item of navigationItems) {
       expect(screen.getByTestId(item.testID)).toBeTruthy();
     }
   });
 
-  it('navega de inicio al catálogo y cambia el contenido renderizado', async () => {
+  it('navega de Mis mazos al catálogo y cambia el contenido renderizado', async () => {
     renderRouter(routes, { initialUrl: '/' });
 
-    expect(await screen.findByTestId('demo-card')).toBeTruthy();
+    expect(await screen.findByTestId('create-deck-button')).toBeTruthy();
 
     await act(async () => {
       fireEvent.press(screen.getByTestId('nav-componentes'));
     });
 
     expect(await screen.findByTestId('catalogo-button-primary')).toBeTruthy();
-    expect(screen.queryByTestId('demo-card')).toBeNull();
+    expect(screen.queryByTestId('create-deck-button')).toBeNull();
   });
 
-  it('vuelve al inicio desde el catálogo', async () => {
+  it('vuelve a Mis mazos desde el catálogo', async () => {
     renderRouter(routes, { initialUrl: '/componentes' });
 
     expect(await screen.findByTestId('catalogo-button-primary')).toBeTruthy();
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('nav-inicio'));
+      fireEvent.press(screen.getByTestId('nav-mazos'));
     });
 
-    expect(await screen.findByTestId('demo-card')).toBeTruthy();
+    expect(await screen.findByTestId('create-deck-button')).toBeTruthy();
     expect(screen.queryByTestId('catalogo-button-primary')).toBeNull();
   });
 
@@ -59,7 +51,7 @@ describe('Navegación base', () => {
   it('no acumula historial al navegar entre destinos de primer nivel', async () => {
     renderRouter(routes, { initialUrl: '/' });
 
-    await screen.findByTestId('demo-card');
+    await screen.findByTestId('create-deck-button');
     expect(router.canGoBack()).toBe(false);
 
     await act(async () => {
@@ -69,12 +61,12 @@ describe('Navegación base', () => {
     expect(router.canGoBack()).toBe(false);
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('nav-inicio'));
+      fireEvent.press(screen.getByTestId('nav-mazos'));
     });
-    await screen.findByTestId('demo-card');
+    await screen.findByTestId('create-deck-button');
 
     expect(router.canGoBack()).toBe(false);
-    expect(screen.getAllByTestId('demo-card')).toHaveLength(1);
+    expect(screen.getAllByTestId('create-deck-button')).toHaveLength(1);
     expect(screen.queryAllByTestId('catalogo-button-primary')).toHaveLength(0);
   });
 
@@ -84,6 +76,6 @@ describe('Navegación base', () => {
     await screen.findByTestId('catalogo-button-primary');
 
     expect(screen.getByTestId('nav-componentes').props.accessibilityState.selected).toBe(true);
-    expect(screen.getByTestId('nav-inicio').props.accessibilityState.selected).toBe(false);
+    expect(screen.getByTestId('nav-mazos').props.accessibilityState.selected).toBe(false);
   });
 });
