@@ -1,7 +1,7 @@
 {
   "id": "TASK-003",
   "title": "Mazos, flashcards y estudio simple sobre la nueva dirección visual",
-  "status": "REVIEWING",
+  "status": "DONE",
   "created_from_user_request": "Adoptar la nueva dirección visual aprobada en el boceto (paleta incluida) e implementar navegación real, la sección Mis mazos, creación de mazos, detalle de mazo, creación de flashcards Frente/Reverso, listado de cartas dentro de su mazo y una experiencia de estudio simple sin calificación. Los botones visibles de estas pantallas deben tener comportamiento real.",
   "goal": "Que una persona pueda crear un mazo, entrar en él, crear flashcards con frente y reverso, verlas listadas y estudiarlas con el ciclo Frente -> Mostrar respuesta -> Frente + Reverso -> Siguiente carta, todo sobre la dirección visual confirmada y con navegación real entre secciones.",
   "confirmed_requirements": [
