@@ -1,7 +1,7 @@
 {
   "id": "TASK-004",
   "title": "Persistencia local, unicidad de mazos y estabilización de navegación",
-  "status": "REVIEWING",
+  "status": "DONE",
   "created_from_user_request": "Hacer que los mazos y flashcards sobrevivan a recargas mediante almacenamiento local persistente, impedir mazos con nombres duplicados y corregir el crecimiento acumulativo de instancias de navegación detectado en TASK-003, conservando la arquitectura existente y sin backend remoto.",
   "goal": "Hacer que los mazos y flashcards creados sobrevivan a recargas y reinicios normales de la aplicación mediante almacenamiento local persistente, impedir la creación de mazos con nombres duplicados y corregir el crecimiento acumulativo de instancias de navegación, conservando la arquitectura existente y sin introducir backend remoto.",
   "confirmed_requirements": [

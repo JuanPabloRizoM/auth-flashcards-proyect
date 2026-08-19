@@ -1,59 +1,40 @@
 # Sesión actual
 
-- **Task:** TASK-004 — Persistencia local, unicidad de mazos y estabilización de navegación
-- **Estado:** _REVIEWING_
-- **Agente:** _implementer (entregado)_
-- **Contrato:** `.harness/contracts/TASK-004.json` (51 acceptance, `open_questions: []`)
-- **Inicio:** 2026-08-18
-- **Repositorio:** `main`, base `06622c2`
+- **Task activa:** ninguna — proyecto en estado IDLE
+- **Última tarea cerrada:** TASK-004 — Persistencia local, unicidad de mazos y estabilización de navegación (`DONE`, 2026-08-18)
+- **Estado del harness:** `./init.sh` exit 0
+- **Repositorio:** rama `main`, remoto `https://github.com/JuanPabloRizoM/auth-flashcards-proyect.git`
 
-## Baseline
+No hay tarea en curso. El usuario decide cuál es la siguiente; el harness no propone roadmap.
 
-`./init.sh` exit 0 antes de modificar ningún archivo, y exit 0 al cierre de la implementación.
+## Estado del proyecto
 
-## Petición actual del usuario
+- **Entorno** (TASK-001): Expo SDK 57, React Native, Expo Router, TypeScript. Plataformas: iOS, Android y web.
+- **Base visual** (TASK-002): `AppShell` con sidebar en desktop y barra compacta en móvil; componentes compartidos.
+- **Producto** (TASK-003): paleta confirmada, Mis mazos, detalle del mazo y estudio simple.
+- **Datos** (TASK-004): persistencia local detrás del contrato `LibraryRepository`; unicidad de nombre de mazo; stack de navegación acotado.
+- **Rutas**: `/`, `/componentes`, `/mazo/[id]` y `/mazo/[id]/estudiar`.
+- **Gates**: `typecheck`, `lint`, `test` (100), `test:integration` (54), `test:e2e` (63 + 3 skipped en desktop-chrome, Pixel 5 e iPhone 13), más `smoke:web` y `e2e:install`.
 
-Añadir persistencia local de mazos y flashcards detrás de la abstracción de repositorio, impedir
-mazos con nombre duplicado según la normalización confirmada, y corregir el crecimiento ilimitado
-del stack de navegación. Ciclo completo del harness sin confirmaciones intermedias. No iniciar
-TASK-005.
+## Preguntas abiertas para el usuario
 
-## Plan corto
+- Ninguna.
 
-1. Baseline `./init.sh` verde. — hecho
-2. Lectura obligatoria. — hecho
-3. `docs/PRODUCT.md` con las siete decisiones confirmadas. — hecho
-4. Task y contrato con `allowed_paths` coherentes desde el principio. — hecho
-5. Capa de almacenamiento detrás de un contrato. — hecho
-6. Hidratación, estados de carga y manejo de errores. — hecho
-7. Unicidad de nombre en la lógica de dominio. — hecho
-8. Corrección del stack de navegación. — hecho
-9. Tests unit + integración + e2e, con regresión demostrada. — hecho
-10. Gates + evidencia. — hecho
-11. Review #1 independiente. — hecho (**CHANGES_REQUIRED**, F1-F6)
-12. Corrección de F1-F6. — hecho
-13. Review #2 independiente. — **pendiente**
-14. Commit del candidato, QA y cierre. — **pendiente**
+## Pendientes registrados (ninguno bloquea el harness)
 
-## Decisiones técnicas de esta sesión
+- **La persistencia es local al navegador o dispositivo.** Borrar los datos del sitio, usar navegación privada o cambiar de dispositivo hace desaparecer la biblioteca.
+- **Sin editar ni borrar** mazos ni cartas. Ahora que los datos persisten, un mazo mal nombrado se queda.
+- **Contenido guardado inválido**: la aplicación arranca vacía y lo deja intacto, pero no lo recupera.
+- **`version: 1` sin migraciones**: un cambio futuro de forma dejará los datos existentes como inválidos hasta que se escriba una migración.
+- **Escritura completa en cada cambio**: se reescribe todo el documento. Con volúmenes grandes habría que revisarlo.
+- **Concurrencia entre pestañas**: dos pestañas escriben sobre la misma clave sin coordinación; la última gana.
+- **Playwright en máquina nueva**: ejecutar `npm run e2e:install` una vez.
+- **Contrato vs task de TASK-001**: el `allowed_paths` del contrato omite `.claude/**`. Para el planner en una tarea futura.
+- **Decisiones de producto no tomadas**: autenticación, base de datos remota, sincronización, cuentas, algoritmo de repetición espaciada y calificación, estadísticas, subcategorías, modo oscuro, importación/exportación Anki, notificaciones, colaboración e IA.
 
-- **Almacenamiento**: `@react-native-async-storage/async-storage` 2.2.0, instalada con
-  `npx expo install`. Cubre web, iOS y Android con una sola implementación.
-- El contrato `LibraryRepository` aísla la librería: es el único archivo que la importa.
-- Forma persistida: un único documento JSON con `version`, `decks` y `cards`.
-- Ante contenido ausente, biblioteca vacía. Ante contenido inválido, biblioteca vacía **sin
-  sobrescribir** lo guardado.
-- `goToTopLevel` vacía el apilado con `dismissAll` antes de sustituir la raíz.
-- Normalización de nombres: solo recortar extremos y comparar sin mayúsculas.
+## Evidencia
 
-## Preguntas abiertas
-
-- Ninguna. Las siete decisiones necesarias las confirmó el usuario antes de empezar.
-
-## Evidencia disponible
-
-- `progress/evidence/TASK-004-implementation.md`
-
-## Próximo paso
-
-Reviewer independiente (read-only) sobre task + contract + diff + evidencia.
+- TASK-001: `progress/evidence/TASK-001-{implementation,review,qa}.md`
+- TASK-002: `progress/evidence/TASK-002-{implementation,review,qa}.md`
+- TASK-003: `progress/evidence/TASK-003-{implementation,review,qa}.md`
+- TASK-004: `progress/evidence/TASK-004-{implementation,review,qa}.md`
