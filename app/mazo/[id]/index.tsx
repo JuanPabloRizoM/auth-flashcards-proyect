@@ -3,7 +3,15 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ScreenHeader } from '../../../src/components/layout';
-import { Button, Card, EmptyState, FlashcardFace, Input, Message } from '../../../src/components/ui';
+import {
+  Button,
+  Card,
+  EmptyState,
+  FlashcardFace,
+  Input,
+  Loading,
+  Message,
+} from '../../../src/components/ui';
 import { cardsOfDeck, findDeck, libraryErrorMessage } from '../../../src/features/decks/library';
 import { useLibrary } from '../../../src/lib/LibraryProvider';
 import { goBackOr } from '../../../src/lib/navigation';
@@ -13,7 +21,7 @@ import { spacing } from '../../../src/theme';
 export default function DetalleMazoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { library, addCard } = useLibrary();
+  const { library, status, addCard } = useLibrary();
 
   const [front, setFront] = useState('');
   const [back, setBack] = useState('');
@@ -25,6 +33,16 @@ export default function DetalleMazoScreen() {
   const deckId = id ?? '';
   const deck = findDeck(library, deckId);
   const goToDecks = () => goBackOr(router, () => router.replace('/'));
+
+  // Sin esperar a la hidratación, un mazo persistido se declararía inexistente.
+  if (status === 'loading') {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Mazo" />
+        <Loading message="Recuperando el mazo…" testID="deck-loading" />
+      </View>
+    );
+  }
 
   if (!deck) {
     return (

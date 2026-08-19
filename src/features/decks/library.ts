@@ -7,6 +7,7 @@ import type { Card, Deck, Library } from '../../types/domain';
 
 export type LibraryErrorCode =
   | 'nombre-requerido'
+  | 'nombre-duplicado'
   | 'frente-requerido'
   | 'reverso-requerido'
   | 'mazo-inexistente';
@@ -20,6 +21,7 @@ export const emptyLibrary: Library = { decks: [], cards: [] };
 /** Mensajes de error orientados a la persona usuaria: qué pasó y qué hacer. */
 const errorMessages: Record<LibraryErrorCode, string> = {
   'nombre-requerido': 'Escribe un nombre para el mazo.',
+  'nombre-duplicado': 'Ya tienes un mazo con ese nombre. Elige otro.',
   'frente-requerido': 'Escribe el frente de la carta.',
   'reverso-requerido': 'Escribe el reverso de la carta.',
   'mazo-inexistente': 'Ese mazo ya no existe.',
@@ -29,6 +31,17 @@ export function libraryErrorMessage(error: LibraryErrorCode): string {
   return errorMessages[error];
 }
 
+/**
+ * Clave de comparación de nombres de mazo.
+ *
+ * Normalización confirmada por el usuario, y solo esta: recortar los espacios de los extremos
+ * y comparar sin distinguir mayúsculas de minúsculas. Deliberadamente NO se colapsan los
+ * espacios interiores ni se quitan acentos: serían normalizaciones no confirmadas.
+ */
+export function deckNameKey(name: string): string {
+  return name.trim().toLocaleLowerCase();
+}
+
 export function createDeck(library: Library, name: string, id: string): LibraryResult {
   const trimmed = name.trim();
 
@@ -36,8 +49,11 @@ export function createDeck(library: Library, name: string, id: string): LibraryR
     return { ok: false, error: 'nombre-requerido' };
   }
 
-  // Los nombres repetidos se permiten: rechazarlos sería una decisión de producto que el
-  // usuario no ha tomado. Queda anotado como pregunta abierta, no resuelto por el agente.
+  const key = deckNameKey(trimmed);
+  if (library.decks.some((deck) => deckNameKey(deck.name) === key)) {
+    return { ok: false, error: 'nombre-duplicado' };
+  }
+
   const deck: Deck = { id, name: trimmed };
   return { ok: true, library: { ...library, decks: [...library.decks, deck] } };
 }

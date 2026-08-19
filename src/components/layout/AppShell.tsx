@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useLayoutMode } from '../../lib/layout';
+import { goToTopLevel } from '../../lib/navigation';
 import { colors, sizes, spacing, typography } from '../../theme';
 
 import { NavigationItemButton } from './NavigationItemButton';
@@ -29,10 +30,9 @@ export function AppShell({ children }: AppShellProps) {
   const insets = useSafeAreaInsets();
 
   const goTo = (href: NavigationItem['href']) => {
-    // `replace` y no `navigate`: los destinos de la navegación base son de primer nivel.
-    // Con `navigate`, volver a una ruta ya visitada apilaba una segunda instancia de la
-    // pantalla en el Stack en lugar de sustituirla.
-    router.replace(href);
+    // Destinos de primer nivel: se vacía el apilado y se sustituye la raíz, de modo que la
+    // profundidad no crece por muchas idas y vueltas que haya. Ver src/lib/navigation.ts.
+    goToTopLevel(router, () => router.replace(href));
   };
 
   const isActive = (href: NavigationItem['href']) =>

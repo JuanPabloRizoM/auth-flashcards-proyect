@@ -1,50 +1,59 @@
 # Sesión actual
 
-- **Task activa:** ninguna — proyecto en estado IDLE
-- **Última tarea cerrada:** TASK-003 — Mazos, flashcards y estudio simple sobre la nueva dirección visual (`DONE`, 2026-08-18)
-- **Estado del harness:** `./init.sh` exit 0
-- **Repositorio:** rama `main`, remoto `https://github.com/JuanPabloRizoM/auth-flashcards-proyect.git`
+- **Task:** TASK-004 — Persistencia local, unicidad de mazos y estabilización de navegación
+- **Estado:** _REVIEWING_
+- **Agente:** _implementer (entregado)_
+- **Contrato:** `.harness/contracts/TASK-004.json` (51 acceptance, `open_questions: []`)
+- **Inicio:** 2026-08-18
+- **Repositorio:** `main`, base `06622c2`
 
-No hay tarea en curso. El usuario decide cuál es la siguiente; el harness no propone roadmap.
+## Baseline
 
-## Estado del proyecto
+`./init.sh` exit 0 antes de modificar ningún archivo, y exit 0 al cierre de la implementación.
 
-- **Entorno** (TASK-001): Expo SDK 57, React Native, Expo Router, TypeScript. Plataformas
-  declaradas: iOS, Android y web.
-- **Base visual** (TASK-002): `AppShell` con sidebar en desktop y barra compacta en móvil;
-  componentes compartidos Button, Card, Input, Loading, EmptyState y Message.
-- **Producto** (TASK-003): paleta confirmada en los tokens; Mis mazos, detalle del mazo y estudio
-  simple. Lógica pura en `src/features/`, acceso a datos centralizado en `src/lib/LibraryProvider`.
-- **Rutas**: `/` (Mis mazos), `/componentes` (catálogo del sistema visual), `/mazo/[id]` y
-  `/mazo/[id]/estudiar`.
-- **Gates**: `typecheck`, `lint`, `test` (62), `test:integration` (33), `test:e2e` (33 + 3 skipped
-  sobre desktop-chrome, Pixel 5 e iPhone 13), más `smoke:web` y `e2e:install`.
+## Petición actual del usuario
 
-## Preguntas abiertas para el usuario
+Añadir persistencia local de mazos y flashcards detrás de la abstracción de repositorio, impedir
+mazos con nombre duplicado según la normalización confirmada, y corregir el crecimiento ilimitado
+del stack de navegación. Ciclo completo del harness sin confirmaciones intermedias. No iniciar
+TASK-005.
 
-- **¿Deben permitirse dos mazos con el mismo nombre?** Hoy se permiten. La primera versión de
-  TASK-003 los rechazaba, pero el review #1 señaló que prohibirlos es una decisión de producto que
-  el agente no puede tomar. No bloquea nada.
+## Plan corto
 
-## Pendientes registrados (ninguno bloquea el harness)
+1. Baseline `./init.sh` verde. — hecho
+2. Lectura obligatoria. — hecho
+3. `docs/PRODUCT.md` con las siete decisiones confirmadas. — hecho
+4. Task y contrato con `allowed_paths` coherentes desde el principio. — hecho
+5. Capa de almacenamiento detrás de un contrato. — hecho
+6. Hidratación, estados de carga y manejo de errores. — hecho
+7. Unicidad de nombre en la lógica de dominio. — hecho
+8. Corrección del stack de navegación. — hecho
+9. Tests unit + integración + e2e, con regresión demostrada. — hecho
+10. Gates + evidencia. — hecho
+11. Review #1 independiente. — hecho (**CHANGES_REQUIRED**, F1-F6)
+12. Corrección de F1-F6. — hecho
+13. Review #2 independiente. — **pendiente**
+14. Commit del candidato, QA y cierre. — **pendiente**
 
-- **Los datos no se persisten.** Viven en memoria; al recargar la página se pierde todo. Es
-  consecuencia directa de que la decisión de almacenamiento no esté tomada. El botón atrás del
-  navegador tiene el mismo efecto.
-- **El apilado crece sin límite** al pulsar un destino de primer nivel desde una pantalla apilada:
-  quedan instancias montadas aunque solo una sea visible. Sin errores ni efecto observable, pero es
-  de la misma familia que los dos bugs de navegación ya corregidos.
-- **Sin editar ni borrar** mazos ni cartas: el usuario no lo ha pedido.
-- **Playwright en máquina nueva**: ejecutar `npm run e2e:install` una vez antes de `npm run test:e2e`.
-- **Contrato vs task de TASK-001**: el `allowed_paths` del contrato omite `.claude/**`, que el task
-  sí incluye y es el que aplica `check_scope.py`. Para el planner en una tarea futura.
-- **Sin iconos propios** ni modo oscuro.
-- **Decisiones de producto no tomadas**: autenticación, base de datos y persistencia,
-  sincronización, algoritmo de repetición espaciada y calificación, estadísticas, subcategorías
-  anidadas, modo oscuro, importación desde Anki, notificaciones, colaboración e IA.
+## Decisiones técnicas de esta sesión
 
-## Evidencia
+- **Almacenamiento**: `@react-native-async-storage/async-storage` 2.2.0, instalada con
+  `npx expo install`. Cubre web, iOS y Android con una sola implementación.
+- El contrato `LibraryRepository` aísla la librería: es el único archivo que la importa.
+- Forma persistida: un único documento JSON con `version`, `decks` y `cards`.
+- Ante contenido ausente, biblioteca vacía. Ante contenido inválido, biblioteca vacía **sin
+  sobrescribir** lo guardado.
+- `goToTopLevel` vacía el apilado con `dismissAll` antes de sustituir la raíz.
+- Normalización de nombres: solo recortar extremos y comparar sin mayúsculas.
 
-- TASK-001: `progress/evidence/TASK-001-{implementation,review,qa}.md`
-- TASK-002: `progress/evidence/TASK-002-{implementation,review,qa}.md`
-- TASK-003: `progress/evidence/TASK-003-{implementation,review,qa}.md`
+## Preguntas abiertas
+
+- Ninguna. Las siete decisiones necesarias las confirmó el usuario antes de empezar.
+
+## Evidencia disponible
+
+- `progress/evidence/TASK-004-implementation.md`
+
+## Próximo paso
+
+Reviewer independiente (read-only) sobre task + contract + diff + evidencia.

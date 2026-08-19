@@ -31,6 +31,16 @@ Añade aquí únicamente decisiones que el usuario haya tomado explícitamente.
   Siguiente carta. Sin calificación.
 - [2026-08-18] La zona reservada a botones de calificación puede eliminarse o quedar como espacio
   estructural no interactivo, pero nunca debe aparentar una funcionalidad disponible.
+- [2026-08-18] No se permiten dos mazos con el mismo nombre.
+- [2026-08-18] Para comprobar duplicados: eliminar espacios al principio y al final, y comparar sin
+  distinguir mayúsculas y minúsculas. No se aplica ninguna otra normalización.
+- [2026-08-18] Debe existir persistencia local de mazos y flashcards.
+- [2026-08-18] La persistencia es local al dispositivo o navegador.
+- [2026-08-18] La persistencia remota, la sincronización y Supabase siguen fuera de scope.
+- [2026-08-18] El acceso a almacenamiento vive detrás de la abstracción de repositorio, para poder
+  sustituir la implementación después sin reescribir las pantallas.
+- [2026-08-18] Debe corregirse el crecimiento ilimitado del stack de navegación detectado tras
+  TASK-003.
 ```
 
 ## Decisiones todavía NO tomadas
@@ -38,8 +48,10 @@ Añade aquí únicamente decisiones que el usuario haya tomado explícitamente.
 No asumir ni completar automáticamente temas como:
 
 - autenticación, y su método (correo/contraseña, Google, Apple u otros);
-- base de datos y persistencia (Supabase incluida);
+- base de datos remota y persistencia en la nube (Supabase incluida);
 - sincronización entre dispositivos;
+- cuentas de usuario y colaboración;
+- editar o eliminar mazos y flashcards;
 - modelo de suscripción;
 - algoritmo de repetición espaciada, y cualquier botón o escala de calificación;
 - estadísticas;

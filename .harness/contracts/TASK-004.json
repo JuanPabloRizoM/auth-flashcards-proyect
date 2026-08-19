@@ -1,0 +1,480 @@
+{
+  "task_id": "TASK-004",
+  "goal": "Hacer que los mazos y flashcards creados sobrevivan a recargas y reinicios normales de la aplicación mediante almacenamiento local persistente, impedir la creación de mazos con nombres duplicados y corregir el crecimiento acumulativo de instancias de navegación, conservando la arquitectura existente y sin introducir backend remoto.",
+  "requirements_snapshot": [
+    "Los mazos deben persistir localmente.",
+    "Las flashcards deben persistir localmente.",
+    "Las relaciones mazo -> cartas deben conservarse.",
+    "Al recargar la aplicación, los datos creados deben seguir disponibles.",
+    "Al cerrar y volver a abrir una instancia soportada de la aplicación, los datos persistidos deben restaurarse.",
+    "No se permiten mazos con nombres duplicados según la normalización confirmada.",
+    "La validación de duplicados debe estar en la lógica de dominio o datos, no únicamente en la interfaz.",
+    "La interfaz debe mostrar un mensaje claro al intentar crear un mazo duplicado.",
+    "El almacenamiento debe estar abstraído detrás del repositorio o capa de datos.",
+    "Las pantallas no deben depender directamente de la tecnología concreta de persistencia.",
+    "Debe corregirse el crecimiento ilimitado del stack de navegación.",
+    "Navegar repetidamente entre destinos principales y pantallas apiladas no debe acumular instancias invisibles indefinidamente.",
+    "El botón atrás debe seguir teniendo un comportamiento coherente tras la corrección.",
+    "Todo debe seguir funcionando en web, Android e iOS según la compatibilidad actual del proyecto.",
+    "La apariencia visual de TASK-003 debe conservarse.",
+    "No se permiten dos mazos con el mismo nombre.",
+    "Normalización para comparar duplicados: eliminar espacios al principio y al final, y comparar sin distinguir mayúsculas y minúsculas. Ninguna otra normalización.",
+    "La persistencia de esta tarea es local al dispositivo o navegador.",
+    "La persistencia remota, la sincronización y Supabase siguen fuera de scope.",
+    "El acceso a almacenamiento continúa detrás de la abstracción de repositorio existente.",
+    "La elección de librería de almacenamiento local es una decisión técnica, no de producto, y debe justificarse en la evidencia."
+  ],
+  "open_questions": [],
+  "acceptance": [
+    "Existe una implementación persistente del repositorio de almacenamiento usado por mazos y cartas.",
+    "La interfaz no accede directamente a la API concreta de almacenamiento.",
+    "Crear un mazo lo persiste.",
+    "Crear una flashcard la persiste.",
+    "Recargar la aplicación conserva los mazos.",
+    "Recargar la aplicación conserva las flashcards.",
+    "Las cartas siguen perteneciendo al mazo correcto después de restaurar los datos.",
+    "Crear varios mazos conserva correctamente sus datos independientes.",
+    "Un nombre de mazo vacío sigue siendo rechazado.",
+    "Un nombre formado solo por espacios sigue siendo rechazado.",
+    "No puede crearse 'Inglés' si ya existe 'INGLÉS'.",
+    "No puede crearse 'Inglés' si ya existe ' Inglés '.",
+    "La validación de duplicados no depende exclusivamente de la pantalla.",
+    "Al intentar crear un duplicado, la persona usuaria recibe un mensaje visible y comprensible.",
+    "Un intento de duplicado no modifica los datos persistidos existentes.",
+    "Persistir una segunda carta no elimina ni sobrescribe la primera.",
+    "La restauración de datos no crea copias duplicadas.",
+    "El estado inicial sin datos sigue mostrando correctamente el estado vacío.",
+    "La aplicación maneja correctamente un almacenamiento vacío.",
+    "Los datos persistidos válidos se hidratan antes de presentarse como estado definitivo, evitando un falso estado vacío perceptible.",
+    "Existe un estado de carga durante la hidratación.",
+    "Un error de lectura o escritura del almacenamiento se maneja de forma controlada y no provoca un fallo de la aplicación.",
+    "La corrección de navegación elimina el crecimiento ilimitado de instancias montadas detectado por QA en TASK-003.",
+    "Repetir al menos 15 ciclos del escenario que antes producía 16 instancias no produce crecimiento proporcional del stack.",
+    "Solo permanece la cantidad de instancias necesaria para representar el estado de navegación correcto.",
+    "Ninguna pantalla invisible conserva estado indebidamente por culpa de stacks antiguos.",
+    "Mis mazos sigue funcionando.",
+    "Abrir un mazo sigue funcionando.",
+    "Abrir el estudio sigue funcionando.",
+    "Volver del estudio sigue funcionando.",
+    "La navegación por el sidebar de desktop sigue funcionando.",
+    "La navegación compacta de móvil sigue funcionando.",
+    "No aparecen rutas rotas después de la corrección.",
+    "El flujo completo funciona en desktop Chrome.",
+    "El flujo completo funciona en mobile Chrome.",
+    "El flujo completo funciona en mobile Safari/WebKit.",
+    "No aparece overflow horizontal nuevo.",
+    "Los controles táctiles mantienen los requisitos existentes.",
+    "Los tests de TASK-001, TASK-002 y TASK-003 continúan pasando.",
+    "Existen tests unitarios de la normalización y la unicidad de nombre.",
+    "Existe un test que demuestra que un duplicado se rechaza desde la lógica y no solo desde la interfaz.",
+    "Existen tests de serialización e hidratación del almacenamiento.",
+    "Existe un test de integración crear mazo -> persistir -> reconstruir estado -> el mazo existe.",
+    "Existe un test de integración crear carta -> persistir -> reconstruir estado -> la carta existe en el mismo mazo.",
+    "Existe un test que comprueba el aislamiento de cartas entre mazos después de persistir y restaurar.",
+    "Existe un test de regresión real del crecimiento del stack de navegación.",
+    "El test de regresión falla si se reintroduce deliberadamente el comportamiento de navegación anterior.",
+    "No se han debilitado ni eliminado tests para conseguir verde.",
+    "No se han introducido decisiones de producto adicionales.",
+    "./init.sh termina con exit code 0.",
+    "La evidencia completa queda registrada en progress/evidence/TASK-004-implementation.md."
+  ],
+  "verification_matrix": [
+    {
+      "acceptance": "Existe una implementación persistente del repositorio de almacenamiento usado por mazos y cartas.",
+      "method": "unit",
+      "command_or_procedure": "npm test (tests/unit/storage-*.test.ts) + inspección de src/lib/storage/",
+      "evidence_expected": "Existe un contrato LibraryRepository y una implementación persistente que lo cumple; los tests de contrato corren contra ambas implementaciones."
+    },
+    {
+      "acceptance": "La interfaz no accede directamente a la API concreta de almacenamiento.",
+      "method": "review",
+      "command_or_procedure": "grep de la librería de almacenamiento en app/ y src/components/",
+      "evidence_expected": "Cero importaciones de la librería concreta fuera de src/lib/storage/; pantallas y componentes solo usan el hook del proveedor."
+    },
+    {
+      "acceptance": "Crear un mazo lo persiste.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration (tests/integration/persistence.test.tsx)",
+      "evidence_expected": "Tras crear un mazo, el repositorio contiene el mazo serializado."
+    },
+    {
+      "acceptance": "Crear una flashcard la persiste.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration",
+      "evidence_expected": "Tras crear una carta, el repositorio contiene la carta serializada con su deckId."
+    },
+    {
+      "acceptance": "Recargar la aplicación conserva los mazos.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration destruyendo y recreando el proveedor; npm run test:e2e con page.reload()",
+      "evidence_expected": "El mazo sigue disponible tras reconstruir el estado desde el almacenamiento y tras recargar el navegador."
+    },
+    {
+      "acceptance": "Recargar la aplicación conserva las flashcards.",
+      "method": "integration + e2e",
+      "command_or_procedure": "Igual que el anterior, sobre cartas",
+      "evidence_expected": "La carta sigue disponible tras reconstruir el estado y tras recargar."
+    },
+    {
+      "acceptance": "Las cartas siguen perteneciendo al mazo correcto después de restaurar los datos.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration con dos mazos y cartas en cada uno",
+      "evidence_expected": "Tras restaurar, cada carta aparece solo en su mazo original."
+    },
+    {
+      "acceptance": "Crear varios mazos conserva correctamente sus datos independientes.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration creando varios mazos",
+      "evidence_expected": "Los mazos se restauran todos, con sus nombres y sus cartas correctos."
+    },
+    {
+      "acceptance": "Un nombre de mazo vacío sigue siendo rechazado.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test sobre createDeck y npm run test:integration sobre la pantalla",
+      "evidence_expected": "Nombre vacío rechazado con error tipado y mensaje visible."
+    },
+    {
+      "acceptance": "Un nombre formado solo por espacios sigue siendo rechazado.",
+      "method": "unit + integration",
+      "command_or_procedure": "Igual, con una cadena de solo espacios",
+      "evidence_expected": "Rechazado con el mismo error."
+    },
+    {
+      "acceptance": "No puede crearse 'Inglés' si ya existe 'INGLÉS'.",
+      "method": "unit",
+      "command_or_procedure": "npm test (tests/unit/library.test.ts)",
+      "evidence_expected": "createDeck devuelve nombre-duplicado al comparar 'Inglés' con 'INGLÉS'."
+    },
+    {
+      "acceptance": "No puede crearse 'Inglés' si ya existe ' Inglés '.",
+      "method": "unit",
+      "command_or_procedure": "npm test",
+      "evidence_expected": "createDeck devuelve nombre-duplicado al comparar 'Inglés' con ' Inglés '."
+    },
+    {
+      "acceptance": "La validación de duplicados no depende exclusivamente de la pantalla.",
+      "method": "unit",
+      "command_or_procedure": "npm test sobre la lógica pura, sin montar interfaz",
+      "evidence_expected": "El rechazo del duplicado se demuestra invocando la función de dominio directamente."
+    },
+    {
+      "acceptance": "Al intentar crear un duplicado, la persona usuaria recibe un mensaje visible y comprensible.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration y npm run test:e2e",
+      "evidence_expected": "Se muestra un Message de error anclado al campo del nombre, con texto comprensible."
+    },
+    {
+      "acceptance": "Un intento de duplicado no modifica los datos persistidos existentes.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration comprobando el repositorio tras el intento",
+      "evidence_expected": "El contenido persistido es idéntico antes y después del intento fallido."
+    },
+    {
+      "acceptance": "Persistir una segunda carta no elimina ni sobrescribe la primera.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration creando dos cartas seguidas",
+      "evidence_expected": "Tras restaurar, ambas cartas existen con su contenido intacto."
+    },
+    {
+      "acceptance": "La restauración de datos no crea copias duplicadas.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration hidratando dos veces",
+      "evidence_expected": "El número de mazos y cartas tras rehidratar es el mismo; no se duplican."
+    },
+    {
+      "acceptance": "El estado inicial sin datos sigue mostrando correctamente el estado vacío.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration con almacenamiento vacío",
+      "evidence_expected": "Se renderiza el estado vacío de Mis mazos, no una lista vacía sin explicación."
+    },
+    {
+      "acceptance": "La aplicación maneja correctamente un almacenamiento vacío.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test sobre el parseo de contenido ausente y npm run test:integration",
+      "evidence_expected": "Un almacenamiento sin clave devuelve la biblioteca vacía sin lanzar."
+    },
+    {
+      "acceptance": "Los datos persistidos válidos se hidratan antes de presentarse como estado definitivo, evitando un falso estado vacío perceptible.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration observando los estados del proveedor",
+      "evidence_expected": "Mientras la hidratación no termina no se muestra el estado vacío; al terminar aparecen los datos."
+    },
+    {
+      "acceptance": "Existe un estado de carga durante la hidratación.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration",
+      "evidence_expected": "Existe un estado de carga observable durante la hidratación."
+    },
+    {
+      "acceptance": "Un error de lectura o escritura del almacenamiento se maneja de forma controlada y no provoca un fallo de la aplicación.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test con un repositorio que lanza al leer y al escribir; npm run test:integration",
+      "evidence_expected": "La aplicación no falla, muestra un mensaje de error controlado y no borra los datos válidos existentes."
+    },
+    {
+      "acceptance": "La corrección de navegación elimina el crecimiento ilimitado de instancias montadas detectado por QA en TASK-003.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration (regresión de stack) y npm run test:e2e contando instancias en el DOM",
+      "evidence_expected": "Tras repetir el escenario, el número de instancias montadas no crece."
+    },
+    {
+      "acceptance": "Repetir al menos 15 ciclos del escenario que antes producía 16 instancias no produce crecimiento proporcional del stack.",
+      "method": "integration + e2e",
+      "command_or_procedure": "15 ciclos del escenario detalle -> destino de primer nivel",
+      "evidence_expected": "El stack no crece de forma proporcional: la profundidad se mantiene acotada."
+    },
+    {
+      "acceptance": "Solo permanece la cantidad de instancias necesaria para representar el estado de navegación correcto.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration comprobando canGoBack y canDismiss tras los ciclos",
+      "evidence_expected": "Solo queda la profundidad necesaria; no hay historial acumulado."
+    },
+    {
+      "acceptance": "Ninguna pantalla invisible conserva estado indebidamente por culpa de stacks antiguos.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e contando elementos con el mismo testID, visibles e invisibles",
+      "evidence_expected": "No quedan instancias invisibles de pantallas anteriores conservando estado."
+    },
+    {
+      "acceptance": "Mis mazos sigue funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "Mis mazos carga y lista los mazos."
+    },
+    {
+      "acceptance": "Abrir un mazo sigue funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "Abrir un mazo lleva a su detalle."
+    },
+    {
+      "acceptance": "Abrir el estudio sigue funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "Abrir el estudio muestra la primera carta."
+    },
+    {
+      "acceptance": "Volver del estudio sigue funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "Volver del estudio devuelve al detalle del mazo."
+    },
+    {
+      "acceptance": "La navegación por el sidebar de desktop sigue funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e proyecto desktop-chrome",
+      "evidence_expected": "El sidebar navega entre destinos."
+    },
+    {
+      "acceptance": "La navegación compacta de móvil sigue funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e proyectos móviles",
+      "evidence_expected": "La barra compacta navega entre destinos."
+    },
+    {
+      "acceptance": "No aparecen rutas rotas después de la corrección.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e capturando errores de consola y estados 404",
+      "evidence_expected": "Ninguna ruta rota; consola sin errores."
+    },
+    {
+      "acceptance": "El flujo completo funciona en desktop Chrome.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e proyecto desktop-chrome",
+      "evidence_expected": "El recorrido completo pasa."
+    },
+    {
+      "acceptance": "El flujo completo funciona en mobile Chrome.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e proyecto mobile-chrome",
+      "evidence_expected": "El recorrido completo pasa."
+    },
+    {
+      "acceptance": "El flujo completo funciona en mobile Safari/WebKit.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e proyecto mobile-safari",
+      "evidence_expected": "El recorrido completo pasa."
+    },
+    {
+      "acceptance": "No aparece overflow horizontal nuevo.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e comparando scrollWidth con clientWidth",
+      "evidence_expected": "scrollWidth <= clientWidth en todas las rutas y proyectos."
+    },
+    {
+      "acceptance": "Los controles táctiles mantienen los requisitos existentes.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e midiendo boundingBox en los proyectos móviles",
+      "evidence_expected": "Todo control interactivo visible mide al menos 44x44."
+    },
+    {
+      "acceptance": "Los tests de TASK-001, TASK-002 y TASK-003 continúan pasando.",
+      "method": "integration",
+      "command_or_procedure": "./init.sh con la suite completa",
+      "evidence_expected": "Los tests heredados siguen pasando; los que cambian lo hacen solo por una acceptance de TASK-004, documentado."
+    },
+    {
+      "acceptance": "Existen tests unitarios de la normalización y la unicidad de nombre.",
+      "method": "unit",
+      "command_or_procedure": "npm test (tests/unit/library.test.ts)",
+      "evidence_expected": "Cobertura de la normalización confirmada: recorte de extremos y comparación sin mayúsculas, y de que no se aplica ninguna otra."
+    },
+    {
+      "acceptance": "Existe un test que demuestra que un duplicado se rechaza desde la lógica y no solo desde la interfaz.",
+      "method": "unit",
+      "command_or_procedure": "npm test invocando createDeck directamente",
+      "evidence_expected": "El duplicado se rechaza sin render de ninguna pantalla."
+    },
+    {
+      "acceptance": "Existen tests de serialización e hidratación del almacenamiento.",
+      "method": "unit",
+      "command_or_procedure": "npm test (tests/unit/storage-serialization.test.ts)",
+      "evidence_expected": "Cobertura de serializar, parsear, versión, contenido ausente, JSON inválido y forma inválida."
+    },
+    {
+      "acceptance": "Existe un test de integración crear mazo -> persistir -> reconstruir estado -> el mazo existe.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration",
+      "evidence_expected": "Crear mazo, desmontar el proveedor, montar uno nuevo con el mismo repositorio y comprobar que el mazo sigue."
+    },
+    {
+      "acceptance": "Existe un test de integración crear carta -> persistir -> reconstruir estado -> la carta existe en el mismo mazo.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration",
+      "evidence_expected": "Igual, con una carta, comprobando que queda en el mismo mazo."
+    },
+    {
+      "acceptance": "Existe un test que comprueba el aislamiento de cartas entre mazos después de persistir y restaurar.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration con dos mazos",
+      "evidence_expected": "Tras restaurar, ninguna carta aparece en el mazo que no le corresponde."
+    },
+    {
+      "acceptance": "Existe un test de regresión real del crecimiento del stack de navegación.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration y npm run test:e2e",
+      "evidence_expected": "El test mide acumulación real (profundidad de stack e instancias en el DOM), no solo qué pantalla se ve."
+    },
+    {
+      "acceptance": "El test de regresión falla si se reintroduce deliberadamente el comportamiento de navegación anterior.",
+      "method": "integration",
+      "command_or_procedure": "Reintroducir deliberadamente la navegación anterior y ejecutar la suite",
+      "evidence_expected": "El test de regresión falla con el comportamiento anterior y pasa con la corrección; queda registrada la salida de ambas ejecuciones."
+    },
+    {
+      "acceptance": "No se han debilitado ni eliminado tests para conseguir verde.",
+      "method": "review",
+      "command_or_procedure": "Comparación de los conteos de tests antes y después y revisión del diff de tests",
+      "evidence_expected": "Ningún test eliminado ni debilitado sin que una acceptance de TASK-004 lo justifique."
+    },
+    {
+      "acceptance": "No se han introducido decisiones de producto adicionales.",
+      "method": "review",
+      "command_or_procedure": "Revisión de docs/PRODUCT.md y del código frente a las decisiones confirmadas",
+      "evidence_expected": "Solo constan las decisiones que el usuario confirmó para esta tarea."
+    },
+    {
+      "acceptance": "./init.sh termina con exit code 0.",
+      "method": "static",
+      "command_or_procedure": "./init.sh",
+      "evidence_expected": "Exit code 0 con todos los gates en [OK]."
+    },
+    {
+      "acceptance": "La evidencia completa queda registrada en progress/evidence/TASK-004-implementation.md.",
+      "method": "inspection",
+      "command_or_procedure": "Lectura del archivo de evidencia",
+      "evidence_expected": "Baseline, archivos, acceptance -> evidencia, comandos, resultados, decisiones técnicas, riesgos y lo no verificado."
+    }
+  ],
+  "technical_decisions": [
+    {
+      "decision": "Almacenamiento local con @react-native-async-storage/async-storage.",
+      "reason": "Es la opción que Expo instala y soporta para las tres plataformas declaradas (web sobre localStorage, iOS y Android nativos), con una API mínima de clave/valor. No exige adaptadores distintos por plataforma, así que un único repositorio cumple el contrato. Alternativas descartadas: expo-sqlite es desproporcionado para un objeto pequeño, y localStorage directo no existe en nativo."
+    },
+    {
+      "decision": "El almacenamiento vive detrás de un contrato LibraryRepository en src/lib/storage/.",
+      "reason": "Requisito confirmado. Permite sustituir la implementación sin tocar pantallas, y permite probar con un repositorio en memoria y con uno que falla."
+    },
+    {
+      "decision": "Formato persistido: un único objeto JSON con version, decks y cards.",
+      "reason": "docs/ARCHITECTURE.md pide acceso a datos centralizado y el usuario pide mantenerlo simple. Un solo documento evita escrituras parciales inconsistentes entre mazos y cartas."
+    },
+    {
+      "decision": "Ante contenido ausente se devuelve la biblioteca vacía; ante contenido inválido se devuelve la biblioteca vacía y se informa del error, sin sobrescribir el almacenamiento.",
+      "reason": "El usuario exige no borrar silenciosamente datos válidos. El contenido inválido no se borra: se deja intacto hasta que una acción de la persona usuaria escriba encima."
+    },
+    {
+      "decision": "Los destinos de primer nivel salen del apilado con dismissAll antes de reemplazar la ruta.",
+      "reason": "La causa del crecimiento era que replace sustituye la pantalla actual pero deja las de debajo. dismissAll vuelve a la raíz del stack y replace la sustituye, de modo que la profundidad se mantiene en 1."
+    },
+    {
+      "decision": "La normalización de nombres se limita a recortar extremos y comparar sin mayúsculas.",
+      "reason": "Exactamente lo confirmado por el usuario. En TASK-003 existió una versión que además colapsaba espacios internos: eso es una normalización no confirmada y no se reintroduce."
+    }
+  ],
+  "allowed_paths": [
+    "app/**",
+    "src/**",
+    "tests/**",
+    "package.json",
+    "package-lock.json",
+    "app.json",
+    "tsconfig.json",
+    "eslint.config.js",
+    "jest.config.js",
+    "playwright.config.ts",
+    "docs/**",
+    "progress/**",
+    ".harness/**"
+  ],
+  "required_docs": [
+    "docs/PRODUCT.md",
+    "docs/ARCHITECTURE.md",
+    "docs/CONVENTIONS.md",
+    "docs/DESIGN.md",
+    "docs/TESTING.md",
+    "docs/VERIFICATION.md"
+  ],
+  "required_gates": [
+    "baseline",
+    "scope",
+    "static",
+    "unit",
+    "integration",
+    "persistence",
+    "e2e",
+    "regression"
+  ],
+  "out_of_scope": [
+    "Supabase.",
+    "PostgreSQL remoto.",
+    "Autenticación.",
+    "Google login.",
+    "Email/password.",
+    "Apple login.",
+    "Sincronización entre dispositivos.",
+    "Cuentas de usuario.",
+    "Datos en la nube.",
+    "Colaboración.",
+    "Importar desde Anki.",
+    "Exportar a Anki.",
+    "Algoritmo de repetición espaciada.",
+    "Calificaciones de estudio.",
+    "Estadísticas.",
+    "IA.",
+    "Notificaciones.",
+    "Modo oscuro.",
+    "Subcategorías.",
+    "Editar mazos.",
+    "Eliminar mazos.",
+    "Editar flashcards.",
+    "Eliminar flashcards.",
+    "Migraciones complejas de datos que todavía no existen.",
+    "Encriptación o sistemas de cuenta no solicitados.",
+    "Cualquier feature futura no requerida por esta tarea."
+  ],
+  "baseline_required": true,
+  "regression_required": true,
+  "review_required": true,
+  "qa_required": true
+}

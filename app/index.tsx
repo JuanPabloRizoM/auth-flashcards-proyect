@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ScreenHeader } from '../src/components/layout';
-import { Button, Card, EmptyState, Input } from '../src/components/ui';
+import { Button, Card, EmptyState, Input, Loading, Message } from '../src/components/ui';
 import { countCardsOfDeck, libraryErrorMessage } from '../src/features/decks/library';
 import { useLibrary } from '../src/lib/LibraryProvider';
 import { spacing } from '../src/theme';
@@ -11,11 +11,12 @@ import { spacing } from '../src/theme';
 /** Mis mazos: lista los mazos y permite crear uno nuevo. */
 export default function MisMazosScreen() {
   const router = useRouter();
-  const { library, createDeck } = useLibrary();
+  const { library, status, storageError, createDeck } = useLibrary();
   const [name, setName] = useState('');
   const [error, setError] = useState<string | undefined>(undefined);
 
   const total = library.decks.length;
+  const hydrating = status === 'loading';
 
   const onCreate = () => {
     const result = createDeck(name);
@@ -34,12 +35,28 @@ export default function MisMazosScreen() {
     }
   };
 
+  // Mientras se hidrata no se muestra el estado vacío: sería un vacío falso.
+  if (hydrating) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Mis mazos" />
+        <Loading message="Recuperando tus mazos…" testID="decks-loading" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ScreenHeader
         subtitle={total === 1 ? '1 mazo' : `${total} mazos`}
         title="Mis mazos"
       />
+
+      {storageError ? (
+        <Message testID="storage-error" title="Problema con el almacenamiento" variant="error">
+          {storageError}
+        </Message>
+      ) : null}
 
       <Card title="Crear un mazo">
         <Input

@@ -46,15 +46,15 @@ describe('createDeck', () => {
     });
   });
 
-  // Rechazar nombres repetidos sería una decisión de producto que el usuario no ha tomado.
-  it('permite un nombre repetido, porque nadie ha decidido prohibirlo', () => {
+  // El usuario decidió el 2026-08-18 que los nombres repetidos no se permiten.
+  // La cobertura detallada de la normalización vive en deck-name-uniqueness.test.ts.
+  it('rechaza un nombre repetido', () => {
     const library = libraryConMazo('Inglés');
-    const result = createDeck(library, 'Inglés', 'mazo-2');
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.library.decks).toHaveLength(2);
-    }
+    expect(createDeck(library, 'Inglés', 'mazo-2')).toEqual({
+      ok: false,
+      error: 'nombre-duplicado',
+    });
   });
 
   it('permite dos mazos con nombres distintos', () => {
@@ -143,6 +143,9 @@ describe('consultas', () => {
 describe('libraryErrorMessage', () => {
   it('da un mensaje accionable para cada error', () => {
     expect(libraryErrorMessage('nombre-requerido')).toBe('Escribe un nombre para el mazo.');
+    expect(libraryErrorMessage('nombre-duplicado')).toBe(
+      'Ya tienes un mazo con ese nombre. Elige otro.',
+    );
     expect(libraryErrorMessage('frente-requerido')).toBe('Escribe el frente de la carta.');
     expect(libraryErrorMessage('reverso-requerido')).toBe('Escribe el reverso de la carta.');
     expect(libraryErrorMessage('mazo-inexistente')).toBe('Ese mazo ya no existe.');

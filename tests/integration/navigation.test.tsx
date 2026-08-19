@@ -70,6 +70,74 @@ describe('Navegación base', () => {
     expect(screen.queryAllByTestId('catalogo-button-primary')).toHaveLength(0);
   });
 
+  // Regresión del crecimiento del stack encontrado por QA tras TASK-003.
+  //
+  // El escenario es el que lo producía: entrar en una pantalla apilada y volver a un destino
+  // de primer nivel, una y otra vez. Con `replace` a secas, cada vuelta dejaba la pantalla
+  // anterior debajo y el apilado crecía (QA midió 16 instancias tras 15 ciclos).
+  //
+  // La comprobación es sobre la ACUMULACIÓN, no sobre qué pantalla se ve: mirar la pantalla
+  // visible daría verde igualmente con el bug presente, que es justo el test vacuo que hay
+  // que evitar. Se mide el historial acumulado, que es lo que crecía.
+  it('repetir 15 ciclos detalle -> destino de primer nivel no acumula stack', async () => {
+    renderRouter(routes, { initialUrl: '/' });
+    await screen.findByTestId('create-deck-button');
+
+    fireEvent.changeText(screen.getByTestId('deck-name-input'), 'Inglés');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('create-deck-button'));
+    });
+    await screen.findByTestId('decks-list');
+
+    expect(router.canGoBack()).toBe(false);
+    expect(router.canDismiss()).toBe(false);
+
+    for (let ciclo = 0; ciclo < 15; ciclo += 1) {
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('deck-mazo-1'));
+      });
+      await screen.findByTestId('add-card-button');
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('nav-mazos'));
+      });
+      await screen.findByTestId('decks-list');
+
+      // Tras cada vuelta el apilado debe quedar en su raíz, no un nivel más hondo.
+      expect(router.canGoBack()).toBe(false);
+      expect(router.canDismiss()).toBe(false);
+    }
+
+    // Y una sola instancia de la pantalla de destino.
+    expect(screen.getAllByTestId('create-deck-button')).toHaveLength(1);
+  });
+
+  it('el detalle sigue apilándose y volviendo de forma coherente', async () => {
+    renderRouter(routes, { initialUrl: '/' });
+    await screen.findByTestId('create-deck-button');
+
+    fireEvent.changeText(screen.getByTestId('deck-name-input'), 'Inglés');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('create-deck-button'));
+    });
+    await screen.findByTestId('decks-list');
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('deck-mazo-1'));
+    });
+    await screen.findByTestId('add-card-button');
+
+    // Dentro del detalle sí hay a dónde volver: el apilado tiene la profundidad correcta.
+    expect(router.canGoBack()).toBe(true);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('back-to-decks'));
+    });
+    await screen.findByTestId('decks-list');
+
+    expect(router.canGoBack()).toBe(false);
+  });
+
   it('marca como seleccionado el destino de la ruta activa', async () => {
     renderRouter(routes, { initialUrl: '/componentes' });
 

@@ -2,6 +2,8 @@
 const baseProject = {
   preset: 'jest-expo',
   testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/tests/e2e/'],
+  setupFiles: ['<rootDir>/tests/setup/async-storage.js'],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup/reset-storage.js'],
 };
 
 module.exports = {

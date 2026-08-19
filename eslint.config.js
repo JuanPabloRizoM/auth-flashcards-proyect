@@ -5,6 +5,18 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = defineConfig([
   expoConfig,
   {
+    // Los archivos de preparación de Jest corren dentro de su runtime, no en la app.
+    files: ['tests/setup/**/*.js'],
+    languageOptions: {
+      globals: {
+        jest: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        require: 'readonly',
+      },
+    },
+  },
+  {
     ignores: [
       'node_modules/**',
       '.expo/**',

@@ -1,9 +1,16 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ScreenHeader } from '../../../src/components/layout';
-import { Button, EmptyState, FlashcardFace, FlashcardSurface, Message } from '../../../src/components/ui';
+import {
+  Button,
+  EmptyState,
+  FlashcardFace,
+  FlashcardSurface,
+  Loading,
+  Message,
+} from '../../../src/components/ui';
 import { cardsOfDeck, findDeck } from '../../../src/features/decks/library';
 import {
   currentCard,
@@ -27,14 +34,33 @@ import { spacing } from '../../../src/theme';
 export default function EstudiarScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { library } = useLibrary();
+  const { library, status } = useLibrary();
 
   const deckId = id ?? '';
   const deck = findDeck(library, deckId);
   const [session, setSession] = useState(() => startSession(cardsOfDeck(library, deckId)));
 
+  // La sesión se construye una vez, cuando los datos ya están hidratados.
+  const hydrated = status === 'ready';
+  const started = useRef(false);
+  useEffect(() => {
+    if (hydrated && !started.current) {
+      started.current = true;
+      setSession(startSession(cardsOfDeck(library, deckId)));
+    }
+  }, [deckId, hydrated, library]);
+
   const goToDeck = () => goBackOr(router, () => router.replace(`/mazo/${deckId}`));
   const goToDecks = () => goBackOr(router, () => router.replace('/'));
+
+  if (status === 'loading') {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Estudiar" />
+        <Loading message="Recuperando las cartas…" testID="study-loading" />
+      </View>
+    );
+  }
 
   if (!deck) {
     return (
