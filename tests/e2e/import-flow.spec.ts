@@ -245,6 +245,31 @@ test.describe('Archivos y filas problemáticas', () => {
   });
 });
 
+test.describe('El aviso de filas descartadas señala el archivo de verdad', () => {
+  /**
+   * Regresión del finding de QA. Con líneas en blanco antes del encabezado, el aviso decía
+   * "fila 4" cuando la fila con problemas era la 6, y la 4 era una fila perfectamente válida.
+   */
+  test('con el encabezado desplazado, nombra la línea correcta', async ({ page }) => {
+    await crearMazoYAbrirImportacion(page);
+
+    await elegirArchivo(page, 'encabezado-desplazado.csv');
+
+    await expect(page.getByText(/Se importarán 3 tarjetas/)).toBeVisible();
+    await expect(page.getByTestId('import-issues')).toContainText('la fila 6');
+    await expect(page.getByTestId('import-issues')).not.toContainText('fila 4');
+
+    await page.getByTestId('confirm-import-button').click();
+    await expect(page.getByTestId('import-result')).toBeVisible();
+    await page.getByTestId('import-done-back').click();
+
+    // Y lo que se importa sigue siendo lo correcto: punto y coma, comillas escapadas y acentos.
+    await expect(page.getByText('¿Capital de Francia?')).toBeVisible();
+    await expect(page.getByText('Dijo "hola", y se fue')).toBeVisible();
+    await expect(page.getByText('Última')).toBeVisible();
+  });
+});
+
 test.describe('La importación no toca lo que ya había', () => {
   test('las cartas y los mazos existentes siguen igual después de importar', async ({ page }) => {
     await page.goto('/');

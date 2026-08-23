@@ -1,6 +1,6 @@
 import type { ParseResult } from '../types';
 
-import { toParsedTable } from './table';
+import { numberRows, toParsedTable } from './table';
 
 /**
  * Parser de tablas Markdown.
@@ -55,7 +55,13 @@ export function parseMarkdown(text: string): ParseResult {
       return { ok: false, error: 'sin-filas' };
     }
 
-    return toParsedTable([headerCells, ...body]);
+    // `index` es 0-based y la línea separadora no viaja en la matriz, así que la primera fila
+    // de datos está dos líneas por debajo del encabezado: encabezado en `index + 1` (1-based),
+    // separador en `index + 2`, primera fila en `index + 3`.
+    return toParsedTable([
+      { cells: headerCells, line: index + 1 },
+      ...numberRows(body, index + 3),
+    ]);
   }
 
   return { ok: false, error: 'sin-tabla' };

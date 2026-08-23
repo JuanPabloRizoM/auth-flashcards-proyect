@@ -219,6 +219,42 @@ describe('Eliminar un mazo', () => {
     expect(screen.getByText(/también/)).toBeTruthy();
   });
 
+  /**
+   * Regresión del segundo finding de QA. La confirmación decía "y también las 0 cartas que
+   * contiene" en un mazo vacío: además de leerse mal, advertía sobre algo que no existe.
+   */
+  it('en un mazo vacío no advierte de cartas que no hay', async () => {
+    const repositorio = createMemoryRepository();
+    montarApp(repositorio);
+    await screen.findByTestId('create-deck-button');
+    await crearMazo('Vacío');
+    await abrirMazo('mazo-1');
+
+    await pulsar('delete-deck-button');
+    const dialogo = await screen.findByTestId('delete-confirm');
+
+    expect(screen.getByText(/que no tiene ninguna carta/)).toBeTruthy();
+    expect(dialogo).toBeTruthy();
+    expect(screen.queryByText(/las 0 cartas/)).toBeNull();
+    // Y el botón de confirmar tampoco promete borrar cartas inexistentes.
+    expect(screen.getByTestId('delete-confirm-confirm')).toHaveTextContent('Eliminar mazo');
+    expect(screen.getByTestId('delete-confirm-confirm')).not.toHaveTextContent('y cartas');
+  });
+
+  it('con una sola carta usa el singular', async () => {
+    const repositorio = createMemoryRepository();
+    montarApp(repositorio);
+    await screen.findByTestId('create-deck-button');
+    await crearMazo('Con una');
+    await abrirMazo('mazo-1');
+    await anadirCarta('one', 'uno');
+
+    await pulsar('delete-deck-button');
+    await screen.findByTestId('delete-confirm');
+
+    expect(screen.getByText(/también la carta que contiene/)).toBeTruthy();
+  });
+
   it('cancelar la confirmación no toca los datos', async () => {
     const repositorio = await escenarioAB();
     const antes = repositorio.peek();

@@ -2,7 +2,7 @@ import Papa from 'papaparse';
 
 import type { ParseResult } from '../types';
 
-import { toParsedTable } from './table';
+import { numberRows, toParsedTable } from './table';
 
 /**
  * Parser de CSV.
@@ -34,7 +34,11 @@ export function parseCsv(text: string): ParseResult {
     return { ok: false, error: 'archivo-ilegible' };
   }
 
-  return toParsedTable(parsed.data.map((row) => (Array.isArray(row) ? row : [])));
+  // Se numeran los registros que devuelve papaparse. Coinciden con las líneas del archivo
+  // salvo que algún campo entrecomillado contenga un salto de línea: entonces ese registro
+  // ocupa varias líneas y los siguientes quedan desplazados hacia abajo. Es una desviación
+  // conocida y acotada, y sigue siendo mucho mejor referencia que contar desde el encabezado.
+  return toParsedTable(numberRows(parsed.data.map((row) => (Array.isArray(row) ? row : []))));
 }
 
 /** Los separadores que se consideran, en orden de preferencia ante un empate. */

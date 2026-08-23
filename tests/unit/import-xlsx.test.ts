@@ -76,6 +76,21 @@ describe('parseXlsx: libro con varias hojas', () => {
   });
 });
 
+describe('parseXlsx: origen de cada fila', () => {
+  it('cada fila lleva su número de fila de la hoja, no su posición', () => {
+    const [sheet] = hojas(parseXlsx(fixtureBytes('basico.xlsx')));
+
+    // Encabezados en la fila 1 de la hoja; los datos en la 2, la 3 y la 4.
+    expect(sheet?.table.rowLines).toEqual([2, 3, 4]);
+  });
+
+  it('el número viene del atributo r de la fila, que es lo que se ve en Excel', () => {
+    const [ingles] = hojas(parseXlsx(fixtureBytes('multihoja.xlsx')));
+
+    expect(ingles?.table.rowLines).toEqual([2, 3]);
+  });
+});
+
 describe('parseXlsx: archivos que no valen', () => {
   it('rechaza un archivo truncado que no llega a ser un ZIP', () => {
     expect(parseXlsx(fixtureBytes('roto.xlsx'))).toEqual({ ok: false, error: 'archivo-ilegible' });

@@ -105,6 +105,12 @@ describe('parseCsv', () => {
     expect(table.rows).toEqual([['Hola'], ['Casa']]);
   });
 
+  it('cada fila recuerda de qué línea del archivo viene', () => {
+    const table = tablaDe(parseCsv(fixtureText('simple.csv')));
+
+    expect(table.rowLines).toEqual([2, 3, 4]);
+  });
+
   it('rechaza un archivo que solo tiene encabezados', () => {
     expect(parseCsv(fixtureText('solo-encabezados.csv'))).toEqual({
       ok: false,
@@ -149,6 +155,13 @@ describe('parseMarkdown', () => {
       ok: false,
       error: 'sin-filas',
     });
+  });
+
+  it('las filas de una tabla que empieza a media página llevan su línea real', () => {
+    // En tabla-question.md el encabezado está en la línea 5 y los datos en la 7 y la 8.
+    const table = tablaDe(parseMarkdown(fixtureText('tabla-question.md')));
+
+    expect(table.rowLines).toEqual([7, 8]);
   });
 
   it('respeta un pipe escapado dentro de una celda', () => {

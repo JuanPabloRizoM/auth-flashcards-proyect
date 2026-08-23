@@ -16,7 +16,7 @@ function tablaDe(nombre: string): ParsedTable {
 }
 
 describe('validateMapping', () => {
-  const table: ParsedTable = { columns: ['A', 'B'], rows: [['1', '2']] };
+  const table: ParsedTable = { columns: ['A', 'B'], rows: [['1', '2']], rowLines: [2] };
 
   it('acepta dos columnas distintas y existentes', () => {
     expect(validateMapping(table, { front: 0, back: 1 })).toEqual({ ok: true });
@@ -93,6 +93,28 @@ describe('buildPreview: qué se importaría', () => {
     ]);
   });
 
+  /**
+   * Regresión del finding de QA. El número de fila se calculaba como "posición dentro de la
+   * tabla + 2", es decir, dando por hecho que el encabezado es la primera línea del archivo.
+   * Con líneas en blanco o una fila de título delante, el aviso señalaba una fila que estaba
+   * bien, que es peor que no dar ninguna: el único motivo por el que se enseña ese número es
+   * que alguien pueda ir a su archivo a arreglar esa fila.
+   */
+  it('señala la línea real del archivo aunque el encabezado no esté en la primera', () => {
+    const table = tablaDe('encabezado-desplazado.csv');
+    const preview = buildPreview(table, { front: 0, back: 1 });
+
+    // El encabezado está en la línea 3 y la fila sin frente en la 6.
+    expect(preview.rejected).toEqual([{ line: 6, issue: 'frente-vacio' }]);
+    expect(preview.rows).toHaveLength(3);
+  });
+
+  it('las líneas de las filas válidas también son las del archivo', () => {
+    const table = tablaDe('encabezado-desplazado.csv');
+
+    expect(table.rowLines).toEqual([4, 5, 6, 7, 8]);
+  });
+
   it('no devuelve nada mientras falte alguna de las dos columnas', () => {
     const preview = buildPreview(tablaDe('simple.csv'), { front: 0, back: null });
 
@@ -101,7 +123,7 @@ describe('buildPreview: qué se importaría', () => {
   });
 
   it('recorta los espacios de cada cara', () => {
-    const table: ParsedTable = { columns: ['A', 'B'], rows: [['  hola  ', ' adiós ']] };
+    const table: ParsedTable = { columns: ['A', 'B'], rows: [['  hola  ', ' adiós ']], rowLines: [2] };
 
     expect(buildPreview(table, { front: 0, back: 1 }).rows).toEqual([
       { front: 'hola', back: 'adiós' },
@@ -133,7 +155,7 @@ describe('describePreview: lo que se le dice a la persona usuaria antes de confi
   });
 
   it('usa el singular cuando corresponde', () => {
-    const table: ParsedTable = { columns: ['A', 'B'], rows: [['uno', 'one']] };
+    const table: ParsedTable = { columns: ['A', 'B'], rows: [['uno', 'one']], rowLines: [2] };
 
     expect(describePreview(buildPreview(table, { front: 0, back: 1 }))).toBe(
       'Se importará 1 tarjeta.',

@@ -217,3 +217,110 @@ Ningún test se ha eliminado ni relajado para cerrar los findings: los conteos s
 Las limitaciones que la evidencia declara —rama nativa sin ejecutar, lector `.xlsx` limitado a
 texto de celdas, fechas empatadas en los mazos migrados— están correctamente identificadas
 como limitaciones y no disfrazadas de comprobadas. Pasa a QA.
+
+---
+
+## Ronda 3 — `APPROVED` (tras el finding de QA)
+
+QA devolvió `QA_FAILED` con un finding medio: el número de fila que anuncia la vista previa no
+era el del archivo cuando el encabezado no estaba en la primera línea. Se revisa la corrección.
+
+### Qué se ha cambiado
+
+`ParsedTable` gana `rowLines: number[]`, en paralelo a `rows`: de dónde viene cada fila en el
+origen. Lo rellena cada parser, que es el único que lo sabe:
+
+- **CSV**: el número de registro que devuelve papaparse.
+- **Markdown**: la línea del documento, calculada desde donde empieza la tabla, contando la
+  fila separadora que no viaja en la matriz.
+- **XLSX**: el atributo `r` de cada `<row>`, que es el número que se ve en Excel.
+
+`buildPreview` usa `table.rowLines[index]` en lugar de `index + 2`.
+
+La solución es la correcta, no un parche: el número lo aporta quien conoce el origen, no se
+reconstruye a posteriori desde una posición que no lo sabe.
+
+**Efecto lateral bueno:** en `.xlsx` el número sale del atributo `r`, así que ahora también es
+correcto cuando la hoja omite filas, que era una limitación declarada en la evidencia.
+
+### Reverificación
+
+| # | Caso | Resultado | |
+|---|---|---|---|
+| T1 | CSV normal | `[2,3,4]` | Correcto |
+| T2 | Encabezado tras dos líneas en blanco | `rowLines [4,5,6,7,8]`, rechazada la **6** | Correcto: era el caso que fallaba |
+| T3 | CSV con un campo de dos líneas | `[2,3]`, rechazada la 3 | Desviación conocida, ver abajo |
+| T4 | Tabla Markdown al final del documento | `[7,8]`, rechazada la 8 | Correcto |
+| T5 | `.xlsx` básico | `[2,3,4]` | Correcto |
+| T6 | `.xlsx` de varias hojas | `Inglés [2,3]`, `Historia [2,3]` | Correcto, cada hoja cuenta lo suyo |
+
+### Sobre T3
+
+Con un campo entrecomillado que contiene saltos de línea, el número es el del **registro**, no
+el de la línea física: ese registro ocupa varias líneas y los siguientes quedan desplazados
+hacia abajo. papaparse no expone la posición física por fila, así que corregirlo exigiría
+recorrer el texto por segunda vez contando saltos.
+
+Se acepta como limitación **porque está declarada donde toca**: el comentario de `csv.ts` y la
+documentación de `rowLines` lo dicen explícitamente, en vez de prometer una precisión que no
+hay. Es justo lo contrario del finding 1 de la ronda 1, y esta vez está bien resuelto. El caso
+que motivaba el finding de QA —líneas en blanco o una fila de título antes del encabezado, que
+es lo habitual en hojas exportadas— sí queda correcto.
+
+### Regresión añadida
+
+Seis tests unitarios (uno por formato más los dos del caso desplazado) y un E2E que comprueba
+el mensaje visible y que además vuelve a verificar que lo importado sigue siendo lo correcto.
+El E2E afirma tanto que aparece "la fila 6" como que **no** aparece "fila 4", así que una
+vuelta al cálculo anterior lo tira.
+
+### Gates
+
+```text
+typecheck  exit 0     lint  exit 0
+unit         251 tests, 18 suites   (eran 245)
+integration  112 tests,  9 suites
+e2e          150 passed, 3 skipped  (eran 147)
+./init.sh    exit 0
+```
+
+### Veredicto
+
+**`APPROVED`.** Finding de QA cerrado en la capa correcta, con regresión en dos niveles y la
+limitación restante declarada por escrito. Sin findings críticos ni altos abiertos.
+
+---
+
+## Ronda 4 — `APPROVED` (segundo finding de QA)
+
+QA encontró en la revisión visual en móvil que la confirmación de borrado de un mazo vacío
+decía "y también **las 0 cartas** que contiene".
+
+### Corrección
+
+La construcción del texto sale del JSX a una función con nombre, `deleteDeckDescription`, con
+tres ramas: sin cartas, una carta y varias. El botón de confirmar también deja de prometer
+"y cartas" cuando no hay ninguna.
+
+Es el cambio proporcionado: el defecto era de redacción, no de comportamiento, y la corrección
+no toca el dominio ni la persistencia.
+
+### Regresión
+
+Dos tests de integración: el mazo vacío no menciona cartas y el botón no promete borrarlas; y
+el mazo de una carta usa el singular. El caso de varias cartas ya estaba cubierto por el E2E
+("las 2 cartas que contiene"), así que las tres ramas quedan cubiertas.
+
+### Gates
+
+```text
+typecheck  0    lint  0
+unit         251 tests, 18 suites
+integration  114 tests,  9 suites   (eran 112)
+e2e          150 passed, 3 skipped
+./init.sh    exit 0
+```
+
+### Veredicto
+
+**`APPROVED`.** Sin findings abiertos de ninguna severidad.

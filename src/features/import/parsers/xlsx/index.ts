@@ -1,7 +1,7 @@
 import { strFromU8, unzipSync } from 'fflate';
 
 import type { ParsedSheet, ParseResult } from '../../types';
-import { toParsedTable } from '../table';
+import { toParsedTable, type SourceRow } from '../table';
 
 import { attribute, columnIndexOf, eachElement, textOf } from './xml';
 
@@ -50,8 +50,7 @@ export function parseXlsx(bytes: Uint8Array): ParseResult {
       continue;
     }
 
-    const matrix = readSheetMatrix(sheetXml, sharedStrings);
-    const parsed = toParsedTable(matrix);
+    const parsed = toParsedTable(readSheetRows(sheetXml, sharedStrings));
     // Una hoja sin tabla utilizable (vacía, o solo con una nota suelta) no es un error del
     // libro: simplemente no se ofrece para importar. Es lo que hace que una hoja
     // "Instrucciones" no se cuele como si fuera una colección de tarjetas.
@@ -119,23 +118,28 @@ function readSharedStrings(sharedStringsXml: string): string[] {
 }
 
 /**
- * Celdas de una hoja como matriz de texto.
+ * Celdas de una hoja, cada fila con el número de fila que tiene en la hoja.
  *
- * Las filas se emiten en el orden en que aparecen. Las celdas se colocan por la letra de su
- * referencia, no por su posición entre hermanas, porque una hoja real omite las vacías.
+ * Las filas se emiten en el orden en que aparecen y conservan su `r`, que es el número que la
+ * persona usuaria ve en Excel. Es importante que sea ese y no la posición: una hoja real omite
+ * las filas vacías, así que la tercera `<row>` del XML puede ser la fila 8 de la hoja.
+ *
+ * Las celdas se colocan por la letra de su referencia por el mismo motivo: una fila real omite
+ * las celdas vacías, y la tercera `<c>` puede ser perfectamente la columna F.
  */
-function readSheetMatrix(sheetXml: string, sharedStrings: string[]): string[][] {
+function readSheetRows(sheetXml: string, sharedStrings: string[]): SourceRow[] {
   const data = eachElement(sheetXml, 'sheetData')[0];
   if (data === undefined) {
     return [];
   }
 
-  return eachElement(data.inner, 'row').map((row) => {
+  return eachElement(data.inner, 'row').map((row, position) => {
     const cells: string[] = [];
 
-    for (const [position, cell] of eachElement(row.inner, 'c').entries()) {
+    for (const [cellPosition, cell] of eachElement(row.inner, 'c').entries()) {
       const reference = attribute(cell.attributes, 'r');
-      const index = reference === undefined ? position : columnIndexOf(reference) ?? position;
+      const index =
+        reference === undefined ? cellPosition : columnIndexOf(reference) ?? cellPosition;
 
       while (cells.length < index) {
         cells.push('');
@@ -143,7 +147,10 @@ function readSheetMatrix(sheetXml: string, sharedStrings: string[]): string[][] 
       cells[index] = readCellValue(cell.attributes, cell.inner, sharedStrings);
     }
 
-    return cells;
+    const declared = Number(attribute(row.attributes, 'r'));
+    const line = Number.isInteger(declared) && declared > 0 ? declared : position + 1;
+
+    return { cells, line };
   });
 }
 

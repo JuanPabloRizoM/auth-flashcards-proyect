@@ -223,12 +223,12 @@ export default function DetalleMazoScreen() {
       )}
 
       <ConfirmDialog
-        confirmLabel={deletingDeck ? 'Eliminar mazo y cartas' : 'Eliminar carta'}
+        confirmLabel={
+          deletingDeck ? (cardCount === 0 ? 'Eliminar mazo' : 'Eliminar mazo y cartas') : 'Eliminar carta'
+        }
         description={
           deletingDeck
-            ? `Se eliminará el mazo "${deck.name}" y también ${
-                cardCount === 1 ? 'la carta que contiene' : `las ${cardCount} cartas que contiene`
-              }. Esta acción no se puede deshacer.`
+            ? deleteDeckDescription(deck.name, cardCount)
             : 'Se eliminará esta carta. El mazo y las demás cartas no se tocan. Esta acción no se puede deshacer.'
         }
         onCancel={() => setPendingDelete(null)}
@@ -239,6 +239,24 @@ export default function DetalleMazoScreen() {
       />
     </View>
   );
+}
+
+/**
+ * Qué se va a borrar exactamente.
+ *
+ * Un mazo vacío no tiene cartas que mencionar: decir "y también las 0 cartas que contiene"
+ * es a la vez raro de leer y una advertencia sobre algo que no existe.
+ */
+function deleteDeckDescription(name: string, cardCount: number): string {
+  const irreversible = 'Esta acción no se puede deshacer.';
+
+  if (cardCount === 0) {
+    return `Se eliminará el mazo "${name}", que no tiene ninguna carta. ${irreversible}`;
+  }
+
+  const cards =
+    cardCount === 1 ? 'la carta que contiene' : `las ${cardCount} cartas que contiene`;
+  return `Se eliminará el mazo "${name}" y también ${cards}. ${irreversible}`;
 }
 
 const styles = StyleSheet.create({

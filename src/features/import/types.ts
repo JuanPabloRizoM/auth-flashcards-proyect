@@ -11,6 +11,19 @@ export type ParsedTable = {
   columns: string[];
   /** Cada fila tiene exactamente tantas celdas como `columns`, rellenadas con '' si faltaban. */
   rows: string[][];
+  /**
+   * De dónde sale cada fila en el archivo original, en paralelo a `rows`.
+   *
+   * Es la línea del `.csv` o del `.md`, o el número de fila de la hoja de cálculo, siempre
+   * empezando en 1. No se puede deducir de la posición dentro de `rows`: si el archivo
+   * empieza con líneas en blanco o con una fila de título, el encabezado no está en la
+   * primera línea y todo lo demás queda desplazado. Sin esto, decirle a alguien "revisa la
+   * fila 4" le manda a mirar una fila que está perfectamente bien.
+   *
+   * En CSV es el número de registro. Coincide con la línea salvo que un campo entrecomillado
+   * contenga saltos de línea, en cuyo caso los registros siguientes quedan desplazados.
+   */
+  rowLines: number[];
 };
 
 export type ParsedSheet = {

@@ -92,7 +92,7 @@ describe('headerHeuristicDetector: cuando no hay información suficiente', () =>
 });
 
 describe('detectFields: el detector es sustituible', () => {
-  const table: ParsedTable = { columns: ['Columna A', 'Columna B'], rows: [['a', 'b']] };
+  const table: ParsedTable = { columns: ['Columna A', 'Columna B'], rows: [['a', 'b']], rowLines: [2] };
 
   it('usa la heurística de encabezados por defecto', () => {
     expect(detectFields(table)).toEqual({ front: null, back: null });

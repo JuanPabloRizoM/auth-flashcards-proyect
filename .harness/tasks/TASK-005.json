@@ -1,7 +1,7 @@
 {
   "id": "TASK-005",
   "title": "Gestión completa de mazos y cartas, mejora de Mis mazos e importación estructurada",
-  "status": "QA",
+  "status": "DONE",
   "created_from_user_request": "Completar las operaciones básicas de gestión de mazos y flashcards (editar y eliminar ambos, con confirmación y cascada), mejorar la biblioteca Mis mazos (búsqueda, ordenamiento e información por mazo) y crear el primer sistema real de importación de flashcards desde archivos estructurados .md, .csv y .xlsx, con detección determinista de patrones Frente/Reverso, corrección manual del mapeo, vista previa obligatoria y persistencia sobre la infraestructura de TASK-004. Sin IA y sin servicios externos.",
   "goal": "La aplicación permite editar y eliminar mazos y flashcards con confirmación previa y cascada de cartas al borrar un mazo; Mis mazos ofrece búsqueda, ordenamiento e información por mazo; y existe un importador que convierte archivos .csv, .xlsx y .md a una representación tabular común, detecta de forma determinista y local las columnas Frente y Reverso, permite corregir el mapeo a mano, muestra siempre una vista previa antes de confirmar y persiste el resultado con la infraestructura de TASK-004 sin corromper los datos existentes.",
   "confirmed_requirements": [

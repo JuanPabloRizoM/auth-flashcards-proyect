@@ -73,7 +73,7 @@ export type ImportRow = {
 export type RowIssue = 'frente-vacio' | 'reverso-vacio';
 
 export type RejectedRow = {
-  /** Número de fila dentro del archivo contando el encabezado como fila 1. */
+  /** La línea del archivo, o la fila de la hoja, de la que salió. Empieza en 1. */
   line: number;
   issue: RowIssue;
 };
@@ -111,8 +111,9 @@ export function buildPreview(
   }
 
   for (const [index, cells] of table.rows.entries()) {
-    // +2 porque la fila 1 del archivo es el encabezado y las personas cuentan desde 1.
-    const line = index + 2;
+    // El origen viene del parser. Deducirlo de la posición dentro de `rows` daría un número
+    // equivocado en cuanto el archivo no empiece directamente por la fila de encabezados.
+    const line = table.rowLines[index] ?? index + 2;
     const front = (cells[mapping.front] ?? '').trim();
     const back = (cells[mapping.back] ?? '').trim();
 
