@@ -3,6 +3,14 @@
 export type Deck = {
   id: string;
   name: string;
+  /**
+   * Instante ISO 8601 de la última modificación del mazo.
+   *
+   * Cuenta como modificación todo lo que cambia lo que el mazo contiene o cómo se llama:
+   * crearlo, renombrarlo, y añadir, editar, importar o borrar una de sus cartas. Existe
+   * porque Mis mazos ordena por modificación; sin este campo ese orden no es demostrable.
+   */
+  updatedAt: string;
 };
 
 export type Card = {

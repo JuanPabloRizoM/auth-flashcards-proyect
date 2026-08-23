@@ -2,7 +2,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { colors, radius, sizes, spacing, typography } from '../../theme';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 export type ButtonProps = {
   label: string;
@@ -40,7 +40,7 @@ export function Button({
       <View style={styles.content}>
         {loading ? (
           <ActivityIndicator
-            color={variant === 'primary' ? colors.textInverse : colors.primary}
+            color={variant === 'primary' || variant === 'danger' ? colors.textInverse : colors.primary}
             size="small"
           />
         ) : null}
@@ -83,6 +83,11 @@ const styles = StyleSheet.create({
 });
 
 const variantStyles = StyleSheet.create({
+  // El rojo apagado está reservado a errores y acciones destructivas (docs/DESIGN.md).
+  danger: {
+    backgroundColor: colors.danger,
+    borderColor: colors.danger,
+  },
   ghost: {
     backgroundColor: 'transparent',
     borderColor: 'transparent',
@@ -98,12 +103,17 @@ const variantStyles = StyleSheet.create({
 });
 
 const labelStyles = StyleSheet.create({
+  danger: { color: colors.textInverse },
   ghost: { color: colors.primary },
   primary: { color: colors.textInverse },
   secondary: { color: colors.text },
 });
 
 const inactiveStyles = StyleSheet.create({
+  danger: {
+    backgroundColor: colors.disabledSurface,
+    borderColor: colors.disabledSurface,
+  },
   ghost: {
     backgroundColor: 'transparent',
     borderColor: 'transparent',

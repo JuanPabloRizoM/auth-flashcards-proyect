@@ -12,6 +12,11 @@ import type { LibraryRepository, LoadResult } from './types';
  * tres plataformas declaradas: en web se apoya en localStorage y en iOS y Android en el
  * almacenamiento nativo, con la misma API, así que no hacen falta adaptadores distintos.
  */
+/**
+ * La clave conserva el sufijo `v1` con el que nació en TASK-004 aunque el documento vaya ya
+ * por la versión 2. La versión vive dentro del documento, que es donde puede migrarse;
+ * cambiar la clave dejaría huérfana la biblioteca de quien ya estuviera usando la aplicación.
+ */
 export const STORAGE_KEY = 'flashcards:library:v1';
 
 export function createAsyncStorageRepository(

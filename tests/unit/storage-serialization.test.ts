@@ -13,7 +13,7 @@ import type { LibraryRepository } from '../../src/lib/storage/types';
 import type { Library } from '../../src/types/domain';
 
 const biblioteca: Library = {
-  decks: [{ id: 'mazo-1', name: 'Inglés' }],
+  decks: [{ id: 'mazo-1', name: 'Inglés', updatedAt: '2026-08-20T10:00:00.000Z' }],
   cards: [{ id: 'carta-1', deckId: 'mazo-1', front: 'to overlook', back: 'pasar por alto' }],
 };
 
@@ -184,8 +184,8 @@ describe.each([
   it('conserva la pertenencia de cada carta a su mazo', async () => {
     const dosMazos = {
       decks: [
-        { id: 'mazo-1', name: 'Inglés' },
-        { id: 'mazo-2', name: 'Alemán' },
+        { id: 'mazo-1', name: 'Inglés', updatedAt: '2026-08-20T10:00:00.000Z' },
+        { id: 'mazo-2', name: 'Alemán', updatedAt: '2026-08-20T11:00:00.000Z' },
       ],
       cards: [
         { id: 'carta-1', deckId: 'mazo-1', front: 'to overlook', back: 'pasar por alto' },
@@ -247,6 +247,87 @@ describe('asyncStorageRepository: fallos del medio', () => {
     expect(parseStoredLibrary(escrituras[0]?.valor ?? null)).toEqual({
       status: 'ok',
       library: biblioteca,
+    });
+  });
+});
+
+/**
+ * TASK-005 añade `updatedAt` a los mazos y sube el documento a la versión 2. Lo que hay
+ * guardado en los dispositivos es de la versión 1, así que la lectura tiene que migrarlo:
+ * marcarlo como inválido habría hecho desaparecer bibliotecas enteras.
+ */
+describe('migración de la versión 1 a la versión 2', () => {
+  const MIGRADO_EN = '2026-08-22T12:00:00.000Z';
+
+  const documentoV1 = JSON.stringify({
+    version: 1,
+    decks: [
+      { id: 'mazo-1', name: 'Inglés' },
+      { id: 'mazo-2', name: 'Alemán' },
+    ],
+    cards: [{ id: 'carta-1', deckId: 'mazo-1', front: 'to overlook', back: 'pasar por alto' }],
+  });
+
+  it('lee un documento de la versión 1 sin darlo por inválido', () => {
+    expect(parseStoredLibrary(documentoV1, MIGRADO_EN).status).toBe('ok');
+  });
+
+  it('conserva todos los mazos y todas las cartas', () => {
+    const resultado = parseStoredLibrary(documentoV1, MIGRADO_EN);
+    if (resultado.status !== 'ok') throw new Error('debería ser ok');
+
+    expect(resultado.library.decks.map((deck) => deck.name)).toEqual(['Inglés', 'Alemán']);
+    expect(resultado.library.cards).toHaveLength(1);
+    expect(resultado.library.cards[0]?.deckId).toBe('mazo-1');
+  });
+
+  it('rellena la fecha de modificación que la versión 1 no guardaba', () => {
+    const resultado = parseStoredLibrary(documentoV1, MIGRADO_EN);
+    if (resultado.status !== 'ok') throw new Error('debería ser ok');
+
+    expect(resultado.library.decks.map((deck) => deck.updatedAt)).toEqual([
+      MIGRADO_EN,
+      MIGRADO_EN,
+    ]);
+  });
+
+  it('al volver a guardar, lo escrito ya es de la versión actual', () => {
+    const resultado = parseStoredLibrary(documentoV1, MIGRADO_EN);
+    if (resultado.status !== 'ok') throw new Error('debería ser ok');
+
+    const reescrito = JSON.parse(serializeLibrary(resultado.library));
+
+    expect(reescrito.version).toBe(STORAGE_VERSION);
+    expect(STORAGE_VERSION).toBe(2);
+  });
+
+  it('migrar dos veces da el mismo resultado', () => {
+    const unaVez = parseStoredLibrary(documentoV1, MIGRADO_EN);
+    if (unaVez.status !== 'ok') throw new Error('debería ser ok');
+    const dosVeces = parseStoredLibrary(serializeLibrary(unaVez.library), 'otra-fecha');
+
+    expect(dosVeces).toEqual(unaVez);
+  });
+
+  it('sigue rechazando un documento de una versión que no sabe leer', () => {
+    const futuro = JSON.stringify({ version: 99, decks: [], cards: [] });
+
+    expect(parseStoredLibrary(futuro)).toEqual({
+      status: 'error',
+      reason: 'contenido-invalido',
+    });
+  });
+
+  it('rechaza un documento de la versión 2 al que le falta la fecha en un mazo', () => {
+    const roto = JSON.stringify({
+      version: 2,
+      decks: [{ id: 'mazo-1', name: 'Inglés' }],
+      cards: [],
+    });
+
+    expect(parseStoredLibrary(roto)).toEqual({
+      status: 'error',
+      reason: 'contenido-invalido',
     });
   });
 });

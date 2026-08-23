@@ -108,7 +108,10 @@ describe('Persistencia real: destruir y recrear el proveedor', () => {
     const guardado = parseStoredLibrary(repositorio.peek());
     expect(guardado.status).toBe('ok');
     if (guardado.status === 'ok') {
-      expect(guardado.library.decks).toEqual([{ id: 'mazo-1', name: 'Inglés' }]);
+      // `updatedAt` lo pone el reloj real; se comprueba que existe y es una fecha válida.
+      expect(guardado.library.decks).toHaveLength(1);
+      expect(guardado.library.decks[0]).toMatchObject({ id: 'mazo-1', name: 'Inglés' });
+      expect(Number.isNaN(Date.parse(guardado.library.decks[0]!.updatedAt))).toBe(false);
     }
 
     // Se destruye toda la aplicación y se vuelve a montar con el mismo repositorio.

@@ -1,22 +1,37 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ScreenHeader } from '../src/components/layout';
-import { Button, Card, EmptyState, Input, Loading, Message } from '../src/components/ui';
-import { countCardsOfDeck, libraryErrorMessage } from '../src/features/decks/library';
+import { Button, Card, EmptyState, Input, Loading, Message, Select } from '../src/components/ui';
+import { libraryErrorMessage } from '../src/features/decks/library';
+import {
+  buildDeckSummaries,
+  deckSortOptions,
+  defaultDeckSortOrder,
+  formatUpdatedAt,
+  type DeckSortOrder,
+} from '../src/features/decks/libraryView';
 import { useLibrary } from '../src/lib/LibraryProvider';
 import { spacing } from '../src/theme';
 
-/** Mis mazos: lista los mazos y permite crear uno nuevo. */
+/** Mis mazos: biblioteca con búsqueda y orden, y creación de mazos nuevos. */
 export default function MisMazosScreen() {
   const router = useRouter();
   const { library, status, storageError, createDeck } = useLibrary();
+
   const [name, setName] = useState('');
   const [error, setError] = useState<string | undefined>(undefined);
+  const [query, setQuery] = useState('');
+  const [order, setOrder] = useState<DeckSortOrder>(defaultDeckSortOrder);
 
   const total = library.decks.length;
   const hydrating = status === 'loading';
+
+  const summaries = useMemo(
+    () => buildDeckSummaries(library, query, order),
+    [library, order, query],
+  );
 
   const onCreate = () => {
     const result = createDeck(name);
@@ -26,6 +41,9 @@ export default function MisMazosScreen() {
     }
     setName('');
     setError(undefined);
+    // Un mazo recién creado que no encaja con la búsqueda activa desaparecería de la lista y
+    // parecería que no se ha creado. Se limpia la búsqueda para que se vea.
+    setQuery('');
   };
 
   const onChangeName = (value: string) => {
@@ -44,6 +62,8 @@ export default function MisMazosScreen() {
       </View>
     );
   }
+
+  const searching = query.trim().length > 0;
 
   return (
     <View style={styles.container}>
@@ -78,21 +98,65 @@ export default function MisMazosScreen() {
           title="Todavía no tienes mazos"
         />
       ) : (
-        <View style={styles.list} testID="decks-list">
-          {library.decks.map((deck) => {
-            const cards = countCardsOfDeck(library, deck.id);
-            return (
-              <Card
-                accessibilityLabel={`Abrir el mazo ${deck.name}`}
-                description={cards === 1 ? '1 carta' : `${cards} cartas`}
-                key={deck.id}
-                onPress={() => router.push(`/mazo/${deck.id}`)}
-                testID={`deck-${deck.id}`}
-                title={deck.name}
+        <>
+          <Card title="Buscar y ordenar">
+            <Input
+              label="Buscar mazos"
+              onChangeText={setQuery}
+              placeholder="Escribe parte del nombre"
+              testID="deck-search-input"
+              value={query}
+            />
+            {searching ? (
+              <Button
+                label="Limpiar búsqueda"
+                onPress={() => setQuery('')}
+                testID="deck-search-clear"
+                variant="secondary"
               />
-            );
-          })}
-        </View>
+            ) : null}
+            <Select
+              label="Ordenar por"
+              onChange={setOrder}
+              options={deckSortOptions}
+              testID="deck-sort"
+              value={order}
+            />
+          </Card>
+
+          {summaries.length === 0 ? (
+            <EmptyState
+              action={
+                <Button
+                  label="Limpiar búsqueda"
+                  onPress={() => setQuery('')}
+                  testID="decks-search-empty-clear"
+                  variant="secondary"
+                />
+              }
+              description={`Ningún mazo coincide con "${query.trim()}".`}
+              testID="decks-search-empty"
+              title="Sin coincidencias"
+            />
+          ) : (
+            <View style={styles.list} testID="decks-list">
+              {summaries.map(({ deck, cardCount }) => {
+                const cards = cardCount === 1 ? '1 carta' : `${cardCount} cartas`;
+                const updated = formatUpdatedAt(deck.updatedAt);
+                return (
+                  <Card
+                    accessibilityLabel={`Abrir el mazo ${deck.name}`}
+                    description={updated ? `${cards} · Modificado el ${updated}` : cards}
+                    key={deck.id}
+                    onPress={() => router.push(`/mazo/${deck.id}`)}
+                    testID={`deck-${deck.id}`}
+                    title={deck.name}
+                  />
+                );
+              })}
+            </View>
+          )}
+        </>
       )}
     </View>
   );

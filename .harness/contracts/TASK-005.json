@@ -1,0 +1,858 @@
+{
+  "task_id": "TASK-005",
+  "goal": "La aplicación permite editar y eliminar mazos y flashcards con confirmación previa y cascada de cartas al borrar un mazo; Mis mazos ofrece búsqueda, ordenamiento e información por mazo; y existe un importador que convierte archivos .csv, .xlsx y .md a una representación tabular común, detecta de forma determinista y local las columnas Frente y Reverso, permite corregir el mapeo a mano, muestra siempre una vista previa antes de confirmar y persiste el resultado con la infraestructura de TASK-004 sin corromper los datos existentes.",
+  "requirements_snapshot": [
+    "Los mazos pueden renombrarse desde una acción visible y accesible.",
+    "El formulario de renombrado se precarga con el nombre actual y ofrece guardar y cancelar.",
+    "Un nombre de mazo vacío es inválido también al renombrar.",
+    "Al renombrar se normalizan los espacios exteriores con la regla existente.",
+    "La regla de nombres únicos de mazo sigue aplicándose al renombrar, comparando sin distinguir mayúsculas.",
+    "Renombrar un mazo a su propio nombre actual sigue siendo válido.",
+    "Renombrar a un nombre usado por otro mazo se rechaza con un error visible.",
+    "Cancelar el renombrado no modifica nada y el cambio guardado persiste tras recargar.",
+    "Renombrar no recrea el mazo con un id nuevo: las cartas siguen perteneciendo al mismo mazo.",
+    "Los mazos pueden eliminarse.",
+    "Antes de eliminar un mazo hay una confirmación clara que comunica que también se eliminarán sus flashcards.",
+    "Eliminar un mazo elimina en cascada sus flashcards y deja intactos los demás mazos y sus cartas.",
+    "La eliminación de un mazo persiste tras recargar y cancelar la confirmación no modifica datos.",
+    "Dentro de un mazo puede editarse una flashcard existente, cambiando Frente y Reverso.",
+    "Las reglas existentes de campos vacíos siguen aplicándose al editar una flashcard.",
+    "La edición de una flashcard mantiene el mismo mazo y la misma identidad lógica de la carta.",
+    "Cancelar la edición de una flashcard no modifica nada; el cambio guardado persiste tras recargar.",
+    "Cada flashcard dispone de una acción para eliminarla, con confirmación previa.",
+    "Eliminar una carta elimina únicamente esa carta, no el mazo ni las demás, y persiste tras recargar.",
+    "Mis mazos tiene un campo de búsqueda de mazos por nombre, insensible a mayúsculas, que reacciona sin recargar.",
+    "La búsqueda sin coincidencias muestra un empty state apropiado y puede limpiarse correctamente.",
+    "Mis mazos permite ordenar por nombre A-Z, nombre Z-A, modificación más reciente y modificación más antigua.",
+    "Cada mazo muestra como mínimo su nombre y su número de flashcards.",
+    "Puede mostrarse la fecha de última modificación; si no existe en el modelo persistente, puede añadirse en esta task.",
+    "La aplicación permite importar flashcards desde archivos estructurados .md, .csv y .xlsx.",
+    "La importación funciona sobre un mazo específico ya seleccionado.",
+    "El flujo es: seleccionar mazo, importar, seleccionar archivo, parsear, detectar estructura, previsualizar, confirmar o corregir el mapeo, validar, importar y mostrar resultado.",
+    "No se importa directamente al seleccionar el archivo.",
+    "El CSV se parsea con una solución robusta que soporta comas y comillas dentro de los campos.",
+    "El XLSX se lee como workbook: se detectan las hojas, se selecciona automáticamente si solo hay una y se permite escoger si hay varias con datos.",
+    "El XLSX permite leer encabezados y filas, mapear columnas a Frente y Reverso y previsualizar antes de importar.",
+    "El archivo original nunca se modifica y no se soportan macros.",
+    "El soporte obligatorio de Markdown se limita a tablas claramente reconocibles.",
+    "Un Markdown sin tabla no se interpreta falsamente como una colección de flashcards.",
+    "Existe una capa independiente encargada de identificar las columnas, fuera de los componentes React.",
+    "Los parsers están desacoplados de la interfaz y el detector está desacoplado de los parsers.",
+    "CSV, XLSX y Markdown convergen en una representación común de columnas y filas sobre la que trabaja el resto del sistema.",
+    "El detector reconoce los candidatos de Frente: front, frente, question, pregunta, term, término, termino, prompt.",
+    "El detector reconoce los candidatos de Reverso: back, reverso, answer, respuesta, definition, definición, definicion.",
+    "La comparación de encabezados ignora mayúsculas y espacios exteriores, y puede manejar diferencias de acentos.",
+    "Cuando no hay información suficiente, el sistema no adivina: pide selección manual de columnas.",
+    "Cuando la detección es clara puede preseleccionar, pero el usuario aún puede cambiarlo antes de confirmar.",
+    "Siempre existe una vista previa representativa antes de confirmar, con el total y una muestra de filas.",
+    "Antes de confirmar se valida: Frente no vacío, Reverso no vacío, filas vacías descartadas, mapping Frente igual a Reverso rechazado y columnas inexistentes rechazadas.",
+    "Los errores de archivo se muestran de forma controlada y un archivo sin datos válidos no puede importarse.",
+    "La interfaz informa de cuántas filas son válidas y cuántas presentan problemas antes de importar.",
+    "Una importación fallida no deja el mazo medio corrupto: se valida antes de escribir y el fallo de escritura se maneja de forma controlada.",
+    "Los archivos importados no modifican otras flashcards ni otros mazos existentes.",
+    "El reconocimiento es local, determinista y testeable, sin IA ni servicios externos.",
+    "La arquitectura permite que en el futuro exista otra estrategia de detección sin reescribir el importador.",
+    "La lógica de dominio vive en src/features y la persistencia sigue detrás del repositorio existente.",
+    "Los componentes de presentación no acceden directamente al almacenamiento.",
+    "Los mazos pueden editarse.",
+    "Los mazos pueden eliminarse.",
+    "Las flashcards pueden editarse.",
+    "Las flashcards pueden eliminarse.",
+    "El usuario debe confirmar antes de eliminar permanentemente un mazo.",
+    "El usuario debe confirmar antes de eliminar permanentemente una flashcard.",
+    "Al eliminar un mazo también se eliminan las flashcards que pertenecen a ese mazo.",
+    "La regla existente de nombres únicos de mazo continúa aplicándose al renombrar.",
+    "Mis mazos tendrá búsqueda.",
+    "Mis mazos permitirá ordenar los mazos.",
+    "Cada mazo mostrará al menos su número de flashcards.",
+    "Puede mostrarse la fecha de última modificación si la arquitectura persistente lo permite.",
+    "La aplicación permitirá importar flashcards desde archivos estructurados.",
+    "Los formatos iniciales soportados serán .md, .csv y .xlsx.",
+    "La importación usa Frente + Reverso, igual que las flashcards actuales.",
+    "El sistema puede intentar detectar automáticamente qué campos corresponden a Frente y Reverso.",
+    "La detección automática no utilizará IA ni servicios externos en esta task.",
+    "Si el sistema no puede determinar el mapeo con seguridad, el usuario lo decide manualmente.",
+    "Siempre debe existir una vista previa antes de confirmar una importación.",
+    "Una importación nunca se ejecuta silenciosamente solo porque el sistema crea haber reconocido el formato.",
+    "Los archivos importados no deben modificar otras flashcards o mazos existentes.",
+    "No se eliminan automáticamente flashcards duplicadas durante una importación; la política de duplicados sigue sin decidirse.",
+    "Filas parcialmente inválidas: se importan solo las filas válidas, avisando antes de confirmar del recuento de válidas y con problemas, y listando en el resultado las descartadas. Confirmado por el usuario el 2026-08-22."
+  ],
+  "open_questions": [],
+  "resolved_questions": [
+    {
+      "question": "Con filas parcialmente inválidas, ¿importar solo las válidas o bloquear toda la importación?",
+      "answer": "Importar solo las válidas, avisando. La preview informa del recuento de válidas y con problemas antes de confirmar; el resultado enumera las descartadas.",
+      "resolved_by": "usuario",
+      "resolved_on": "2026-08-22"
+    }
+  ],
+  "acceptance": [
+    "1. Un mazo existente puede renombrarse desde una acción visible y accesible, con formulario precargado con el nombre actual, guardar y cancelar.",
+    "2. Cancelar la edición de un mazo no modifica ningún dato.",
+    "3. El renombrado persiste tras recargar la aplicación.",
+    "4. Renombrar un mazo a un nombre vacío o de solo espacios se rechaza con error visible.",
+    "5. Renombrar un mazo al nombre de otro mazo existente se rechaza, comparando sin distinguir mayúsculas y con los extremos recortados.",
+    "6. Renombrar un mazo conservando su propio nombre actual sigue siendo válido.",
+    "7. Un mazo puede eliminarse tras una confirmación explícita que advierte de que también se eliminarán sus flashcards.",
+    "8. Cancelar la confirmación de borrado de un mazo no modifica ningún dato.",
+    "9. Eliminar un mazo elimina en cascada todas las flashcards que le pertenecen.",
+    "10. Eliminar un mazo no afecta a otros mazos ni a las flashcards de otros mazos, y el resultado persiste tras recargar.",
+    "11. El Frente de una flashcard existente puede editarse y el cambio se conserva.",
+    "12. El Reverso de una flashcard existente puede editarse y el cambio se conserva.",
+    "13. Frente y Reverso pueden editarse a la vez en la misma operación.",
+    "14. Cancelar la edición de una flashcard no modifica ningún dato.",
+    "15. Al editar una flashcard siguen aplicándose las reglas existentes de campos vacíos: Frente vacío y Reverso vacío se rechazan con error visible.",
+    "16. La edición de una flashcard persiste tras recargar, manteniendo el mismo mazo y la misma identidad lógica de la carta (mismo id).",
+    "17. Una flashcard puede eliminarse tras una confirmación explícita.",
+    "18. Cancelar la confirmación de borrado de una flashcard no modifica ningún dato.",
+    "19. Eliminar una flashcard no elimina el mazo ni las demás cartas, y el resultado persiste tras recargar.",
+    "20. Mis mazos tiene un campo de búsqueda por nombre que ignora mayúsculas y minúsculas y reacciona sin recargar.",
+    "21. Una búsqueda sin coincidencias muestra un empty state propio, distinto del empty state de biblioteca vacía.",
+    "22. Limpiar la búsqueda restaura la lista completa de mazos.",
+    "23. Mis mazos permite ordenar por nombre A-Z.",
+    "24. Mis mazos permite ordenar por nombre Z-A.",
+    "25. Mis mazos permite ordenar por modificación más reciente.",
+    "26. Mis mazos permite ordenar por modificación más antigua.",
+    "27. Cada mazo muestra su nombre y un contador correcto de flashcards.",
+    "28. Mis mazos sigue siendo responsive en desktop y en móvil con los controles nuevos.",
+    "29. Los controles nuevos de Mis mazos no producen overflow horizontal en ninguna disposición.",
+    "30. Un CSV simple con encabezados se parsea a la representación común columnas/filas.",
+    "31. Un CSV con comas y comillas dentro de los campos se parsea correctamente, sin partir los campos.",
+    "32. Encabezados Frente/Reverso se reconocen.",
+    "33. Encabezados Question/Answer se reconocen.",
+    "34. Un CSV con encabezados desconocidos produce un mapping ambiguo que exige selección manual de columnas.",
+    "35. Antes de importar un CSV se muestra una vista previa con el total y una muestra de filas.",
+    "36. Una importación real de CSV crea las flashcards en el mazo elegido.",
+    "37. Las flashcards importadas desde CSV persisten tras recargar.",
+    "38. Un workbook .xlsx válido se lee correctamente.",
+    "39. Un workbook de una sola hoja selecciona esa hoja automáticamente.",
+    "40. Un workbook con varias hojas con datos se detecta como tal.",
+    "41. Con varias hojas, el usuario puede escoger la hoja antes de mapear.",
+    "42. Se leen los encabezados de la hoja elegida y se intenta detectar las columnas.",
+    "43. El usuario puede mapear manualmente las columnas de una hoja .xlsx.",
+    "44. Antes de importar un .xlsx se muestra una vista previa.",
+    "45. Una importación real de .xlsx crea las flashcards en el mazo elegido.",
+    "46. Las flashcards importadas desde .xlsx persisten tras recargar.",
+    "47. Una tabla Markdown válida con encabezados Frente/Reverso se parsea correctamente.",
+    "48. Una tabla Markdown con encabezados sinónimos Question/Answer se parsea correctamente.",
+    "49. Un Markdown sin tabla no se interpreta como una colección de flashcards: se rechaza de forma controlada.",
+    "50. Antes de importar un .md se muestra una vista previa.",
+    "51. Una importación real de .md crea las flashcards en el mazo elegido.",
+    "52. Las flashcards importadas desde .md persisten tras recargar.",
+    "53. Un encabezado 'front' se detecta como Frente.",
+    "54. Un encabezado 'frente' se detecta como Frente.",
+    "55. Los encabezados 'question' y 'pregunta' se detectan como Frente.",
+    "56. Los encabezados 'term', 'término' y 'termino' se detectan como Frente.",
+    "57. Un encabezado 'back' se detecta como Reverso.",
+    "58. Un encabezado 'reverso' se detecta como Reverso.",
+    "59. Los encabezados 'answer' y 'respuesta' se detectan como Reverso.",
+    "60. Los encabezados 'definition', 'definición' y 'definicion' se detectan como Reverso.",
+    "61. Encabezados desconocidos no producen ninguna preselección: el mapping queda manual.",
+    "62. La detección nunca dispara una importación por sí sola: siempre hay preview y confirmación explícita.",
+    "63. Un archivo vacío se rechaza con un mensaje controlado y no importa nada.",
+    "64. Un archivo inválido o ilegible se rechaza con un mensaje controlado y no rompe la aplicación.",
+    "65. Las filas completamente vacías se ignoran y no se convierten en flashcards.",
+    "66. Una fila con Frente vacío se cuenta como fila con problema y no se convierte en flashcard.",
+    "67. Una fila con Reverso vacío se cuenta como fila con problema y no se convierte en flashcard.",
+    "68. Seleccionar la misma columna como Frente y como Reverso se rechaza antes de importar.",
+    "69. Un fallo de escritura durante la importación se maneja de forma controlada y se comunica.",
+    "70. Una importación fallida no deja el mazo a medias: ni crea cartas parciales ni altera las cartas y mazos existentes.",
+    "71. La persistencia introducida en TASK-004 sigue funcionando.",
+    "72. La unicidad de nombre de mazo de TASK-004 sigue funcionando en la creación.",
+    "73. La navegación estabilizada de TASK-004 sigue sin acumular instancias.",
+    "74. El estudio simple de TASK-003 sigue funcionando.",
+    "75. Ningún test anterior se ha eliminado ni debilitado.",
+    "76. Renombrar un mazo conserva su id y sus cartas siguen perteneciendo al mismo mazo.",
+    "77. Los parsers de CSV, XLSX y Markdown convergen en una única representación común y el resto del sistema trabaja sobre ella.",
+    "78. El detector de campos es una capa independiente, sustituible por otra estrategia sin reescribir el importador, y no vive dentro de componentes React.",
+    "79. Ningún componente de presentación accede directamente al almacenamiento ni a la librería concreta de parseo de archivos.",
+    "80. Una importación con filas parcialmente inválidas informa del recuento de filas válidas y con problemas antes de confirmar, e importa solo las válidas listando las descartadas en el resultado.",
+    "81. El modelo persistente conserva correctamente la fecha de última modificación de cada mazo, y los datos guardados por TASK-004 se migran sin pérdida.",
+    "82. No se han añadido servicios externos, SDKs de IA ni llamadas de red para interpretar archivos.",
+    "83. npm run typecheck termina en verde.",
+    "84. npm run lint termina en verde.",
+    "85. npm test (unit) termina en verde.",
+    "86. npm run test:integration termina en verde.",
+    "87. npm run test:e2e termina en verde.",
+    "88. ./init.sh termina con exit code 0.",
+    "89. El Reviewer emite APPROVED sin findings críticos ni altos abiertos.",
+    "90. QA emite APPROVED tras comprobar comportamiento observable.",
+    "91. La evidencia completa queda registrada en progress/evidence/TASK-005-implementation.md, -review.md y -qa.md."
+  ],
+  "verification_matrix": [
+    {
+      "acceptance": "1. Un mazo existente puede renombrarse desde una acción visible y accesible, con formulario precargado con el nombre actual, guardar y cancelar.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration tests/integration/deck-edit-delete.test.tsx; npm run test:e2e tests/e2e/deck-management.spec.ts",
+      "evidence_expected": "La acción Renombrar es alcanzable desde Mis mazos, abre un formulario con el nombre actual y ofrece Guardar y Cancelar."
+    },
+    {
+      "acceptance": "2. Cancelar la edición de un mazo no modifica ningún dato.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration",
+      "evidence_expected": "Tras cancelar, el nombre del mazo y el repositorio serializado son idénticos a antes."
+    },
+    {
+      "acceptance": "3. El renombrado persiste tras recargar la aplicación.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration recreando el proveedor; npm run test:e2e con page.reload()",
+      "evidence_expected": "El nombre nuevo sigue tras rehidratar desde el repositorio y tras recargar el navegador."
+    },
+    {
+      "acceptance": "4. Renombrar un mazo a un nombre vacío o de solo espacios se rechaza con error visible.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit) tests/unit/deck-rename.test.ts; npm run test:integration",
+      "evidence_expected": "renameDeck devuelve nombre-requerido con '' y con '   '; la pantalla muestra el error."
+    },
+    {
+      "acceptance": "5. Renombrar un mazo al nombre de otro mazo existente se rechaza, comparando sin distinguir mayúsculas y con los extremos recortados.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit); npm run test:integration",
+      "evidence_expected": "renameDeck devuelve nombre-duplicado al renombrar a 'INGLÉS' existiendo ' inglés '; la pantalla muestra el error."
+    },
+    {
+      "acceptance": "6. Renombrar un mazo conservando su propio nombre actual sigue siendo válido.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit); npm run test:integration",
+      "evidence_expected": "renameDeck con el propio nombre del mazo devuelve ok, incluido con distinta capitalización o espacios."
+    },
+    {
+      "acceptance": "7. Un mazo puede eliminarse tras una confirmación explícita que advierte de que también se eliminarán sus flashcards.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration; npm run test:e2e",
+      "evidence_expected": "La acción Eliminar abre una confirmación cuyo texto nombra el mazo y advierte del borrado de sus cartas."
+    },
+    {
+      "acceptance": "8. Cancelar la confirmación de borrado de un mazo no modifica ningún dato.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration; npm run test:e2e",
+      "evidence_expected": "Tras cancelar, mazo y cartas siguen y el repositorio serializado es idéntico."
+    },
+    {
+      "acceptance": "9. Eliminar un mazo elimina en cascada todas las flashcards que le pertenecen.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit) tests/unit/deck-delete-cascade.test.ts; npm run test:integration",
+      "evidence_expected": "Escenario Mazo A (Carta 1, Carta 2) / Mazo B (Carta 3): tras borrar A no queda ninguna carta con deckId de A."
+    },
+    {
+      "acceptance": "10. Eliminar un mazo no afecta a otros mazos ni a las flashcards de otros mazos, y el resultado persiste tras recargar.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration recreando el proveedor; npm run test:e2e con page.reload()",
+      "evidence_expected": "Mazo B y Carta 3 siguen tras rehidratar y tras recargar; A y sus cartas no reaparecen."
+    },
+    {
+      "acceptance": "11. El Frente de una flashcard existente puede editarse y el cambio se conserva.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration tests/integration/card-edit-delete.test.tsx; npm run test:e2e tests/e2e/card-management.spec.ts",
+      "evidence_expected": "Editar solo el Frente cambia el Frente y deja el Reverso intacto."
+    },
+    {
+      "acceptance": "12. El Reverso de una flashcard existente puede editarse y el cambio se conserva.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration; npm run test:e2e",
+      "evidence_expected": "Escenario del enunciado: 'Capital de Francia'/'Londres' pasa a 'Capital de Francia'/'París'."
+    },
+    {
+      "acceptance": "13. Frente y Reverso pueden editarse a la vez en la misma operación.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration",
+      "evidence_expected": "Editar Frente y Reverso a la vez guarda ambos valores."
+    },
+    {
+      "acceptance": "14. Cancelar la edición de una flashcard no modifica ningún dato.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration",
+      "evidence_expected": "Cancelar la edición deja carta y repositorio serializado idénticos."
+    },
+    {
+      "acceptance": "15. Al editar una flashcard siguen aplicándose las reglas existentes de campos vacíos: Frente vacío y Reverso vacío se rechazan con error visible.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit) tests/unit/card-edit.test.ts; npm run test:integration",
+      "evidence_expected": "editCard devuelve frente-requerido y reverso-requerido; la pantalla ancla el error a su campo."
+    },
+    {
+      "acceptance": "16. La edición de una flashcard persiste tras recargar, manteniendo el mismo mazo y la misma identidad lógica de la carta (mismo id).",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration recreando el proveedor; npm run test:e2e con page.reload()",
+      "evidence_expected": "Tras rehidratar, la carta tiene el mismo id y el mismo deckId, con el contenido nuevo."
+    },
+    {
+      "acceptance": "17. Una flashcard puede eliminarse tras una confirmación explícita.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration; npm run test:e2e",
+      "evidence_expected": "La acción Eliminar de una carta abre confirmación antes de borrar."
+    },
+    {
+      "acceptance": "18. Cancelar la confirmación de borrado de una flashcard no modifica ningún dato.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration",
+      "evidence_expected": "Tras cancelar, la carta sigue y el repositorio serializado es idéntico."
+    },
+    {
+      "acceptance": "19. Eliminar una flashcard no elimina el mazo ni las demás cartas, y el resultado persiste tras recargar.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration recreando el proveedor; npm run test:e2e con page.reload()",
+      "evidence_expected": "Tras borrar una carta de dos, el mazo sigue y la otra carta sigue, también tras recargar."
+    },
+    {
+      "acceptance": "20. Mis mazos tiene un campo de búsqueda por nombre que ignora mayúsculas y minúsculas y reacciona sin recargar.",
+      "method": "unit + integration + e2e",
+      "command_or_procedure": "npm test (unit) tests/unit/deck-library-view.test.ts; npm run test:integration tests/integration/decks-library.test.tsx; npm run test:e2e",
+      "evidence_expected": "filterDecks('ING') encuentra 'Inglés'; la lista se actualiza al escribir sin recargar."
+    },
+    {
+      "acceptance": "21. Una búsqueda sin coincidencias muestra un empty state propio, distinto del empty state de biblioteca vacía.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration; npm run test:e2e",
+      "evidence_expected": "Con búsqueda sin resultados aparece testID decks-search-empty, distinto de decks-empty."
+    },
+    {
+      "acceptance": "22. Limpiar la búsqueda restaura la lista completa de mazos.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration; npm run test:e2e",
+      "evidence_expected": "Al vaciar el campo reaparecen todos los mazos."
+    },
+    {
+      "acceptance": "23. Mis mazos permite ordenar por nombre A-Z.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit); npm run test:integration",
+      "evidence_expected": "sortDecks 'nombre-asc' ordena A-Z de forma estable; la pantalla refleja ese orden."
+    },
+    {
+      "acceptance": "24. Mis mazos permite ordenar por nombre Z-A.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit); npm run test:integration",
+      "evidence_expected": "sortDecks 'nombre-desc' ordena Z-A; la pantalla refleja ese orden."
+    },
+    {
+      "acceptance": "25. Mis mazos permite ordenar por modificación más reciente.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit); npm run test:integration",
+      "evidence_expected": "sortDecks 'reciente' pone primero el mayor updatedAt; la pantalla refleja ese orden."
+    },
+    {
+      "acceptance": "26. Mis mazos permite ordenar por modificación más antigua.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit); npm run test:integration",
+      "evidence_expected": "sortDecks 'antiguo' pone primero el menor updatedAt; la pantalla refleja ese orden."
+    },
+    {
+      "acceptance": "27. Cada mazo muestra su nombre y un contador correcto de flashcards.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration; npm run test:e2e",
+      "evidence_expected": "Cada tarjeta de mazo muestra el nombre y el recuento real de cartas de ese mazo."
+    },
+    {
+      "acceptance": "28. Mis mazos sigue siendo responsive en desktop y en móvil con los controles nuevos.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e tests/e2e/responsive-navigation.spec.ts en los tres proyectos",
+      "evidence_expected": "Los controles de búsqueda y orden se ven y son usables en desktop-chrome, mobile-chrome y mobile-safari."
+    },
+    {
+      "acceptance": "29. Los controles nuevos de Mis mazos no producen overflow horizontal en ninguna disposición.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e comparando scrollWidth con clientWidth",
+      "evidence_expected": "scrollWidth <= clientWidth en / en los tres proyectos."
+    },
+    {
+      "acceptance": "30. Un CSV simple con encabezados se parsea a la representación común columnas/filas.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit) tests/unit/import-parsers.test.ts con fixture tests/fixtures/import/simple.csv",
+      "evidence_expected": "El fixture real produce columns ['Front','Back'] y sus filas."
+    },
+    {
+      "acceptance": "31. Un CSV con comas y comillas dentro de los campos se parsea correctamente, sin partir los campos.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit) con fixture tests/fixtures/import/comillas.csv",
+      "evidence_expected": "'\"Hola, ¿cómo estás?\",\"Hello, how are you?\"' produce dos campos, no cuatro; también con saltos de línea entre comillas."
+    },
+    {
+      "acceptance": "32. Encabezados Frente/Reverso se reconocen.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit) tests/unit/import-detector.test.ts",
+      "evidence_expected": "detectFields(['Frente','Reverso']) preselecciona front=0 y back=1."
+    },
+    {
+      "acceptance": "33. Encabezados Question/Answer se reconocen.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit)",
+      "evidence_expected": "detectFields(['Pregunta','Respuesta']) y (['Question','Answer']) preseleccionan front=0 y back=1."
+    },
+    {
+      "acceptance": "34. Un CSV con encabezados desconocidos produce un mapping ambiguo que exige selección manual de columnas.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit); npm run test:integration tests/integration/import-flow.test.tsx",
+      "evidence_expected": "Con ['Columna A','Columna B'] no hay preselección y la pantalla pide elegir columnas antes de habilitar Importar."
+    },
+    {
+      "acceptance": "35. Antes de importar un CSV se muestra una vista previa con el total y una muestra de filas.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration; npm run test:e2e tests/e2e/import-flow.spec.ts",
+      "evidence_expected": "Antes de confirmar se ve el total de tarjetas y una muestra de filas Frente/Reverso."
+    },
+    {
+      "acceptance": "36. Una importación real de CSV crea las flashcards en el mazo elegido.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration; npm run test:e2e subiendo el fixture .csv real",
+      "evidence_expected": "Tras confirmar, las cartas del CSV existen en el mazo elegido y solo en él."
+    },
+    {
+      "acceptance": "37. Las flashcards importadas desde CSV persisten tras recargar.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration recreando el proveedor; npm run test:e2e con page.reload()",
+      "evidence_expected": "Las cartas importadas siguen tras rehidratar y tras recargar."
+    },
+    {
+      "acceptance": "38. Un workbook .xlsx válido se lee correctamente.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit) tests/unit/import-xlsx.test.ts con fixtures reales generados por openpyxl y XlsxWriter",
+      "evidence_expected": "Se leen ambos ficheros: el de cadenas en línea y el de sharedStrings, con acentos correctos."
+    },
+    {
+      "acceptance": "39. Un workbook de una sola hoja selecciona esa hoja automáticamente.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit)",
+      "evidence_expected": "Un workbook de una hoja devuelve una única hoja y el flujo la elige sin preguntar."
+    },
+    {
+      "acceptance": "40. Un workbook con varias hojas con datos se detecta como tal.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit) con fixture multihoja real",
+      "evidence_expected": "El workbook de tres hojas devuelve las tres con sus nombres."
+    },
+    {
+      "acceptance": "41. Con varias hojas, el usuario puede escoger la hoja antes de mapear.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration; npm run test:e2e",
+      "evidence_expected": "Con varias hojas la pantalla ofrece elegir hoja y cambiarla recalcula columnas y preview."
+    },
+    {
+      "acceptance": "42. Se leen los encabezados de la hoja elegida y se intenta detectar las columnas.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit); npm run test:integration",
+      "evidence_expected": "Los encabezados de la hoja elegida alimentan al detector y se preselecciona lo reconocible."
+    },
+    {
+      "acceptance": "43. El usuario puede mapear manualmente las columnas de una hoja .xlsx.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration; npm run test:e2e",
+      "evidence_expected": "En una hoja con encabezados desconocidos se pueden elegir las columnas a mano y la preview se recalcula."
+    },
+    {
+      "acceptance": "44. Antes de importar un .xlsx se muestra una vista previa.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration; npm run test:e2e",
+      "evidence_expected": "Antes de confirmar un .xlsx se ve el total y una muestra de filas."
+    },
+    {
+      "acceptance": "45. Una importación real de .xlsx crea las flashcards en el mazo elegido.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration; npm run test:e2e subiendo el fixture .xlsx real",
+      "evidence_expected": "Tras confirmar, las cartas de la hoja elegida existen en el mazo."
+    },
+    {
+      "acceptance": "46. Las flashcards importadas desde .xlsx persisten tras recargar.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration recreando el proveedor; npm run test:e2e con page.reload()",
+      "evidence_expected": "Las cartas importadas del .xlsx siguen tras rehidratar y tras recargar."
+    },
+    {
+      "acceptance": "47. Una tabla Markdown válida con encabezados Frente/Reverso se parsea correctamente.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit) con fixture tests/fixtures/import/tabla.md",
+      "evidence_expected": "La tabla Frente/Reverso produce columns y rows correctos, ignorando la fila separadora."
+    },
+    {
+      "acceptance": "48. Una tabla Markdown con encabezados sinónimos Question/Answer se parsea correctamente.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit) con fixture tests/fixtures/import/tabla-question.md",
+      "evidence_expected": "La tabla Question/Answer produce columns y rows correctos."
+    },
+    {
+      "acceptance": "49. Un Markdown sin tabla no se interpreta como una colección de flashcards: se rechaza de forma controlada.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit) con fixture tests/fixtures/import/sin-tabla.md; npm run test:integration",
+      "evidence_expected": "Un .md de prosa sin tabla devuelve un error controlado 'sin-tabla' y no produce filas; la pantalla lo comunica."
+    },
+    {
+      "acceptance": "50. Antes de importar un .md se muestra una vista previa.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration; npm run test:e2e",
+      "evidence_expected": "Antes de confirmar un .md se ve el total y una muestra de filas."
+    },
+    {
+      "acceptance": "51. Una importación real de .md crea las flashcards en el mazo elegido.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration; npm run test:e2e subiendo el fixture .md real",
+      "evidence_expected": "Tras confirmar, las cartas de la tabla existen en el mazo."
+    },
+    {
+      "acceptance": "52. Las flashcards importadas desde .md persisten tras recargar.",
+      "method": "integration + e2e",
+      "command_or_procedure": "npm run test:integration recreando el proveedor; npm run test:e2e con page.reload()",
+      "evidence_expected": "Las cartas importadas del .md siguen tras rehidratar y tras recargar."
+    },
+    {
+      "acceptance": "53. Un encabezado 'front' se detecta como Frente.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit) tests/unit/import-detector.test.ts",
+      "evidence_expected": "'front', ' Front ' y 'FRONT' detectan Frente."
+    },
+    {
+      "acceptance": "54. Un encabezado 'frente' se detecta como Frente.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit)",
+      "evidence_expected": "'frente' detecta Frente."
+    },
+    {
+      "acceptance": "55. Los encabezados 'question' y 'pregunta' se detectan como Frente.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit)",
+      "evidence_expected": "'question' y 'pregunta' detectan Frente."
+    },
+    {
+      "acceptance": "56. Los encabezados 'term', 'término' y 'termino' se detectan como Frente.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit)",
+      "evidence_expected": "'term', 'término' y 'termino' detectan Frente; el acento no cambia el resultado."
+    },
+    {
+      "acceptance": "57. Un encabezado 'back' se detecta como Reverso.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit)",
+      "evidence_expected": "'back' detecta Reverso."
+    },
+    {
+      "acceptance": "58. Un encabezado 'reverso' se detecta como Reverso.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit)",
+      "evidence_expected": "'reverso' detecta Reverso."
+    },
+    {
+      "acceptance": "59. Los encabezados 'answer' y 'respuesta' se detectan como Reverso.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit)",
+      "evidence_expected": "'answer' y 'respuesta' detectan Reverso."
+    },
+    {
+      "acceptance": "60. Los encabezados 'definition', 'definición' y 'definicion' se detectan como Reverso.",
+      "method": "unit",
+      "command_or_procedure": "npm test (unit)",
+      "evidence_expected": "'definition', 'definición' y 'definicion' detectan Reverso."
+    },
+    {
+      "acceptance": "61. Encabezados desconocidos no producen ninguna preselección: el mapping queda manual.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit); npm run test:integration",
+      "evidence_expected": "detectFields con encabezados desconocidos devuelve front=null y back=null; la pantalla exige elegir."
+    },
+    {
+      "acceptance": "62. La detección nunca dispara una importación por sí sola: siempre hay preview y confirmación explícita.",
+      "method": "integration + e2e + review",
+      "command_or_procedure": "npm run test:integration; npm run test:e2e; revisión de código del flujo",
+      "evidence_expected": "Ni siquiera con detección completa se crean cartas sin pulsar Importar: el paso de preview es obligatorio en el estado del flujo."
+    },
+    {
+      "acceptance": "63. Un archivo vacío se rechaza con un mensaje controlado y no importa nada.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit) tests/unit/import-validation.test.ts; npm run test:integration",
+      "evidence_expected": "Un archivo de 0 bytes y un CSV solo con encabezados producen error controlado y no permiten importar."
+    },
+    {
+      "acceptance": "64. Un archivo inválido o ilegible se rechaza con un mensaje controlado y no rompe la aplicación.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit) con .xlsx truncado y .csv binario; npm run test:integration",
+      "evidence_expected": "El parser devuelve un error tipado y la pantalla muestra el mensaje, sin excepción sin capturar."
+    },
+    {
+      "acceptance": "65. Las filas completamente vacías se ignoran y no se convierten en flashcards.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit); npm run test:integration",
+      "evidence_expected": "Filas con todas las celdas vacías se cuentan como ignoradas y no generan cartas."
+    },
+    {
+      "acceptance": "66. Una fila con Frente vacío se cuenta como fila con problema y no se convierte en flashcard.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit); npm run test:integration",
+      "evidence_expected": "Una fila con Frente vacío se cuenta en 'con problemas' y no genera carta."
+    },
+    {
+      "acceptance": "67. Una fila con Reverso vacío se cuenta como fila con problema y no se convierte en flashcard.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit); npm run test:integration",
+      "evidence_expected": "Una fila con Reverso vacío se cuenta en 'con problemas' y no genera carta."
+    },
+    {
+      "acceptance": "68. Seleccionar la misma columna como Frente y como Reverso se rechaza antes de importar.",
+      "method": "unit + integration + e2e",
+      "command_or_procedure": "npm test (unit); npm run test:integration; npm run test:e2e",
+      "evidence_expected": "Con front=back la validación devuelve 'columnas-iguales' y el botón Importar queda deshabilitado con mensaje visible."
+    },
+    {
+      "acceptance": "69. Un fallo de escritura durante la importación se maneja de forma controlada y se comunica.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration con createWriteFailingRepository",
+      "evidence_expected": "El fallo de escritura muestra mensaje de error y el estado en memoria no incorpora las cartas."
+    },
+    {
+      "acceptance": "70. Una importación fallida no deja el mazo a medias: ni crea cartas parciales ni altera las cartas y mazos existentes.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration con createWriteFailingRepository y luego rehidratando",
+      "evidence_expected": "Tras el fallo, el repositorio conserva exactamente las cartas y mazos previos, sin cartas parciales."
+    },
+    {
+      "acceptance": "71. La persistencia introducida en TASK-004 sigue funcionando.",
+      "method": "integration + e2e",
+      "command_or_procedure": "./init.sh con la suite completa",
+      "evidence_expected": "Los tests de persistencia de TASK-004 siguen pasando sin modificarse."
+    },
+    {
+      "acceptance": "72. La unicidad de nombre de mazo de TASK-004 sigue funcionando en la creación.",
+      "method": "unit + e2e",
+      "command_or_procedure": "./init.sh con la suite completa",
+      "evidence_expected": "tests/unit/deck-name-uniqueness.test.ts y el e2e de duplicados siguen pasando."
+    },
+    {
+      "acceptance": "73. La navegación estabilizada de TASK-004 sigue sin acumular instancias.",
+      "method": "integration + e2e",
+      "command_or_procedure": "./init.sh con la suite completa",
+      "evidence_expected": "Los tests de regresión del stack de navegación siguen pasando."
+    },
+    {
+      "acceptance": "74. El estudio simple de TASK-003 sigue funcionando.",
+      "method": "integration + e2e",
+      "command_or_procedure": "./init.sh con la suite completa",
+      "evidence_expected": "tests/integration/study-flow.test.tsx y el e2e de estudio siguen pasando."
+    },
+    {
+      "acceptance": "75. Ningún test anterior se ha eliminado ni debilitado.",
+      "method": "review",
+      "command_or_procedure": "git diff de tests/ y comparación de los conteos antes y después",
+      "evidence_expected": "Ningún test eliminado ni debilitado; los conteos crecen y los cambios de tests existentes se justifican por una acceptance de TASK-005."
+    },
+    {
+      "acceptance": "76. Renombrar un mazo conserva su id y sus cartas siguen perteneciendo al mismo mazo.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit) tests/unit/deck-rename.test.ts; npm run test:integration",
+      "evidence_expected": "Tras renombrar, deck.id es el mismo y cardsOfDeck devuelve las mismas cartas."
+    },
+    {
+      "acceptance": "77. Los parsers de CSV, XLSX y Markdown convergen en una única representación común y el resto del sistema trabaja sobre ella.",
+      "method": "unit + review",
+      "command_or_procedure": "npm test (unit) tests/unit/import-parsers.test.ts; revisión de código de src/features/import/",
+      "evidence_expected": "Los tres parsers devuelven ParsedWorkbook con ParsedTable {columns, rows}; detector, validación, preview y commit sólo conocen ese tipo."
+    },
+    {
+      "acceptance": "78. El detector de campos es una capa independiente, sustituible por otra estrategia sin reescribir el importador, y no vive dentro de componentes React.",
+      "method": "unit + review",
+      "command_or_procedure": "npm test (unit) tests/unit/import-detector.test.ts; revisión de código",
+      "evidence_expected": "FieldDetector es un tipo con headerHeuristicDetector como única implementación; un detector alternativo se inyecta sin tocar el importador."
+    },
+    {
+      "acceptance": "79. Ningún componente de presentación accede directamente al almacenamiento ni a la librería concreta de parseo de archivos.",
+      "method": "review",
+      "command_or_procedure": "grep de @react-native-async-storage, papaparse, fflate y expo-document-picker en app/ y src/components/",
+      "evidence_expected": "Cero coincidencias fuera de src/lib/storage/, src/features/import/parsers/ y src/lib/files/."
+    },
+    {
+      "acceptance": "80. Una importación con filas parcialmente inválidas informa del recuento de filas válidas y con problemas antes de confirmar, e importa solo las válidas listando las descartadas en el resultado.",
+      "method": "unit + integration + e2e",
+      "command_or_procedure": "npm test (unit) tests/unit/import-validation.test.ts; npm run test:integration; npm run test:e2e",
+      "evidence_expected": "La preview muestra 'N válidas' y 'M con problemas'; tras confirmar se crean N cartas y el resultado enumera las M descartadas."
+    },
+    {
+      "acceptance": "81. El modelo persistente conserva correctamente la fecha de última modificación de cada mazo, y los datos guardados por TASK-004 se migran sin pérdida.",
+      "method": "unit + integration",
+      "command_or_procedure": "npm test (unit) tests/unit/storage-serialization.test.ts; npm run test:integration",
+      "evidence_expected": "Un documento version 1 sin updatedAt se migra a version 2 con updatedAt backfilled, sin perder mazos ni cartas; renombrar, borrar, editar e importar actualizan updatedAt del mazo."
+    },
+    {
+      "acceptance": "82. No se han añadido servicios externos, SDKs de IA ni llamadas de red para interpretar archivos.",
+      "method": "review",
+      "command_or_procedure": "grep de openai/anthropic/gemini/fetch/axios en src/features/import/ y revisión de package.json",
+      "evidence_expected": "Ninguna dependencia de IA ni llamada de red en el importador."
+    },
+    {
+      "acceptance": "83. npm run typecheck termina en verde.",
+      "method": "static",
+      "command_or_procedure": "npm run typecheck",
+      "evidence_expected": "Exit code 0."
+    },
+    {
+      "acceptance": "84. npm run lint termina en verde.",
+      "method": "static",
+      "command_or_procedure": "npm run lint",
+      "evidence_expected": "Exit code 0."
+    },
+    {
+      "acceptance": "85. npm test (unit) termina en verde.",
+      "method": "unit",
+      "command_or_procedure": "npm test",
+      "evidence_expected": "Exit code 0 con el número de tests registrado."
+    },
+    {
+      "acceptance": "86. npm run test:integration termina en verde.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration",
+      "evidence_expected": "Exit code 0 con el número de tests registrado."
+    },
+    {
+      "acceptance": "87. npm run test:e2e termina en verde.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "Exit code 0 en desktop-chrome, mobile-chrome y mobile-safari."
+    },
+    {
+      "acceptance": "88. ./init.sh termina con exit code 0.",
+      "method": "static",
+      "command_or_procedure": "./init.sh",
+      "evidence_expected": "Exit code 0 con todos los gates en [OK]."
+    },
+    {
+      "acceptance": "89. El Reviewer emite APPROVED sin findings críticos ni altos abiertos.",
+      "method": "review",
+      "command_or_procedure": "Lectura de progress/evidence/TASK-005-review.md",
+      "evidence_expected": "Veredicto APPROVED y findings críticos/altos cerrados."
+    },
+    {
+      "acceptance": "90. QA emite APPROVED tras comprobar comportamiento observable.",
+      "method": "qa",
+      "command_or_procedure": "Lectura de progress/evidence/TASK-005-qa.md",
+      "evidence_expected": "Veredicto APPROVED tras probar comportamiento observable, no releer la suite."
+    },
+    {
+      "acceptance": "91. La evidencia completa queda registrada en progress/evidence/TASK-005-implementation.md, -review.md y -qa.md.",
+      "method": "inspection",
+      "command_or_procedure": "Lectura de los tres archivos de evidencia",
+      "evidence_expected": "Baseline, archivos, acceptance -> evidencia, comandos, resultados, decisiones técnicas, riesgos y lo no verificado."
+    }
+  ],
+  "technical_decisions": [
+    {
+      "decision": "CSV con papaparse ^5.6.0.",
+      "reason": "El usuario exige un parser robusto y prohíbe split(','). papaparse implementa RFC 4180 (comillas, comas y saltos de línea dentro de campos), tiene cero dependencias, 265 KB, es JavaScript puro sin APIs de Node ni de navegador obligatorias, y sigue mantenido (última publicación 2026-08-13). Funciona igual bajo Metro, Hermes, jest-expo y navegador. Tipos vía @types/papaparse ^5.5.2. Alternativa descartada: escribir el parser a mano, que reintroduce exactamente el riesgo que el usuario pide evitar."
+    },
+    {
+      "decision": "XLSX con fflate ^0.8.3 más un lector mínimo propio en src/features/import/parsers/xlsx/.",
+      "reason": "Un .xlsx es un ZIP con XML. fflate aporta solo el inflate: cero dependencias, JavaScript puro, mantenido (2026-07-20), funciona en navegador, Hermes y Node. Lo que hace falta leer es estrecho y determinista: nombres de hoja de xl/workbook.xml, relaciones de xl/_rels/workbook.xml.rels, cadenas de xl/sharedStrings.xml y celdas de las hojas. Alternativas descartadas: 'xlsx' (SheetJS), congelado en npm en 0.18.5 con avisos conocidos de prototype pollution y ReDoS; 'exceljs', 21 MB y nueve dependencias orientadas a Node (archiver, unzipper, readable-stream) sin publicar desde 2024; 'read-excel-file', 2,4 MB y cuatro dependencias entre ellas worker-f y unzipper-esm, que asumen Web Workers y ESM y son un riesgo bajo Metro y jest-expo, y que además depende de fflate igualmente."
+    },
+    {
+      "decision": "Selección de archivo con expo-document-picker ~57.0.1.",
+      "reason": "Módulo de primera parte alineado con Expo SDK 57 (el proyecto usa expo ~57.0.11). Es el único con implementación real en las tres plataformas declaradas: en web crea un input[type=file] y devuelve el File del navegador; en iOS y Android abre el selector del sistema y devuelve un uri. Se comprobó que expo-file-system NO sirve como selector porque su implementación web es un stub que solo emite un aviso."
+    },
+    {
+      "decision": "Lectura del archivo en nativo con expo-file-system ~57.0.2, promovido de dependencia transitiva a directa.",
+      "reason": "Ya está en el árbol por expo, pero el proyecto pasa a importarlo, así que debe declararlo. Se usa solo en la ruta nativa: File(uri).text() para .csv y .md y File(uri).bytes() para .xlsx. En web no se usa: allí se lee el File del navegador con text() y arrayBuffer()."
+    },
+    {
+      "decision": "El acceso a archivos vive detrás de un puerto FilePicker en src/lib/files/, con implementación por plataforma.",
+      "reason": "docs/ARCHITECTURE.md regla 1 y el requisito de que los parsers estén desacoplados de la interfaz. Permite que los tests inyecten un selector falso con contenido de fixture y que la ruta nativa, que no puede ejercitarse en el gate E2E web, quede aislada en un único archivo delgado."
+    },
+    {
+      "decision": "Representación común ParsedTable { columns: string[]; rows: string[][] } dentro de ParsedWorkbook { sheets: { name, table }[] }.",
+      "reason": "Requisito explícito de convergencia. CSV y Markdown devuelven un workbook de una sola hoja; XLSX devuelve N. Detector, validación, preview y commit solo conocen ParsedTable, así que añadir un formato es añadir un parser."
+    },
+    {
+      "decision": "Detector como estrategia: type FieldDetector = (columns: string[]) => FieldDetection, con headerHeuristicDetector como única implementación.",
+      "reason": "El usuario pide que en el futuro quepa otra estrategia sin reescribir el importador. El importador recibe el detector como parámetro con valor por defecto, así que una implementación alternativa se inyecta sin tocar nada más. No se implementa ninguna estrategia de IA."
+    },
+    {
+      "decision": "Normalización de encabezados: recortar extremos, minúsculas y quitar marcas diacríticas con normalize('NFD').",
+      "reason": "El usuario autoriza manejar acentos si la implementación es sencilla y testeable. NFD más borrado de combining marks son dos líneas y cubren término/termino y definición/definicion. Es una normalización local del importador y no toca la de nombres de mazo, que sigue siendo solo recorte y minúsculas."
+    },
+    {
+      "decision": "Deck gana updatedAt (ISO 8601) y el formato persistido pasa a version 2 con migración desde version 1.",
+      "reason": "Ordenar por modificación lo exige y el usuario lo autoriza expresamente. Subir la versión sin migración marcaría como inválidos los datos existentes de TASK-004, así que parseStoredLibrary acepta documentos version 1 y rellena updatedAt en la lectura. Card no gana timestamps porque ninguna acceptance lo necesita."
+    },
+    {
+      "decision": "La importación valida antes de escribir, espera a que la escritura termine y solo entonces publica el estado nuevo.",
+      "reason": "El usuario exige que una importación fallida no deje el mazo a medias. El documento persistido es único y AsyncStorage.setItem lo sustituye entero, así que un fallo deja intacto el documento anterior; esperar la escritura evita además que la interfaz muestre cartas que no llegaron a guardarse."
+    },
+    {
+      "decision": "Las eliminaciones se confirman con un diálogo propio en la interfaz, no con Alert de React Native.",
+      "reason": "Alert.alert no está implementado en react-native-web, así que no sería verificable en el gate E2E ni coherente entre plataformas. Se añade un componente ConfirmDialog al sistema visual, que docs/DESIGN.md ya prevé como pendiente de crear cuando una tarea lo requiera."
+    }
+  ],
+  "allowed_paths": [
+    "app/**",
+    "src/**",
+    "tests/**",
+    "package.json",
+    "package-lock.json",
+    "app.json",
+    "tsconfig.json",
+    "eslint.config.js",
+    "jest.config.js",
+    "playwright.config.ts",
+    "docs/**",
+    "progress/**",
+    ".harness/**"
+  ],
+  "required_docs": [
+    "docs/PRODUCT.md",
+    "docs/ARCHITECTURE.md",
+    "docs/CONVENTIONS.md",
+    "docs/DESIGN.md",
+    "docs/TESTING.md",
+    "docs/VERIFICATION.md"
+  ],
+  "required_gates": [
+    "baseline",
+    "scope",
+    "static",
+    "unit",
+    "integration",
+    "persistence",
+    "e2e",
+    "regression"
+  ],
+  "out_of_scope": [
+    "Autenticación.",
+    "Supabase.",
+    "Sincronización.",
+    "Cuentas de usuario.",
+    "IA.",
+    "OCR.",
+    "PDF.",
+    "Word .doc y .docx.",
+    "Imágenes.",
+    "Audio.",
+    "Anki .apkg.",
+    "Import/export de Anki.",
+    "Repetición espaciada.",
+    "Calificaciones.",
+    "Estadísticas.",
+    "Etiquetas.",
+    "Carpetas.",
+    "Subcategorías.",
+    "Colaboración.",
+    "Compartir mazos.",
+    "Historial de versiones.",
+    "Papelera.",
+    "Recuperación de elementos eliminados.",
+    "Edición masiva.",
+    "Deduplicación automática de flashcards.",
+    "Importación desde URLs.",
+    "Google Drive.",
+    "OneDrive.",
+    "Dropbox.",
+    "Búsqueda global de flashcards.",
+    "Criterios de ordenamiento distintos de los cuatro confirmados.",
+    "Patrones de Markdown no tabulares.",
+    "Formatos antiguos .xls.",
+    "Macros de Excel.",
+    "Estadísticas de repetición o estudio en las tarjetas de mazo.",
+    "Cualquier feature no confirmada explícitamente en esta tarea."
+  ],
+  "risks": [
+    "La ruta nativa de lectura de archivos (iOS y Android) no puede ejercitarse con el gate E2E, que es solo web. Se aísla en src/lib/files/ y se declara como no verificado en ejecución real.",
+    "El lector .xlsx es propio y cubre lo que necesitan las flashcards: texto de celdas. No cubre fórmulas, formatos numéricos ni fechas con estilo, que se leen como su valor crudo.",
+    "La migración de version 1 a version 2 no puede recuperar una fecha de modificación que nunca se guardó: los mazos existentes reciben todos la misma marca temporal, así que entre ellos el orden por modificación cae en el desempate estable.",
+    "expo-document-picker en web crea el input dinámicamente y dispara un click sintético; el E2E debe engancharse al evento filechooser o al propio input, y eso puede requerir ajuste."
+  ],
+  "baseline_required": true,
+  "regression_required": true,
+  "review_required": true,
+  "qa_required": true
+}

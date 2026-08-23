@@ -130,7 +130,7 @@ describe('Las cartas pertenecen a su mazo', () => {
     });
     await screen.findByTestId('decks-list');
 
-    expect(screen.getByText('1 carta')).toBeTruthy();
-    expect(screen.getByText('0 cartas')).toBeTruthy();
+    expect(screen.getByText(/1 carta ·/)).toBeTruthy();
+    expect(screen.getByText(/0 cartas ·/)).toBeTruthy();
   });
 });

@@ -26,7 +26,7 @@ describe('Flujo: crear mazo', () => {
 
     expect(await screen.findByTestId('decks-list')).toBeTruthy();
     expect(screen.getByText('Inglés')).toBeTruthy();
-    expect(screen.getByText('0 cartas')).toBeTruthy();
+    expect(screen.getByText(/0 cartas/)).toBeTruthy();
     expect(screen.queryByTestId('decks-empty')).toBeNull();
   });
 

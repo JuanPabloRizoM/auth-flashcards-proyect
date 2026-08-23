@@ -11,10 +11,16 @@ import {
 
 import {
   addCard as addCardTo,
+  addCards as addCardsTo,
   createDeck as createDeckIn,
+  deleteCard as deleteCardIn,
+  deleteDeck as deleteDeckIn,
+  editCard as editCardIn,
   emptyLibrary,
+  renameDeck as renameDeckIn,
   type LibraryErrorCode,
 } from '../features/decks/library';
+import type { ImportRow } from '../features/import/mapping';
 import type { Library } from '../types/domain';
 
 import { createAsyncStorageRepository } from './storage/asyncStorageRepository';
@@ -33,6 +39,12 @@ import { storageErrorMessage, type LibraryRepository } from './storage/types';
 
 export type LibraryAction = { ok: true } | { ok: false; error: LibraryErrorCode };
 
+/** Igual que `LibraryAction`, pero para operaciones que esperan a la escritura. */
+export type AsyncLibraryAction =
+  | { ok: true; imported: number }
+  | { ok: false; error: LibraryErrorCode }
+  | { ok: false; error: 'escritura-fallida' };
+
 export type LibraryStatus = 'loading' | 'ready';
 
 export type LibraryValue = {
@@ -41,7 +53,19 @@ export type LibraryValue = {
   /** Mensaje de un problema del almacenamiento, si lo hubo. La app sigue siendo usable. */
   storageError?: string;
   createDeck: (name: string) => LibraryAction;
+  renameDeck: (deckId: string, name: string) => LibraryAction;
+  deleteDeck: (deckId: string) => LibraryAction;
   addCard: (deckId: string, front: string, back: string) => LibraryAction;
+  editCard: (cardId: string, front: string, back: string) => LibraryAction;
+  deleteCard: (cardId: string) => LibraryAction;
+  /**
+   * Añade un lote de cartas esperando a que la escritura termine.
+   *
+   * A diferencia del resto, no publica el estado nuevo hasta que el almacenamiento confirma.
+   * Es lo que garantiza que una importación fallida no deje el mazo a medias ni enseñe
+   * tarjetas que en realidad no se guardaron.
+   */
+  importCards: (deckId: string, rows: readonly ImportRow[]) => Promise<AsyncLibraryAction>;
 };
 
 const LibraryContext = createContext<LibraryValue | null>(null);
@@ -60,6 +84,46 @@ export type LibraryProviderProps = {
  * reiniciara con el recuento, se volverían a emitir identificadores ya usados y dos mazos
  * distintos acabarían compartiendo id.
  */
+/**
+ * Reloj monótono para las fechas de modificación.
+ *
+ * `Date.now()` tiene resolución de milisegundo, y dos operaciones seguidas caen de sobra
+ * dentro del mismo. Con marcas empatadas, "modificado más reciente" no puede distinguir qué
+ * se tocó antes, que es justo lo que la persona usuaria espera que distinga. Este reloj nunca
+ * devuelve dos veces el mismo valor ni retrocede: si el sistema no ha avanzado, suma un
+ * milisegundo. Como mucho se adelanta tantos milisegundos como operaciones seguidas haya, y
+ * se reajusta solo en cuanto el reloj real lo alcanza.
+ */
+function createMonotonicClock(): {
+  now: () => string;
+  /** Coloca el reloj por delante de lo ya guardado al rehidratar. */
+  seed: (isoDate: string | undefined) => void;
+} {
+  let last = 0;
+
+  return {
+    now: () => {
+      const millis = Math.max(Date.now(), last + 1);
+      last = millis;
+      return new Date(millis).toISOString();
+    },
+    seed: (isoDate) => {
+      const millis = isoDate === undefined ? Number.NaN : Date.parse(isoDate);
+      if (!Number.isNaN(millis)) {
+        last = Math.max(last, millis);
+      }
+    },
+  };
+}
+
+/** La marca más alta ya guardada, para que la sesión nueva no emita fechas anteriores. */
+function latestUpdatedAt(library: Library): string | undefined {
+  return library.decks.reduce<string | undefined>(
+    (latest, deck) => (latest === undefined || deck.updatedAt > latest ? deck.updatedAt : latest),
+    undefined,
+  );
+}
+
 function nextCounterFrom(library: Library): number {
   const suffixOf = (id: string): number => {
     const match = /-(\d+)$/.exec(id);
@@ -82,6 +146,7 @@ export function LibraryProvider({ children, repository }: LibraryProviderProps) 
   const [status, setStatus] = useState<LibraryStatus>('loading');
   const [storageError, setStorageError] = useState<string | undefined>(undefined);
   const nextId = useRef(0);
+  const clock = useRef(createMonotonicClock());
   /**
    * Si no se pudo leer el medio, puede haber datos válidos ahí abajo. Guardar encima los
    * destruiría, así que se suspende la escritura durante esta sesión.
@@ -99,6 +164,7 @@ export function LibraryProvider({ children, repository }: LibraryProviderProps) 
       if (result.status === 'ok') {
         setLibrary(result.library);
         nextId.current = nextCounterFrom(result.library);
+        clock.current.seed(latestUpdatedAt(result.library));
       } else if (result.status === 'error') {
         if (result.reason === 'ilegible') {
           writesSuspended.current = true;
@@ -129,36 +195,106 @@ export function LibraryProvider({ children, repository }: LibraryProviderProps) 
     });
   }, []);
 
-  const createDeck = useCallback(
-    (name: string): LibraryAction => {
-      const result = createDeckIn(library, name, generateId('mazo'));
+  /**
+   * Aplica el resultado de una operación de dominio: si salió bien, se publica y se persiste.
+   *
+   * Está aquí para que las siete operaciones no repitan siete veces el mismo bloque y para
+   * que la regla "un intento inválido no toca lo persistido" sea una sola línea de código.
+   */
+  const apply = useCallback(
+    (result: { ok: true; library: Library } | { ok: false; error: LibraryErrorCode }) => {
       if (!result.ok) {
-        // Un intento inválido no toca lo persistido. Solo deja un hueco en la numeración.
-        return { ok: false, error: result.error };
+        return { ok: false as const, error: result.error };
       }
       setLibrary(result.library);
       persist(result.library);
-      return { ok: true };
+      return { ok: true as const };
     },
-    [generateId, library, persist],
+    [persist],
+  );
+
+  const createDeck = useCallback(
+    (name: string): LibraryAction => apply(createDeckIn(library, name, generateId('mazo'), clock.current.now())),
+    [apply, generateId, library],
+  );
+
+  const renameDeck = useCallback(
+    (deckId: string, name: string): LibraryAction => apply(renameDeckIn(library, deckId, name, clock.current.now())),
+    [apply, library],
+  );
+
+  const deleteDeck = useCallback(
+    (deckId: string): LibraryAction => apply(deleteDeckIn(library, deckId)),
+    [apply, library],
   );
 
   const addCard = useCallback(
-    (deckId: string, front: string, back: string): LibraryAction => {
-      const result = addCardTo(library, deckId, front, back, generateId('carta'));
+    (deckId: string, front: string, back: string): LibraryAction =>
+      apply(addCardTo(library, deckId, front, back, generateId('carta'), clock.current.now())),
+    [apply, generateId, library],
+  );
+
+  const editCard = useCallback(
+    (cardId: string, front: string, back: string): LibraryAction =>
+      apply(editCardIn(library, cardId, front, back, clock.current.now())),
+    [apply, library],
+  );
+
+  const deleteCard = useCallback(
+    (cardId: string): LibraryAction => apply(deleteCardIn(library, cardId, clock.current.now())),
+    [apply, library],
+  );
+
+  const importCards = useCallback(
+    async (deckId: string, rows: readonly ImportRow[]): Promise<AsyncLibraryAction> => {
+      const ids = rows.map(() => generateId('carta'));
+      const result = addCardsTo(library, deckId, rows, ids, clock.current.now());
       if (!result.ok) {
         return { ok: false, error: result.error };
       }
+
+      // Se escribe antes de publicar. Si el medio falla, el estado visible no llega a incluir
+      // las cartas nuevas y lo guardado sigue siendo exactamente lo que había.
+      if (!writesSuspended.current) {
+        try {
+          await repositoryRef.current!.save(result.library);
+        } catch {
+          setStorageError('No se han podido guardar las tarjetas importadas en este dispositivo.');
+          return { ok: false, error: 'escritura-fallida' };
+        }
+      }
+
       setLibrary(result.library);
-      persist(result.library);
-      return { ok: true };
+      return { ok: true, imported: rows.length };
     },
-    [generateId, library, persist],
+    [generateId, library],
   );
 
   const value = useMemo<LibraryValue>(
-    () => ({ library, status, storageError, createDeck, addCard }),
-    [addCard, createDeck, library, status, storageError],
+    () => ({
+      library,
+      status,
+      storageError,
+      createDeck,
+      renameDeck,
+      deleteDeck,
+      addCard,
+      editCard,
+      deleteCard,
+      importCards,
+    }),
+    [
+      addCard,
+      createDeck,
+      deleteCard,
+      deleteDeck,
+      editCard,
+      importCards,
+      library,
+      renameDeck,
+      status,
+      storageError,
+    ],
   );
 
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;

@@ -1,0 +1,4 @@
+| Frente | Reverso |
+|---|---|
+| Perro | Dog |
+| Gato | Cat |

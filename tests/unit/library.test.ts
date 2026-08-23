@@ -8,8 +8,12 @@ import {
   libraryErrorMessage,
 } from '../../src/features/decks/library';
 
+/** Reloj fijo: el modelo guarda la fecha de modificación y se afirma sobre un valor concreto. */
+const CREADO = '2026-08-22T09:00:00.000Z';
+const MODIFICADO = '2026-08-22T10:00:00.000Z';
+
 function libraryConMazo(name = 'Inglés') {
-  const result = createDeck(emptyLibrary, name, 'mazo-1');
+  const result = createDeck(emptyLibrary, name, 'mazo-1', CREADO);
   if (!result.ok) {
     throw new Error('el mazo de partida debería crearse');
   }
@@ -18,11 +22,14 @@ function libraryConMazo(name = 'Inglés') {
 
 describe('createDeck', () => {
   it('añade el mazo con el nombre recortado', () => {
-    const result = createDeck(emptyLibrary, '  Inglés  ', 'mazo-1');
+    const result = createDeck(emptyLibrary, '  Inglés  ', 'mazo-1', CREADO);
 
     expect(result).toEqual({
       ok: true,
-      library: { decks: [{ id: 'mazo-1', name: 'Inglés' }], cards: [] },
+      library: {
+        decks: [{ id: 'mazo-1', name: 'Inglés', updatedAt: CREADO }],
+        cards: [],
+      },
     });
   });
 
@@ -71,12 +78,20 @@ describe('createDeck', () => {
 describe('addCard', () => {
   it('añade la carta al mazo indicado, con los textos recortados', () => {
     const library = libraryConMazo();
-    const result = addCard(library, 'mazo-1', '  to overlook ', ' pasar por alto ', 'carta-1');
+    const result = addCard(
+      library,
+      'mazo-1',
+      '  to overlook ',
+      ' pasar por alto ',
+      'carta-1',
+      MODIFICADO,
+    );
 
     expect(result).toEqual({
       ok: true,
       library: {
-        decks: [{ id: 'mazo-1', name: 'Inglés' }],
+        // Añadir una carta cuenta como modificar el mazo: su fecha avanza.
+        decks: [{ id: 'mazo-1', name: 'Inglés', updatedAt: MODIFICADO }],
         cards: [{ id: 'carta-1', deckId: 'mazo-1', front: 'to overlook', back: 'pasar por alto' }],
       },
     });
