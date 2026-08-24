@@ -1,2 +1,3 @@
 export { pickImportFile } from './documentPicker';
-export type { FilePicker, PickFileResult } from './types';
+export { savePdfFile } from './saveFile';
+export type { FilePicker, FileSaver, PickFileResult, SaveFileResult } from './types';

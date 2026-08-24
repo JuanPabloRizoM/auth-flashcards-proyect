@@ -71,6 +71,28 @@ Añade aquí únicamente decisiones que el usuario haya tomado explícitamente.
 - [2026-08-22] Filas parcialmente inválidas en una importación: se importan solo las filas válidas.
   Antes de confirmar debe informarse de cuántas son válidas y cuántas presentan problemas, y el
   resultado debe enumerar las descartadas.
+- [2026-08-23] La aplicación tiene una sección principal de Estadísticas.
+- [2026-08-23] Las estadísticas pueden consultarse para todos los mazos o para un mazo concreto.
+- [2026-08-23] El filtro de mazo afecta a todas las métricas y gráficas aplicables.
+- [2026-08-23] El filtro de mazo afecta también al reporte PDF.
+- [2026-08-23] Los periodos principales son 1 mes, 3 meses, 1 año y todo el historial.
+- [2026-08-23] Se conserva el historial estadístico aunque después se elimine el mazo o la flashcard.
+- [2026-08-23] Eliminar un mazo elimina sus datos actuales y sus cartas, como ya estaba definido, pero
+  NO elimina su historial de estudio.
+- [2026-08-23] Eliminar una flashcard tampoco elimina los eventos históricos de estudio asociados.
+- [2026-08-23] Las estadísticas anteriores a TASK-006, que nunca se registraron, no se inventan ni se
+  reconstruyen.
+- [2026-08-23] Debe quedar claro desde qué fecha existe historial estadístico fiable.
+- [2026-08-23] Los datos estadísticos permanecen locales al dispositivo o navegador en esta etapa.
+- [2026-08-23] No se envía telemetría de estudio a ningún servicio externo.
+- [2026-08-23] La aplicación puede generar un reporte PDF real de estadísticas.
+- [2026-08-23] El reporte puede generarse para todos los mazos o para un mazo concreto.
+- [2026-08-23] El reporte utiliza el periodo seleccionado.
+- [2026-08-23] Las gráficas del reporte se derivan de los mismos datos que las gráficas de la
+  aplicación.
+- [2026-08-23] Todavía no se implementa ni se simula repetición espaciada, Ease, retención ni botones
+  Again/Hard/Good/Easy.
+- [2026-08-23] Las estadísticas que requieren un algoritmo de repetición no muestran datos falsos.
 ```
 
 ## Decisiones todavía NO tomadas
@@ -82,8 +104,12 @@ No asumir ni completar automáticamente temas como:
 - sincronización entre dispositivos;
 - cuentas de usuario y colaboración;
 - modelo de suscripción;
-- algoritmo de repetición espaciada, y cualquier botón o escala de calificación;
-- estadísticas;
+- algoritmo de repetición espaciada;
+- escala de calificación, y cualquier botón de calificación;
+- Ease;
+- scheduler;
+- retención basada en aprobación/fallo de un repaso;
+- Future Due derivado de un scheduler;
 - subcategorías anidadas dentro de un mazo;
 - modo oscuro;
 - funcionamiento offline;

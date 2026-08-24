@@ -22,6 +22,7 @@ import {
   startSession,
 } from '../../../src/features/study/session';
 import { useLibrary } from '../../../src/lib/LibraryProvider';
+import { useStudyHistory } from '../../../src/lib/StudyHistoryProvider';
 import { goBackOr } from '../../../src/lib/navigation';
 import { spacing } from '../../../src/theme';
 
@@ -35,6 +36,7 @@ export default function EstudiarScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { library, status } = useLibrary();
+  const { study } = useStudyHistory();
 
   const deckId = id ?? '';
   const deck = findDeck(library, deckId);
@@ -46,9 +48,45 @@ export default function EstudiarScreen() {
   useEffect(() => {
     if (hydrated && !started.current) {
       started.current = true;
-      setSession(startSession(cardsOfDeck(library, deckId)));
+      const cards = cardsOfDeck(library, deckId);
+      setSession(startSession(cards));
+      // Un mazo sin cartas no abre sesión: no habría nada que registrar.
+      if (cards.length > 0) {
+        study.begin(deckId);
+        const first = cards[0];
+        if (first) study.show(first.id);
+      }
     }
-  }, [deckId, hydrated, library]);
+  }, [deckId, hydrated, library, study]);
+
+  /**
+   * Cerrar la sesión al salir de la pantalla.
+   *
+   * Se hace en la limpieza del efecto y no en un botón: se sale de estudiar de muchas
+   * maneras (volver, navegar a otro destino, cerrar la pestaña) y la sesión tiene que
+   * quedar cerrada en todas. `end` descarta la carta que quedara a medias y solo guarda
+   * la sesión si llegó a completarse alguna.
+   */
+  useEffect(() => () => study.end(), [study]);
+
+  const onReveal = () => {
+    study.reveal();
+    setSession(revealAnswer(session));
+  };
+
+  const onNext = () => {
+    // Se completa la carta que estaba a la vista y se empieza a medir la siguiente. Si era
+    // la última, la sesión queda terminada y no se muestra ninguna carta nueva.
+    study.complete();
+    const next = goToNextCard(session);
+    setSession(next);
+    const upcoming = next.cards[next.index];
+    if (upcoming) {
+      study.show(upcoming.id);
+    } else {
+      study.end();
+    }
+  };
 
   const goToDeck = () => goBackOr(router, () => router.replace(`/mazo/${deckId}`));
   const goToDecks = () => goBackOr(router, () => router.replace('/'));
@@ -136,17 +174,9 @@ export default function EstudiarScreen() {
       </FlashcardSurface>
 
       {session.revealed ? (
-        <Button
-          label="Siguiente carta"
-          onPress={() => setSession(goToNextCard(session))}
-          testID="next-card-button"
-        />
+        <Button label="Siguiente carta" onPress={onNext} testID="next-card-button" />
       ) : (
-        <Button
-          label="Mostrar respuesta"
-          onPress={() => setSession(revealAnswer(session))}
-          testID="reveal-button"
-        />
+        <Button label="Mostrar respuesta" onPress={onReveal} testID="reveal-button" />
       )}
     </View>
   );

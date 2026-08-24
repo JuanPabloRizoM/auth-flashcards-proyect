@@ -17,6 +17,7 @@ import {
   describePreview,
   detectFields,
   importErrorMessage,
+  extensionOf,
   mappingErrorMessage,
   parsePickedFile,
   validateMapping,
@@ -25,7 +26,9 @@ import {
 } from '../../../src/features/import';
 import { pickImportFile } from '../../../src/lib/files';
 import type { FilePicker } from '../../../src/lib/files/types';
+import type { CardOrigin } from '../../../src/features/stats/types';
 import { useLibrary } from '../../../src/lib/LibraryProvider';
+import { useStudyHistory } from '../../../src/lib/StudyHistoryProvider';
 import { goBackOr } from '../../../src/lib/navigation';
 import { colors, spacing, typography } from '../../../src/theme';
 
@@ -53,6 +56,7 @@ export default function ImportarScreen({ filePicker = pickImportFile }: Importar
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { library, status, importCards } = useLibrary();
+  const { recordCardsAdded } = useStudyHistory();
 
   const [stage, setStage] = useState<Stage>({ kind: 'idle' });
   const [sheetIndex, setSheetIndex] = useState(0);
@@ -141,9 +145,10 @@ export default function ImportarScreen({ filePicker = pickImportFile }: Importar
   };
 
   const onImport = async () => {
-    if (preview === undefined || preview.rows.length === 0) {
+    if (preview === undefined || preview.rows.length === 0 || stage.kind !== 'ready') {
       return;
     }
+    const { fileName } = stage;
     setImporting(true);
     const result = await importCards(deckId, preview.rows);
     setImporting(false);
@@ -157,6 +162,14 @@ export default function ImportarScreen({ filePicker = pickImportFile }: Importar
             : libraryErrorMessage(result.error),
       });
       return;
+    }
+
+    // El origen sale de la extensión del archivo elegido, que es lo único que se sabe de
+    // verdad. Si por lo que sea no se reconoce, no se inventa: no se registra origen y la
+    // carta cuenta como de origen desconocido.
+    const origin = originOfExtension(extensionOf(fileName));
+    if (origin) {
+      recordCardsAdded(deckId, result.cardIds, origin);
     }
 
     setStage({ kind: 'done', imported: result.imported, discarded: preview.rejected.length });
@@ -331,6 +344,26 @@ function issuesMessage(lines: readonly number[]): string {
   const rest = lines.length > 10 ? ` y ${lines.length - 10} más` : '';
   const prefix = lines.length === 1 ? 'Se descartará la fila' : 'Se descartarán las filas';
   return `${prefix} ${shown}${rest} del archivo: les falta el frente o el reverso.`;
+}
+
+/**
+ * Origen de una importación a partir de la extensión del archivo.
+ *
+ * Es lo único que se sabe con certeza sobre de dónde vino la tarjeta. Una extensión que no
+ * se reconozca no se traduce a nada: la carta queda sin alta de origen y las estadísticas
+ * la cuentan como de origen desconocido, que es la verdad (docs/PRODUCT.md, 2026-08-23).
+ */
+function originOfExtension(extension: string): CardOrigin | null {
+  switch (extension) {
+    case '.csv':
+      return 'csv';
+    case '.xlsx':
+      return 'xlsx';
+    case '.md':
+      return 'markdown';
+    default:
+      return null;
+  }
 }
 
 const styles = StyleSheet.create({

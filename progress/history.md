@@ -105,3 +105,91 @@ Gestión completa de mazos y cartas, mejora de Mis mazos e importación estructu
 - **Limitación que conviene no olvidar**: la rama de lectura de archivos en iOS y Android **no se ha ejecutado nunca**. El gate E2E es solo web. Está aislada en `src/lib/files/documentPicker.ts` y declarada como no verificada, no disfrazada de comprobada.
 - **Commits**: `3d434c6 feat(TASK-005): editar y eliminar mazos y cartas, biblioteca e importación`.
 - Evidencia: `progress/evidence/TASK-005-implementation.md`, `progress/evidence/TASK-005-review.md` (revisiones #1 a #4), `progress/evidence/TASK-005-qa.md` (rondas #1 a #3).
+
+## TASK-006 — Estadísticas avanzadas de estudio, historial persistente y generación de reportes PDF
+
+**Cerrada:** 2026-08-24. **Estado:** `DONE`.
+
+### Qué pidió el usuario
+
+Un sistema de estadísticas comparable en profundidad al de Anki, adaptado a lo que la
+aplicación puede saber de verdad hoy. Se adjuntó un informe de Anki en PDF como referencia
+funcional, con la instrucción explícita de no copiarlo píxel a píxel: sirve para entender qué
+estadísticas presenta, cómo agrupa, qué filtros ofrece y qué gráficas usa. La identidad visual
+sigue siendo la del proyecto.
+
+### Decisiones de producto confirmadas
+
+Registradas en `docs/PRODUCT.md` con fecha 2026-08-23: sección de Estadísticas; ámbito de todos
+los mazos o de uno concreto, que afecta a todas las métricas y también al PDF; periodos de 1
+mes, 3 meses, 1 año y todo; el historial sobrevive a eliminar mazos y cartas; no se inventan
+estadísticas anteriores al tracking y debe quedar claro desde cuándo hay historial fiable; los
+datos son locales y no hay telemetría; reporte PDF real derivado de los mismos datos que la
+pantalla; y nada de repetición espaciada, Ease, retención ni botones de calificación.
+
+`estadísticas` salió de la lista de decisiones no tomadas. Siguen sin decidirse el algoritmo de
+repetición espaciada, la escala de calificación, el Ease, el scheduler, la retención por
+aprobación/fallo y el Future Due derivado de un scheduler.
+
+### Qué se construyó
+
+Un historial de estudio persistente detrás de `StudyHistoryRepository`, separado de
+`LibraryRepository` porque tienen ciclos de vida opuestos: la biblioteca se reescribe entera y
+se borra, el historial solo crece y tiene que sobrevivir a esos borrados. Guarda sesiones,
+eventos de carta con sus tres instantes y altas con su origen, particionado por mes natural.
+
+Sobre él, un motor de estadísticas puro —una función de `(biblioteca, historial, consulta)` a
+informe, sin React, sin reloj y sin almacenamiento— que alimenta tanto la pantalla como el
+generador de PDF, de modo que las fórmulas vivan en un solo sitio y no puedan divergir.
+
+Once secciones: hoy, tarjetas por día, calendario, tiempo, velocidad, racha, actividad por
+hora, conteo de tarjetas, añadidas, comparación de mazos y origen. Las cinco métricas de Anki
+que hoy no pueden calcularse se declaran con su motivo en vez de dibujarse a cero.
+
+### Decisiones técnicas que merecen recordarse
+
+- **El día y la hora locales se congelan al registrar el evento**, no al consultarlo. Es lo que
+  hace deterministas el calendario y la distribución horaria frente al horario de verano y a la
+  zona horaria en la que se ejecuten los tests. Después se comparan como texto y no vuelven a
+  pasar por ninguna zona horaria.
+- **`today` se inyecta en la consulta** en vez de leerse del reloj dentro del motor. Sin eso no
+  se podría afirmar sobre una frontera de fecha concreta.
+- **Sin librería de gráficas y sin librería de PDF.** Las gráficas son vistas con altura
+  proporcional; el PDF lo escribe un generador propio con fuentes base-14. En los dos casos por
+  la misma razón que llevó a escribir el lector de `.xlsx` en TASK-005: lo que hace falta es un
+  subconjunto pequeño y estable, y en el caso del PDF un escritor propio permite además que los
+  tests afirmen sobre los bytes reales, con un lector que no comparte código con él.
+- **Lo desconocido es `null`, nunca `0`,** y llega hasta la pantalla como "—".
+- Se añadió `expo-sharing`, la única dependencia nueva, aislada tras el puerto `FileSaver`.
+
+### Defectos encontrados durante la tarea
+
+1. **Actualizaciones perdidas en el historial.** Dos `append` concurrentes hacían
+   lectura-modificación-escritura sobre la misma partición y se pisaban: al estudiar tres cartas
+   seguidas solo se guardaban dos. Lo detectaron los tests de integración. Corregido con una cola
+   de escritura serializada.
+2. **Rango de series ciego a las altas**, que dejaba en blanco la gráfica de añadidas en un
+   periodo con cartas creadas pero sin estudiar.
+3. **Estado activo de navegación no accesible en web.** `react-native-web` descarta
+   `accessibilityState.selected` en un elemento con rol de enlace, así que el destino activo
+   quedaba marcado solo por color. Defecto preexistente desde TASK-002, corregido con
+   `aria-current="page"`.
+4. **Formato de número dependiente del ICU de la plataforma**, sustituido por uno determinista.
+
+El reviewer devolvió `CHANGES_REQUIRED` con tres hallazgos más, todos en el generador de PDF: la
+escala del calendario estaba hardcodeada duplicando el theme, el `/Title` se codificaba en
+WinAnsi cuando `/Info` se lee en PDFDocEncoding, y la rejilla de cifras no protegía el ancho de
+columna. Corregidos, cada uno con test de regresión que afirma sobre el resultado.
+
+### Verificación
+
+El reviewer recalculó **64 cifras a mano** sobre un dataset propio y las contrastó con el motor:
+todas coinciden. El PDF se validó con dos herramientas externas al proyecto (PyMuPDF y
+pdftotext) y se inspeccionó página a página renderizado.
+
+QA levantó la aplicación real y la condujo en navegador en tres perfiles de dispositivo: creó
+Inglés con 10 tarjetas y Matemáticas con 30, comprobó visualmente 40 / 10 / 30, descargó los dos
+PDF y verificó que el de Inglés no contiene ni un dato exclusivo de Matemáticas. **41 de 41
+comprobaciones observables OK, cero errores de consola.**
+
+Gates finales: typecheck, lint, 430 unit, 172 integration, 178 E2E y `./init.sh` exit 0.

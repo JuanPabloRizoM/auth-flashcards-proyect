@@ -1,0 +1,1139 @@
+{
+  "task_id": "TASK-006",
+  "goal": "La aplicación tiene una sección Estadísticas accesible desde la navegación, alimentada por un historial de estudio persistente y append-only registrado desde la activación del tracking, con filtro de ámbito (todos los mazos / un mazo) y de periodo (1 mes, 3 meses, 1 año, todo), un motor de estadísticas puro y unit-testable, y generación de un reporte PDF real que usa exactamente el mismo motor que el dashboard.",
+  "requirements_snapshot": [
+    "A1 — Estadísticas es una sección real de producto, accesible desde el sidebar desktop y desde la navegación móvil, en la ruta /estadisticas, con estado activo accesible y consistente, sin romper la navegación existente.",
+    "B1 — En Estadísticas existe un selector de ámbito con 'Todos los mazos' y cada mazo concreto.",
+    "B2 — Cambiar el ámbito actualiza resumen, calendario, gráficas, racha, distribución, tiempo, actividad, métricas y el PDF generado.",
+    "B3 — No existe leakage de datos entre mazos: el ámbito de un mazo solo usa eventos de ese mazo.",
+    "B4 — El historial conserva identidad suficiente (deckId histórico, snapshot de nombre, timestamps, eventos) para atribuir un evento a su mazo aunque el mazo se elimine después.",
+    "B5 — Las estadísticas globales siguen incluyendo el historial de mazos eliminados; un mazo eliminado que deba mostrarse en una vista histórica se etiqueta claramente como eliminado y nunca aparenta seguir existiendo en la biblioteca.",
+    "C1 — Filtros de periodo 1 mes, 3 meses, 1 año y todo, combinables con el filtro de mazo, con fronteras temporales deterministas y testeables.",
+    "D1 — Existe una capa de historial de estudio persistente con sesiones y eventos de carta, no contadores mutables, suficiente para recalcular estadísticas después.",
+    "D2 — StudySession conserva al menos id, deckId, inicio, fin, duración activa y cartas completadas.",
+    "D3 — StudyCardEvent conserva al menos id, sessionId, deckId, cardId, momento en que se mostró, momento de revelar, momento de completar y duración activa.",
+    "D4 — El historial permite estadísticas por fecha, por hora, por mazo, tiempos, velocidad y sesiones, y sobrevive a la eliminación de la entidad original.",
+    "D5 — La identidad histórica se basa en IDs estables; los snapshots descriptivos solo acompañan.",
+    "D6 — El tiempo en background o con la pestaña/app suspendida no cuenta como tiempo activo, y al regresar la medición se reanuda. Las limitaciones se documentan.",
+    "D7 — Los eventos almacenan timestamps fiables y el calendario representa el día local en que se estudió, de forma determinista frente a DST y a la zona horaria de ejecución de los tests.",
+    "E1 — Existe una fecha de inicio de tracking. No se inventa historia anterior. Las cartas anteriores se tratan como baseline preexistente sin fecha falsa, y los reportes pueden indicar desde cuándo hay historial fiable.",
+    "F1 — El motor de estadísticas es una capa pura independiente de React, consultable por ámbito y periodo, y las pantallas no hacen agregaciones complejas por su cuenta.",
+    "G1 — Estadística 1 (Hoy): tarjetas estudiadas hoy, únicas, tiempo activo total, promedio s/tarjeta, sesiones y mazos estudiados (este último solo en ámbito global). Sin métricas Again/Review/Relearn.",
+    "G2 — Estadística 2 (Calendario/heatmap): actividad por día con intensidad definida, detalle por día, funciona global y por mazo, con estado sin datos y responsive.",
+    "G3 — Estadística 3 (Tarjetas estudiadas por día): tarjetas por día, días estudiados, total, promedio sobre periodo y promedio de días activos, con filtros de mazo y periodo, sin usar la palabra Review.",
+    "G4 — Estadística 4 (Conteo de tarjetas): total, nunca estudiadas y estudiadas al menos una vez, más estudiadas hoy cuando haya datos. Sin Learning/Relearning/Young/Mature/Suspended/Buried. Funciona global y por mazo.",
+    "G5 — Estadística 5 (Tiempo de estudio): tiempo activo por día, total, promedio por día activo, sesión promedio y sesión más larga.",
+    "G6 — Estadística 6 (Velocidad): segundos promedio por tarjeta en el tiempo, sin división por cero ni datos engañosos.",
+    "G7 — Estadística 7 (Racha): racha actual, mejor racha y días estudiados; un día cuenta si hay al menos una tarjeta completada; funciona también por mazo.",
+    "G8 — Estadística 8 (Actividad por hora): tarjetas por hora local, sin success rate, con filtro por mazo.",
+    "G9 — Estadística 9 (Comparación de mazos): solo en ámbito global; compara al menos tarjetas estudiadas, tiempo, sesiones y promedio s/tarjeta; no se muestra con un único mazo seleccionado.",
+    "G10 — Estadística 10 (Tarjetas añadidas): se registra cuándo se añade una carta desde TASK-006; no se falsifican fechas anteriores; existe baseline anterior al tracking y tarjetas añadidas por periodo.",
+    "G11 — Estadística 11 (Origen de tarjetas): para las nuevas se registra Manual, CSV, XLSX o Markdown y se muestra la distribución; las anteriores se etiquetan como origen desconocido / anterior al tracking.",
+    "G12 — Future Due, Review Intervals, Card Ease, Retention y Answer Buttons no se implementan ni se muestran con ceros falsos o datos simulados; la arquitectura permite añadirlos después.",
+    "H1 — Las gráficas mantienen la paleta académica existente, sin neón, glow ni estética de IA; son responsive en desktop y móvil, con etiquetas comprensibles, estados sin datos, accesibles y sin depender solo del color. Los colores vienen del theme.",
+    "H2 — Si se añade una librería de gráficas debe ser compatible con Expo/React Native/web, estar mantenida, no ser desproporcionada y justificarse en evidence.",
+    "I1 — Existe una acción de generar reporte PDF que abre una configuración de ámbito (todos los mazos o uno concreto) y de periodo (1 mes, 3 meses, 1 año, todo), y el reporte usa exactamente ese filtro.",
+    "I2 — El PDF es real y multipágina cuando es necesario, no una captura vertical del dashboard, e incluye portada/resumen (nombre de aplicación, ámbito, periodo, fecha de generación y fecha desde la que hay tracking fiable), resumen de métricas, actividad, calendario, tiempo, velocidad, conteo de tarjetas, añadidas, actividad por hora, comparación de mazos solo si es global, y origen cuando haya datos.",
+    "I3 — Un PDF de un mazo concreto no contiene datos de otros mazos, salvo los elementos globales estrictamente necesarios para identificar la aplicación, y ese aislamiento se prueba.",
+    "I4 — En web el PDF puede descargarse o guardarse. En móvil se usa una solución apropiada de compartir/guardar si la plataforma y el stack lo permiten, sin afirmar soporte nativo probado que no se haya ejecutado, documentando la limitación.",
+    "I5 — Para el mismo ámbito y periodo, dashboard y PDF obtienen los datos del mismo motor: no hay dos implementaciones de las fórmulas.",
+    "J1 — El historial no se guarda en un único documento que crezca indefinidamente y se reescriba completo en cada acción; se usa una abstracción separada del repositorio de biblioteca y una estrategia de particionado simple y mantenible, con almacenamiento local, sin Supabase.",
+    "J2 — Se documenta formato, versión, migración, claves, estrategia de crecimiento y recuperación ante datos inválidos.",
+    "K1 — Eliminar un mazo elimina el mazo y sus cartas de la biblioteca pero conserva su historial de estudio, y las estadísticas globales históricas no cambian retroactivamente.",
+    "L1 — Renombrar un mazo con historial no crea un segundo historial: la identidad depende del ID y el nombre presentado se resuelve por la entidad actual o por un snapshot histórico. La estrategia se documenta.",
+    "M1 — Comportamiento correcto sin datos: nunca se ha estudiado, mazo sin historial, periodo sin actividad, o solo baseline anterior al tracking. Nunca se muestra NaN, Infinity ni undefined, ni se presentan como cero métricas semánticamente desconocidas.",
+    "N1 — El motor se prueba con volúmenes razonables (1.000 y 10.000 eventos); las gráficas agregan por día u hora antes de renderizar y no bloquean innecesariamente la UI."
+  ],
+  "confirmed_decisions": [
+    "Las decisiones de producto de Estadísticas están confirmadas por el usuario y registradas en docs/PRODUCT.md con fecha 2026-08-23.",
+    "Se conserva la identidad visual ya definida: paleta académica de docs/DESIGN.md y src/theme/tokens.ts. El PDF de Anki es referencia funcional, no visual.",
+    "Repetición espaciada, escala de calificación, Ease, scheduler, retención por aprobación/fallo y Future Due siguen sin decidirse y quedan fuera.",
+    "Las estadísticas y su historial son locales al dispositivo o navegador. No hay telemetría ni servicios externos.",
+    "El historial estadístico sobrevive a la eliminación de mazos y cartas."
+  ],
+  "open_questions": [],
+  "acceptance": [
+    "AC-TRACKING — Una sesión de estudio registra sesión y eventos de carta reales (mostrada, revelada, completada), con duraciones correctas, persistidos y recuperables tras recargar, para varias sesiones y varios mazos, empezando en trackingStart y sin inventar historia anterior; el tiempo en background no infla el tiempo activo.",
+    "AC-SCOPE — El ámbito 'Todos los mazos' agrega correctamente, el ámbito de un mazo contiene solo eventos de ese mazo, cambiar el ámbito actualiza métricas, gráficas y PDF, y no hay leakage entre mazos.",
+    "AC-PERIODO — Los periodos 1 mes, 3 meses, 1 año y todo filtran correctamente, con fronteras de fecha deterministas, estables frente a la zona horaria, y cambiar de periodo recalcula.",
+    "AC-HOY — Hoy muestra estudiadas, únicas, tiempo, segundos por tarjeta, sesiones y mazos activos, este último solo en ámbito global.",
+    "AC-CALENDARIO — El calendario refleja la actividad correcta por día, con intensidad definida, detalle del día, filtro por mazo y comportamiento responsive.",
+    "AC-ACTIVIDAD — La actividad muestra tarjetas por día, total, días activos, promedio sobre el periodo y promedio de días estudiados.",
+    "AC-CONTEO — El conteo de tarjetas muestra total, nunca estudiadas y estudiadas al menos una vez, con filtro por mazo, sin categorías de scheduler.",
+    "AC-TIEMPO — El tiempo de estudio muestra total, diario, promedio por día activo, sesión promedio y número de sesiones.",
+    "AC-VELOCIDAD — La velocidad muestra segundos por tarjeta correctos y nunca divide por cero.",
+    "AC-RACHA — La racha muestra racha actual, mejor racha y días estudiados, y se calcula también por mazo.",
+    "AC-HORA — La actividad por hora agrupa por hora local y respeta el filtro por mazo.",
+    "AC-COMPARACION — La comparación de mazos muestra tarjetas, tiempo, sesiones y promedio, y no aparece cuando el ámbito es un único mazo.",
+    "AC-ANADIDAS — Las tarjetas añadidas desde el tracking se registran con su fecha y el baseline preexistente no recibe una fecha falsa.",
+    "AC-ORIGEN — El origen se registra como manual, CSV, XLSX o Markdown para las cartas nuevas y como desconocido/anterior al tracking para las demás.",
+    "AC-BORRADO — Eliminar una carta o un mazo conserva el historial, las estadísticas globales no cambian retroactivamente y la identidad histórica sigue siendo atribuible.",
+    "AC-PDF — Se genera un archivo PDF real, con estructura válida, para todos los mazos y para un mazo concreto, en los cuatro periodos, con datos que coinciden con el dashboard, gráficas incluidas, multipágina cuando corresponde, fecha de generación y trackingStart visibles, sin leakage de otros mazos y con el estado sin datos manejado.",
+    "AC-RESPONSIVE — La sección funciona en desktop y en móvil Chrome y Safari/WebKit, sin overflow horizontal, con gráficas legibles, información que no depende solo del color y controles táctiles que cumplen el mínimo existente.",
+    "AC-SINDATOS — Sin historial, sin historial del mazo, sin actividad en el periodo o con solo baseline, no se muestra NaN, Infinity ni undefined, y lo desconocido no se presenta como cero.",
+    "AC-PERFORMANCE — El motor procesa 1.000 y 10.000 eventos en tests unitarios y las series se agregan por día u hora antes de renderizar.",
+    "AC-REGRESION — Crear, editar y eliminar mazos y cartas, importar CSV, XLSX y Markdown, la persistencia de TASK-004, la navegación y el estudio simple siguen funcionando, y los tests anteriores siguen pasando.",
+    "AC-FINAL — typecheck, lint, unit, integration y E2E pasan, ./init.sh termina en 0, Reviewer APPROVED, QA APPROVED y la evidencia está completa.",
+    "AC-ANKI — La evidencia incluye la tabla de correspondencia entre las secciones del PDF de Anki (Today, Future Due, Calendar, Reviews, Card Counts, Review Intervals, Card Ease, Retention, Hourly Breakdown, Answer Buttons, Added) y lo implementado, adaptado o diferido, sin afirmar equivalencia para métricas que todavía no existen."
+  ],
+  "verification_matrix": [
+    {
+      "id": "VM-001",
+      "group": "Tracking",
+      "acceptance": "Iniciar una sesión de estudio crea una StudySession con id, deckId e inicio.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-recorder'",
+      "evidence_expected": "beginSession devuelve una sesión con id, deckId y startedAt del reloj inyectado."
+    },
+    {
+      "id": "VM-002",
+      "group": "Tracking",
+      "acceptance": "Mostrar una carta registra un StudyCardEvent con sessionId, deckId, cardId y shownAt.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-recorder'",
+      "evidence_expected": "showCard produce un evento con los cinco campos y shownAt del reloj inyectado."
+    },
+    {
+      "id": "VM-003",
+      "group": "Tracking",
+      "acceptance": "Revelar la respuesta queda registrado en el evento.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-recorder'",
+      "evidence_expected": "revealAnswer fija revealedAt; revelar dos veces no lo mueve."
+    },
+    {
+      "id": "VM-004",
+      "group": "Tracking",
+      "acceptance": "Completar la carta queda registrado y cierra el evento.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-recorder'",
+      "evidence_expected": "completeCard fija completedAt y activeMs; el evento pasa a la lista de completados."
+    },
+    {
+      "id": "VM-005",
+      "group": "Tracking",
+      "acceptance": "Terminar la sesión fija fin, duración activa y cartas completadas.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-recorder'",
+      "evidence_expected": "endSession devuelve endedAt, activeMs y completedCards coherentes con los eventos."
+    },
+    {
+      "id": "VM-006",
+      "group": "Tracking",
+      "acceptance": "La duración activa registrada es correcta.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-recorder'",
+      "evidence_expected": "Con reloj controlado, activeMs de carta y de sesión igualan los valores esperados exactos."
+    },
+    {
+      "id": "VM-007",
+      "group": "Tracking",
+      "acceptance": "El tiempo en background no infla el tiempo activo.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-active-time'",
+      "evidence_expected": "Con el reloj avanzando 60s en estado oculto, el acumulado no crece; al volver a visible reanuda."
+    },
+    {
+      "id": "VM-008",
+      "group": "Tracking",
+      "acceptance": "El historial persiste tras recargar.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'history-persistence'",
+      "evidence_expected": "Se estudia, se desmonta el proveedor, se monta otro sobre el mismo repositorio y el historial se lee igual."
+    },
+    {
+      "id": "VM-009",
+      "group": "Tracking",
+      "acceptance": "Varias sesiones se registran por separado.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'study-tracking'",
+      "evidence_expected": "Dos sesiones sobre el mismo mazo producen dos StudySession con ids distintos y sus eventos separados."
+    },
+    {
+      "id": "VM-010",
+      "group": "Tracking",
+      "acceptance": "Varios mazos se registran con su deckId.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'study-tracking'",
+      "evidence_expected": "Estudiar dos mazos produce eventos con el deckId correspondiente a cada uno."
+    },
+    {
+      "id": "VM-011",
+      "group": "Tracking",
+      "acceptance": "El historial empieza en trackingStart.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'history-serialization'",
+      "evidence_expected": "La meta creada guarda trackedSince con el instante de activación y no hay eventos anteriores."
+    },
+    {
+      "id": "VM-012",
+      "group": "Tracking",
+      "acceptance": "No se inventa historia anterior al tracking.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "Con cartas de baseline y sin eventos, added y origen devuelven baseline y 'desconocido', no fechas fabricadas."
+    },
+    {
+      "id": "VM-013",
+      "group": "Scope",
+      "acceptance": "El ámbito 'todos los mazos' agrega correctamente.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "Dataset A(10,20) + B(5): global día1=15, día2=20, total=35."
+    },
+    {
+      "id": "VM-014",
+      "group": "Scope",
+      "acceptance": "El ámbito del mazo A contiene solo eventos de A.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "Filtro A: día1=10, día2=20, total=30."
+    },
+    {
+      "id": "VM-015",
+      "group": "Scope",
+      "acceptance": "El ámbito del mazo B contiene solo eventos de B.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "Filtro B: día1=5, total=5."
+    },
+    {
+      "id": "VM-016",
+      "group": "Scope",
+      "acceptance": "Cambiar el ámbito actualiza las métricas de la pantalla.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'stats-flow'",
+      "evidence_expected": "Al elegir un mazo, el resumen pasa de los totales globales a los del mazo."
+    },
+    {
+      "id": "VM-017",
+      "group": "Scope",
+      "acceptance": "Cambiar el ámbito actualiza las gráficas.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'stats-flow'",
+      "evidence_expected": "Las series accesibles de actividad y hora cambian de valores al cambiar el ámbito."
+    },
+    {
+      "id": "VM-018",
+      "group": "Scope",
+      "acceptance": "Cambiar el ámbito actualiza el PDF generado.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'stats-pdf'",
+      "evidence_expected": "El PDF generado con ámbito de mazo declara ese mazo y sus cifras, distintas de las globales."
+    },
+    {
+      "id": "VM-019",
+      "group": "Scope",
+      "acceptance": "Cero leakage entre mazos.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "Ningún evento exclusivo de otro mazo aparece en ninguna serie ni métrica del ámbito filtrado."
+    },
+    {
+      "id": "VM-020",
+      "group": "Periodos",
+      "acceptance": "Periodo 1 mes.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-period'",
+      "evidence_expected": "Ventana de 30 días: incluye el día -29 y excluye el día -30."
+    },
+    {
+      "id": "VM-021",
+      "group": "Periodos",
+      "acceptance": "Periodo 3 meses.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-period'",
+      "evidence_expected": "Ventana de 90 días: incluye el día -89 y excluye el día -90."
+    },
+    {
+      "id": "VM-022",
+      "group": "Periodos",
+      "acceptance": "Periodo 1 año.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-period'",
+      "evidence_expected": "Ventana de 365 días: incluye el día -364 y excluye el día -365."
+    },
+    {
+      "id": "VM-023",
+      "group": "Periodos",
+      "acceptance": "Periodo todo el historial.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-period'",
+      "evidence_expected": "'todo' no descarta ningún evento, incluido el más antiguo."
+    },
+    {
+      "id": "VM-024",
+      "group": "Periodos",
+      "acceptance": "Las fronteras de fecha son deterministas.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-period'",
+      "evidence_expected": "Un evento justo en el primer instante del día frontera entra; el instante anterior queda fuera."
+    },
+    {
+      "id": "VM-025",
+      "group": "Periodos",
+      "acceptance": "La zona horaria no altera el resultado.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-period'",
+      "evidence_expected": "El mismo dataset agrupa igual con TZ=UTC y con TZ=Pacific/Kiritimati: el día local se congela al registrar."
+    },
+    {
+      "id": "VM-026",
+      "group": "Periodos",
+      "acceptance": "Cambiar de periodo recalcula.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'stats-flow'",
+      "evidence_expected": "Al pasar de 1 mes a todo, el total mostrado incluye los eventos antiguos."
+    },
+    {
+      "id": "VM-027",
+      "group": "Hoy",
+      "acceptance": "Tarjetas estudiadas hoy.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "today.studied cuenta solo los eventos completados del día local actual."
+    },
+    {
+      "id": "VM-028",
+      "group": "Hoy",
+      "acceptance": "Tarjetas únicas estudiadas hoy.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "Repasar dos veces la misma carta da studied=2 y unique=1."
+    },
+    {
+      "id": "VM-029",
+      "group": "Hoy",
+      "acceptance": "Tiempo activo de hoy.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "today.activeMs es la suma exacta de las duraciones activas de hoy."
+    },
+    {
+      "id": "VM-030",
+      "group": "Hoy",
+      "acceptance": "Segundos por tarjeta de hoy.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "secondsPerCard = activeMs/1000/studied, y es null cuando studied es 0."
+    },
+    {
+      "id": "VM-031",
+      "group": "Hoy",
+      "acceptance": "Sesiones de hoy.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "today.sessions cuenta las sesiones con actividad hoy."
+    },
+    {
+      "id": "VM-032",
+      "group": "Hoy",
+      "acceptance": "Mazos estudiados hoy, solo en ámbito global.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "today.decksStudied es un número en ámbito global y null en ámbito de un mazo."
+    },
+    {
+      "id": "VM-033",
+      "group": "Calendario",
+      "acceptance": "El calendario refleja la actividad correcta por día.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "calendar[día] devuelve las tarjetas, el tiempo y las sesiones exactos de ese día."
+    },
+    {
+      "id": "VM-034",
+      "group": "Calendario",
+      "acceptance": "La intensidad está definida y es reproducible.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "El nivel 0..4 se deriva de tarjetas estudiadas contra el máximo del periodo, con umbrales fijos."
+    },
+    {
+      "id": "VM-035",
+      "group": "Calendario",
+      "acceptance": "El detalle del día está disponible.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'stats-flow'",
+      "evidence_expected": "Cada celda expone etiqueta accesible con fecha, tarjetas, tiempo y sesiones."
+    },
+    {
+      "id": "VM-036",
+      "group": "Calendario",
+      "acceptance": "El calendario respeta el filtro por mazo.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "El calendario del mazo A no contiene los días exclusivos del mazo B."
+    },
+    {
+      "id": "VM-037",
+      "group": "Calendario",
+      "acceptance": "El calendario es responsive.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e --grep 'Estadísticas'",
+      "evidence_expected": "Sin overflow horizontal en desktop 1280, Pixel 5 y iPhone 13."
+    },
+    {
+      "id": "VM-038",
+      "group": "Actividad",
+      "acceptance": "Tarjetas estudiadas por día.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "La serie diaria da los valores exactos del dataset conocido."
+    },
+    {
+      "id": "VM-039",
+      "group": "Actividad",
+      "acceptance": "Total de tarjetas estudiadas.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "activity.total = 35 en el dataset global conocido."
+    },
+    {
+      "id": "VM-040",
+      "group": "Actividad",
+      "acceptance": "Días activos.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "daysStudied cuenta los días con al menos una carta completada."
+    },
+    {
+      "id": "VM-041",
+      "group": "Actividad",
+      "acceptance": "Promedio sobre el periodo.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "averageOverPeriod = total / días del periodo, con el divisor documentado."
+    },
+    {
+      "id": "VM-042",
+      "group": "Actividad",
+      "acceptance": "Promedio sobre días estudiados.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "averageForDaysStudied = total / daysStudied, y null si daysStudied es 0."
+    },
+    {
+      "id": "VM-043",
+      "group": "Conteo",
+      "acceptance": "Total de tarjetas.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "counts.total es el número de cartas actuales del ámbito."
+    },
+    {
+      "id": "VM-044",
+      "group": "Conteo",
+      "acceptance": "Nunca estudiadas.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "neverStudied excluye cualquier carta con al menos un evento completado."
+    },
+    {
+      "id": "VM-045",
+      "group": "Conteo",
+      "acceptance": "Estudiadas al menos una vez.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "studiedAtLeastOnce + neverStudied = total."
+    },
+    {
+      "id": "VM-046",
+      "group": "Conteo",
+      "acceptance": "El conteo respeta el filtro por mazo.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "El conteo del mazo A no incluye cartas del mazo B."
+    },
+    {
+      "id": "VM-047",
+      "group": "Tiempo",
+      "acceptance": "Tiempo total.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "time.totalMs es la suma exacta de las duraciones activas del periodo."
+    },
+    {
+      "id": "VM-048",
+      "group": "Tiempo",
+      "acceptance": "Tiempo diario.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "La serie de tiempo por día da los valores exactos del dataset."
+    },
+    {
+      "id": "VM-049",
+      "group": "Tiempo",
+      "acceptance": "Promedio por día activo.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "averagePerActiveDayMs = totalMs / días activos, null si no hay días activos."
+    },
+    {
+      "id": "VM-050",
+      "group": "Tiempo",
+      "acceptance": "Sesión promedio y sesión más larga.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "averageSessionMs y longestSessionMs se calculan solo sobre sesiones cerradas."
+    },
+    {
+      "id": "VM-051",
+      "group": "Tiempo",
+      "acceptance": "Número de sesiones.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "time.sessions cuenta las sesiones del ámbito y periodo."
+    },
+    {
+      "id": "VM-052",
+      "group": "Velocidad",
+      "acceptance": "Segundos por tarjeta correctos.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "La serie de velocidad por día y el promedio dan los valores exactos esperados."
+    },
+    {
+      "id": "VM-053",
+      "group": "Velocidad",
+      "acceptance": "Sin división por cero.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "Un día sin tarjetas completadas devuelve null, no NaN ni Infinity."
+    },
+    {
+      "id": "VM-054",
+      "group": "Racha",
+      "acceptance": "Racha actual.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "La racha cuenta hacia atrás desde hoy, y sigue viva si se estudió ayer pero aún no hoy."
+    },
+    {
+      "id": "VM-055",
+      "group": "Racha",
+      "acceptance": "Mejor racha.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "La mejor racha es la secuencia consecutiva más larga de todo el historial del ámbito."
+    },
+    {
+      "id": "VM-056",
+      "group": "Racha",
+      "acceptance": "Días estudiados.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "daysStudied es el número de días locales distintos con al menos una carta completada."
+    },
+    {
+      "id": "VM-057",
+      "group": "Racha",
+      "acceptance": "Racha por mazo.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "Global 12 días y mazo 4 días sobre el mismo dataset."
+    },
+    {
+      "id": "VM-058",
+      "group": "Hora",
+      "acceptance": "Agrupación por hora.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "Las 24 horas están presentes y cada una lleva su recuento exacto."
+    },
+    {
+      "id": "VM-059",
+      "group": "Hora",
+      "acceptance": "Hora local.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-period'",
+      "evidence_expected": "La hora se congela al registrar el evento y no cambia con la TZ de ejecución."
+    },
+    {
+      "id": "VM-060",
+      "group": "Hora",
+      "acceptance": "Filtro por mazo.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "La distribución horaria del mazo A no contiene las horas exclusivas de B."
+    },
+    {
+      "id": "VM-061",
+      "group": "Comparación",
+      "acceptance": "Comparación por tarjetas estudiadas.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "Una fila por mazo con su recuento exacto, ordenadas de mayor a menor."
+    },
+    {
+      "id": "VM-062",
+      "group": "Comparación",
+      "acceptance": "Comparación por tiempo.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "Cada fila lleva su tiempo activo exacto."
+    },
+    {
+      "id": "VM-063",
+      "group": "Comparación",
+      "acceptance": "Comparación por sesiones.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "Cada fila lleva su número de sesiones."
+    },
+    {
+      "id": "VM-064",
+      "group": "Comparación",
+      "acceptance": "Comparación por promedio s/tarjeta.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "Cada fila lleva su promedio, o null si no estudió nada."
+    },
+    {
+      "id": "VM-065",
+      "group": "Comparación",
+      "acceptance": "No se muestra con ámbito de un único mazo.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'stats-flow'",
+      "evidence_expected": "La sección de comparación no está en el árbol cuando hay un mazo seleccionado."
+    },
+    {
+      "id": "VM-066",
+      "group": "Añadidas",
+      "acceptance": "Nuevas tarjetas desde el tracking.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'study-tracking'",
+      "evidence_expected": "Crear una carta registra un evento de alta con su fecha, y la serie de añadidas lo refleja."
+    },
+    {
+      "id": "VM-067",
+      "group": "Añadidas",
+      "acceptance": "El baseline preexistente no recibe fecha falsa.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "added.baseline cuenta las cartas anteriores y ninguna aparece en la serie por fecha."
+    },
+    {
+      "id": "VM-068",
+      "group": "Origen",
+      "acceptance": "Origen manual.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'study-tracking'",
+      "evidence_expected": "Una carta creada en el formulario del mazo queda registrada con origen 'manual'."
+    },
+    {
+      "id": "VM-069",
+      "group": "Origen",
+      "acceptance": "Origen CSV.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'stats-origin'",
+      "evidence_expected": "Importar un .csv registra las cartas con origen 'csv'."
+    },
+    {
+      "id": "VM-070",
+      "group": "Origen",
+      "acceptance": "Origen XLSX.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'stats-origin'",
+      "evidence_expected": "Importar un .xlsx registra las cartas con origen 'xlsx'."
+    },
+    {
+      "id": "VM-071",
+      "group": "Origen",
+      "acceptance": "Origen Markdown.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'stats-origin'",
+      "evidence_expected": "Importar un .md registra las cartas con origen 'markdown'."
+    },
+    {
+      "id": "VM-072",
+      "group": "Origen",
+      "acceptance": "Origen desconocido / anterior al tracking.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "Las cartas sin evento de alta se agrupan bajo 'desconocido', nunca repartidas entre los demás orígenes."
+    },
+    {
+      "id": "VM-073",
+      "group": "Borrado",
+      "acceptance": "Eliminar una carta conserva el historial.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'stats-deletion'",
+      "evidence_expected": "Tras borrar la carta, sus eventos completados siguen contando en las estadísticas."
+    },
+    {
+      "id": "VM-074",
+      "group": "Borrado",
+      "acceptance": "Eliminar un mazo conserva el historial.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'stats-deletion'",
+      "evidence_expected": "Tras borrar el mazo, biblioteca sin mazo ni cartas, e historial con las 10 estudiadas y sus 15 min."
+    },
+    {
+      "id": "VM-075",
+      "group": "Borrado",
+      "acceptance": "Las estadísticas globales no cambian retroactivamente.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'stats-deletion'",
+      "evidence_expected": "El informe global capturado antes del borrado y el recalculado después coinciden."
+    },
+    {
+      "id": "VM-076",
+      "group": "Borrado",
+      "acceptance": "La identidad histórica sigue siendo atribuible.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "El mazo eliminado sigue apareciendo en la comparación por su deckId, con su snapshot de nombre y marcado como eliminado."
+    },
+    {
+      "id": "VM-077",
+      "group": "PDF",
+      "acceptance": "Genera un archivo PDF real.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'pdf-writer'",
+      "evidence_expected": "Los bytes producidos abren con un lector de PDF y contienen objetos, xref y trailer."
+    },
+    {
+      "id": "VM-078",
+      "group": "PDF",
+      "acceptance": "Magic header y estructura válida.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'pdf-writer'",
+      "evidence_expected": "Empieza por '%PDF-1.4', termina en '%%EOF' y el xref apunta a offsets reales."
+    },
+    {
+      "id": "VM-079",
+      "group": "PDF",
+      "acceptance": "Reporte de todos los mazos.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-report-pdf'",
+      "evidence_expected": "El texto extraído declara el ámbito 'Todos los mazos'."
+    },
+    {
+      "id": "VM-080",
+      "group": "PDF",
+      "acceptance": "Reporte de un mazo específico.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-report-pdf'",
+      "evidence_expected": "El texto extraído declara el mazo elegido."
+    },
+    {
+      "id": "VM-081",
+      "group": "PDF",
+      "acceptance": "Periodo 1 mes en el reporte.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-report-pdf'",
+      "evidence_expected": "El reporte declara 'Último mes'."
+    },
+    {
+      "id": "VM-082",
+      "group": "PDF",
+      "acceptance": "Periodo 3 meses en el reporte.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-report-pdf'",
+      "evidence_expected": "El reporte declara 'Últimos 3 meses'."
+    },
+    {
+      "id": "VM-083",
+      "group": "PDF",
+      "acceptance": "Periodo 1 año en el reporte.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-report-pdf'",
+      "evidence_expected": "El reporte declara 'Último año'."
+    },
+    {
+      "id": "VM-084",
+      "group": "PDF",
+      "acceptance": "Periodo todo en el reporte.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-report-pdf'",
+      "evidence_expected": "El reporte declara 'Todo el historial'."
+    },
+    {
+      "id": "VM-085",
+      "group": "PDF",
+      "acceptance": "Los datos coinciden con el dashboard.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'stats-pdf'",
+      "evidence_expected": "Las cifras del PDF y las de la pantalla salen de la misma llamada al motor y coinciden literalmente."
+    },
+    {
+      "id": "VM-086",
+      "group": "PDF",
+      "acceptance": "Las gráficas están incluidas.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-report-pdf'",
+      "evidence_expected": "El contenido del PDF incluye operadores de relleno de rectángulo para las barras y las celdas del calendario."
+    },
+    {
+      "id": "VM-087",
+      "group": "PDF",
+      "acceptance": "Multipágina cuando corresponde.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-report-pdf'",
+      "evidence_expected": "Un reporte completo produce /Count mayor que 1."
+    },
+    {
+      "id": "VM-088",
+      "group": "PDF",
+      "acceptance": "Fecha de generación visible.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-report-pdf'",
+      "evidence_expected": "La portada incluye la fecha de generación inyectada."
+    },
+    {
+      "id": "VM-089",
+      "group": "PDF",
+      "acceptance": "trackingStart visible.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-report-pdf'",
+      "evidence_expected": "La portada incluye 'Historial de estudio registrado desde' con la fecha real."
+    },
+    {
+      "id": "VM-090",
+      "group": "PDF",
+      "acceptance": "Sin leakage de otros mazos.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-report-pdf'",
+      "evidence_expected": "El PDF del mazo Inglés no contiene 'Matemáticas', 'Historia' ni 'Programación' ni sus cifras exclusivas."
+    },
+    {
+      "id": "VM-091",
+      "group": "PDF",
+      "acceptance": "Estado sin datos manejado.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-report-pdf'",
+      "evidence_expected": "Sin actividad, el PDF es válido y dice que no hay actividad, sin NaN ni Infinity."
+    },
+    {
+      "id": "VM-092",
+      "group": "Responsive",
+      "acceptance": "Desktop.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e --project=desktop-chrome --grep 'Estadísticas'",
+      "evidence_expected": "La sección se ve y opera en 1280x800."
+    },
+    {
+      "id": "VM-093",
+      "group": "Responsive",
+      "acceptance": "Mobile Chrome.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e --project=mobile-chrome --grep 'Estadísticas'",
+      "evidence_expected": "La sección se ve y opera en Pixel 5."
+    },
+    {
+      "id": "VM-094",
+      "group": "Responsive",
+      "acceptance": "Mobile Safari/WebKit.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e --project=mobile-safari --grep 'Estadísticas'",
+      "evidence_expected": "La sección se ve y opera en iPhone 13."
+    },
+    {
+      "id": "VM-095",
+      "group": "Responsive",
+      "acceptance": "Sin overflow horizontal.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e --grep 'Estadísticas'",
+      "evidence_expected": "scrollWidth no supera clientWidth en /estadisticas en los tres proyectos."
+    },
+    {
+      "id": "VM-096",
+      "group": "Responsive",
+      "acceptance": "Gráficas legibles.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e --grep 'Estadísticas'",
+      "evidence_expected": "Los ejes y las etiquetas de las gráficas son visibles en los tres proyectos."
+    },
+    {
+      "id": "VM-097",
+      "group": "Responsive",
+      "acceptance": "La información no depende solo del color.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-charts'",
+      "evidence_expected": "Cada barra y cada celda del calendario lleva etiqueta accesible con su valor en texto."
+    },
+    {
+      "id": "VM-098",
+      "group": "Responsive",
+      "acceptance": "Controles táctiles.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e --grep 'Estadísticas'",
+      "evidence_expected": "Todos los controles de la sección miden al menos 44x44."
+    },
+    {
+      "id": "VM-099",
+      "group": "Regresión",
+      "acceptance": "Crear mazo sigue funcionando.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'decks-flow'",
+      "evidence_expected": "El test correspondiente pasa sin modificar su aserción original."
+    },
+    {
+      "id": "VM-100",
+      "group": "Regresión",
+      "acceptance": "Editar mazo sigue funcionando.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'deck-management'",
+      "evidence_expected": "El test correspondiente pasa sin modificar su aserción original."
+    },
+    {
+      "id": "VM-101",
+      "group": "Regresión",
+      "acceptance": "Eliminar mazo sigue funcionando.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'deck-management'",
+      "evidence_expected": "El test correspondiente pasa sin modificar su aserción original."
+    },
+    {
+      "id": "VM-102",
+      "group": "Regresión",
+      "acceptance": "Crear carta sigue funcionando.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'cards-flow'",
+      "evidence_expected": "El test correspondiente pasa sin modificar su aserción original."
+    },
+    {
+      "id": "VM-103",
+      "group": "Regresión",
+      "acceptance": "Editar carta sigue funcionando.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'cards-flow'",
+      "evidence_expected": "El test correspondiente pasa sin modificar su aserción original."
+    },
+    {
+      "id": "VM-104",
+      "group": "Regresión",
+      "acceptance": "Eliminar carta sigue funcionando.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'cards-flow'",
+      "evidence_expected": "El test correspondiente pasa sin modificar su aserción original."
+    },
+    {
+      "id": "VM-105",
+      "group": "Regresión",
+      "acceptance": "Importar CSV sigue funcionando.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'import-flow'",
+      "evidence_expected": "El test correspondiente pasa sin modificar su aserción original."
+    },
+    {
+      "id": "VM-106",
+      "group": "Regresión",
+      "acceptance": "Importar XLSX sigue funcionando.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'import-flow'",
+      "evidence_expected": "El test correspondiente pasa sin modificar su aserción original."
+    },
+    {
+      "id": "VM-107",
+      "group": "Regresión",
+      "acceptance": "Importar Markdown sigue funcionando.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'import-flow'",
+      "evidence_expected": "El test correspondiente pasa sin modificar su aserción original."
+    },
+    {
+      "id": "VM-108",
+      "group": "Regresión",
+      "acceptance": "Persistencia de TASK-004 sigue funcionando.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'persistence'",
+      "evidence_expected": "El test correspondiente pasa sin modificar su aserción original."
+    },
+    {
+      "id": "VM-109",
+      "group": "Regresión",
+      "acceptance": "Navegación sigue funcionando.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'navigation'",
+      "evidence_expected": "El test correspondiente pasa sin modificar su aserción original."
+    },
+    {
+      "id": "VM-110",
+      "group": "Regresión",
+      "acceptance": "Estudio simple sigue funcionando.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'study-flow'",
+      "evidence_expected": "El test correspondiente pasa sin modificar su aserción original."
+    },
+    {
+      "id": "VM-111",
+      "group": "Regresión",
+      "acceptance": "Los tests anteriores siguen pasando sigue funcionando.",
+      "method": "regression",
+      "command_or_procedure": "./init.sh",
+      "evidence_expected": "El test correspondiente pasa sin modificar su aserción original."
+    },
+    {
+      "id": "VM-112",
+      "group": "Final",
+      "acceptance": "typecheck.",
+      "method": "static",
+      "command_or_procedure": "npm run typecheck",
+      "evidence_expected": "tsc --noEmit termina en 0."
+    },
+    {
+      "id": "VM-113",
+      "group": "Final",
+      "acceptance": "lint.",
+      "method": "static",
+      "command_or_procedure": "npm run lint",
+      "evidence_expected": "eslint termina en 0."
+    },
+    {
+      "id": "VM-114",
+      "group": "Final",
+      "acceptance": "unit.",
+      "method": "unit",
+      "command_or_procedure": "npm run test",
+      "evidence_expected": "La suite unit pasa entera."
+    },
+    {
+      "id": "VM-115",
+      "group": "Final",
+      "acceptance": "integration.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration",
+      "evidence_expected": "La suite integration pasa entera."
+    },
+    {
+      "id": "VM-116",
+      "group": "Final",
+      "acceptance": "E2E.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "La suite E2E pasa en los tres proyectos."
+    },
+    {
+      "id": "VM-117",
+      "group": "Final",
+      "acceptance": "./init.sh exit 0.",
+      "method": "smoke",
+      "command_or_procedure": "./init.sh",
+      "evidence_expected": "Exit code 0."
+    },
+    {
+      "id": "VM-118",
+      "group": "Final",
+      "acceptance": "Reviewer APPROVED.",
+      "method": "review",
+      "command_or_procedure": "Reviewer independiente read-only",
+      "evidence_expected": "progress/evidence/TASK-006-review.md con veredicto APPROVED."
+    },
+    {
+      "id": "VM-119",
+      "group": "Final",
+      "acceptance": "QA APPROVED.",
+      "method": "review",
+      "command_or_procedure": "QA independiente",
+      "evidence_expected": "progress/evidence/TASK-006-qa.md con veredicto APPROVED."
+    },
+    {
+      "id": "VM-120",
+      "group": "Final",
+      "acceptance": "Evidencia completa.",
+      "method": "inspection",
+      "command_or_procedure": "python3 scripts/check_evidence.py",
+      "evidence_expected": "Los tres archivos de evidencia existen y cubren los 120 puntos."
+    },
+    {
+      "id": "VM-121",
+      "group": "Anki",
+      "acceptance": "Tabla de correspondencia con el PDF de Anki.",
+      "method": "inspection",
+      "command_or_procedure": "Revisión de progress/evidence/TASK-006-implementation.md",
+      "evidence_expected": "Tabla con las once secciones del PDF y su estado: implementada, adaptada o diferida con motivo."
+    },
+    {
+      "id": "VM-122",
+      "group": "Performance",
+      "acceptance": "El motor procesa 1.000 y 10.000 eventos.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-performance'",
+      "evidence_expected": "Los informes sobre 1.000 y 10.000 eventos devuelven totales exactos y terminan dentro del presupuesto del test."
+    },
+    {
+      "id": "VM-123",
+      "group": "Performance",
+      "acceptance": "Las series se agregan antes de renderizar.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-performance'",
+      "evidence_expected": "Con 10.000 eventos, la serie diaria tiene como mucho un punto por día del periodo y la horaria 24."
+    },
+    {
+      "id": "VM-124",
+      "group": "SinDatos",
+      "acceptance": "Sin datos no aparece NaN, Infinity ni undefined.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -t 'stats-engine'",
+      "evidence_expected": "Recorriendo el informe vacío completo, ningún valor numérico es NaN ni infinito; lo desconocido es null."
+    },
+    {
+      "id": "VM-125",
+      "group": "SinDatos",
+      "acceptance": "Lo desconocido no se presenta como cero en pantalla.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -t 'stats-flow'",
+      "evidence_expected": "Sin actividad, la pantalla muestra el texto de estado vacío, no un 0 s/tarjeta."
+    }
+  ],
+  "allowed_paths": [
+    "app/**",
+    "src/**",
+    "tests/**",
+    "package.json",
+    "package-lock.json",
+    "app.json",
+    "tsconfig.json",
+    "eslint.config.js",
+    "jest.config.js",
+    "playwright.config.ts",
+    "docs/**",
+    "progress/**",
+    ".harness/**"
+  ],
+  "required_docs": [
+    "docs/PRODUCT.md",
+    "docs/ARCHITECTURE.md",
+    "docs/CONVENTIONS.md",
+    "docs/DESIGN.md",
+    "docs/DATABASE.md",
+    "docs/TESTING.md",
+    "docs/VERIFICATION.md"
+  ],
+  "required_gates": [
+    "baseline: ./init.sh verde antes de editar",
+    "static: npm run typecheck",
+    "static: npm run lint",
+    "unit: npm run test",
+    "integration: npm run test:integration",
+    "e2e: npm run test:e2e",
+    "regression: ./init.sh final exit 0",
+    "review: reviewer independiente APPROVED",
+    "qa: QA independiente APPROVED"
+  ],
+  "technical_decisions": [
+    "El día local y la hora local de cada evento se congelan en el momento de registrarlo (localDay 'YYYY-MM-DD' y localHour 0..23). Es lo que hace deterministas el calendario y la actividad por hora frente a DST y frente a la zona horaria en la que se ejecuten los tests.",
+    "El historial vive detrás de StudyHistoryRepository, separado de LibraryRepository, particionado por mes: un documento de meta y un documento por mes. Registrar un evento reescribe solo la partición del mes en curso.",
+    "El tiempo activo se mide con un cronómetro que solo acumula mientras la superficie está visible: visibilitychange en web y AppState en nativo, ambos detrás de la misma abstracción inyectable.",
+    "La identidad histórica es el deckId y el cardId. El nombre del mazo se resuelve contra la biblioteca actual y, si el mazo ya no existe, contra el snapshot guardado en la meta del historial, marcado como eliminado.",
+    "El motor de estadísticas es una función pura de (biblioteca, historial, consulta) a informe. Dashboard y PDF consumen el mismo informe.",
+    "Las gráficas se construyen con primitivas de React Native (View) sin librería de terceros: barras, calendario y distribución son rectángulos y texto. Justificación en evidence.",
+    "El PDF se genera con un escritor propio mínimo (objetos, páginas, streams de contenido, fuentes base-14 con WinAnsiEncoding). Justificación en evidence."
+  ],
+  "out_of_scope": [
+    "Repetición espaciada, scheduler, intervalos, Ease, retención y botones Again/Hard/Good/Easy.",
+    "Future Due, Review Intervals, Card Ease, Retention y Answer Buttons como gráficas.",
+    "Papelera o restauración de mazos eliminados.",
+    "Persistencia remota, sincronización, cuentas y Supabase.",
+    "Exportación o importación de estadísticas hacia/desde Anki.",
+    "Modo oscuro.",
+    "Política de duplicados de flashcards.",
+    "Cualquier feature no pedida, y TASK-007."
+  ],
+  "baseline_required": true,
+  "regression_required": true,
+  "review_required": true,
+  "qa_required": true
+}

@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 /** Mínimo táctil declarado en src/theme/tokens.ts (sizes.touchTarget). */
 const TOUCH_TARGET = 44;
 
-const ROUTES = ['/', '/componentes'] as const;
+const ROUTES = ['/', '/estadisticas', '/componentes'] as const;
 
 function isMobileProject(projectName: string): boolean {
   return projectName.startsWith('mobile-');

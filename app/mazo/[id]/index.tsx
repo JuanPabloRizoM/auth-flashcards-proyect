@@ -15,6 +15,7 @@ import {
 } from '../../../src/components/ui';
 import { cardsOfDeck, findDeck, libraryErrorMessage } from '../../../src/features/decks/library';
 import { useLibrary } from '../../../src/lib/LibraryProvider';
+import { useStudyHistory } from '../../../src/lib/StudyHistoryProvider';
 import { goBackOr } from '../../../src/lib/navigation';
 import { spacing } from '../../../src/theme';
 
@@ -23,6 +24,7 @@ export default function DetalleMazoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { library, status, addCard, renameDeck, deleteDeck, editCard, deleteCard } = useLibrary();
+  const { recordCardsAdded } = useStudyHistory();
 
   const [front, setFront] = useState('');
   const [back, setBack] = useState('');
@@ -78,6 +80,9 @@ export default function DetalleMazoScreen() {
       setError({ field, message: libraryErrorMessage(result.error) });
       return;
     }
+    // El alta queda registrada con su origen para las estadísticas. La biblioteca no sabe
+    // nada del historial: es esta pantalla la que sabe de dónde salió la carta.
+    recordCardsAdded(deckId, [result.cardId], 'manual');
     setFront('');
     setBack('');
     setError(null);

@@ -5,12 +5,13 @@
  * no viven aquí: se apilan sobre el destino activo y ofrecen una vuelta explícita.
  */
 export type NavigationItem = {
-  href: '/' | '/componentes';
+  href: '/' | '/estadisticas' | '/componentes';
   label: string;
   testID: string;
 };
 
 export const navigationItems: readonly NavigationItem[] = [
   { href: '/', label: 'Mis mazos', testID: 'nav-mazos' },
+  { href: '/estadisticas', label: 'Estadísticas', testID: 'nav-estadisticas' },
   { href: '/componentes', label: 'Componentes', testID: 'nav-componentes' },
 ] as const;

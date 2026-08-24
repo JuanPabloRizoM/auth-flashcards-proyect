@@ -39,9 +39,19 @@ import { storageErrorMessage, type LibraryRepository } from './storage/types';
 
 export type LibraryAction = { ok: true } | { ok: false; error: LibraryErrorCode };
 
+/**
+ * Igual que `LibraryAction`, pero devolviendo el identificador de la carta creada.
+ *
+ * Lo necesita el registro del historial: para anotar el alta de una carta con su origen
+ * hace falta su `id`, y solo el proveedor lo conoce, porque es quien lo emite. Deducirlo
+ * mirando "la última carta del mazo" sería frágil y quedaría mal en cuanto dos altas se
+ * solaparan.
+ */
+export type AddCardAction = { ok: true; cardId: string } | { ok: false; error: LibraryErrorCode };
+
 /** Igual que `LibraryAction`, pero para operaciones que esperan a la escritura. */
 export type AsyncLibraryAction =
-  | { ok: true; imported: number }
+  | { ok: true; imported: number; cardIds: string[] }
   | { ok: false; error: LibraryErrorCode }
   | { ok: false; error: 'escritura-fallida' };
 
@@ -55,7 +65,7 @@ export type LibraryValue = {
   createDeck: (name: string) => LibraryAction;
   renameDeck: (deckId: string, name: string) => LibraryAction;
   deleteDeck: (deckId: string) => LibraryAction;
-  addCard: (deckId: string, front: string, back: string) => LibraryAction;
+  addCard: (deckId: string, front: string, back: string) => AddCardAction;
   editCard: (cardId: string, front: string, back: string) => LibraryAction;
   deleteCard: (cardId: string) => LibraryAction;
   /**
@@ -229,8 +239,11 @@ export function LibraryProvider({ children, repository }: LibraryProviderProps) 
   );
 
   const addCard = useCallback(
-    (deckId: string, front: string, back: string): LibraryAction =>
-      apply(addCardTo(library, deckId, front, back, generateId('carta'), clock.current.now())),
+    (deckId: string, front: string, back: string): AddCardAction => {
+      const cardId = generateId('carta');
+      const result = apply(addCardTo(library, deckId, front, back, cardId, clock.current.now()));
+      return result.ok ? { ok: true, cardId } : result;
+    },
     [apply, generateId, library],
   );
 
@@ -265,7 +278,7 @@ export function LibraryProvider({ children, repository }: LibraryProviderProps) 
       }
 
       setLibrary(result.library);
-      return { ok: true, imported: rows.length };
+      return { ok: true, imported: rows.length, cardIds: ids };
     },
     [generateId, library],
   );

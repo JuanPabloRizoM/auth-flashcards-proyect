@@ -81,6 +81,7 @@ describe('AppShell responsive', () => {
     useLayoutModeMock.mockReturnValue('compact');
     renderShell();
     expect(await screen.findByTestId('nav-mazos')).toBeTruthy();
+    expect(screen.getByTestId('nav-estadisticas')).toBeTruthy();
     expect(screen.getByTestId('nav-componentes')).toBeTruthy();
 
     screen.unmount();
@@ -88,7 +89,24 @@ describe('AppShell responsive', () => {
     useLayoutModeMock.mockReturnValue('expanded');
     renderShell();
     expect(await screen.findByTestId('nav-mazos')).toBeTruthy();
+    expect(screen.getByTestId('nav-estadisticas')).toBeTruthy();
     expect(screen.getByTestId('nav-componentes')).toBeTruthy();
+  });
+
+  it('el destino activo se anuncia, y no solo se colorea', async () => {
+    // Regresión: react-native-web descarta `accessibilityState.selected` en un elemento con
+    // rol de enlace, así que sin `aria-current` el destino activo en el navegador quedaría
+    // marcado únicamente por su color de fondo.
+    useLayoutModeMock.mockReturnValue('expanded');
+    renderShell();
+
+    const activo = await screen.findByTestId('nav-mazos');
+    expect(activo.props.accessibilityState?.selected).toBe(true);
+    expect(activo.props['aria-current']).toBe('page');
+
+    const inactivo = screen.getByTestId('nav-estadisticas');
+    expect(inactivo.props.accessibilityState?.selected).toBe(false);
+    expect(inactivo.props['aria-current']).toBeUndefined();
   });
 
   it('renderiza el contenido de la ruta dentro del layout en ambas disposiciones', async () => {

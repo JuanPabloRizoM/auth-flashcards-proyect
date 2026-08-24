@@ -6,6 +6,8 @@ import EstudiarScreen from '../../app/mazo/[id]/estudiar';
 import DetalleMazoScreen from '../../app/mazo/[id]/index';
 import { AppShell } from '../../src/components/layout';
 import { LibraryProvider } from '../../src/lib/LibraryProvider';
+import { StudyHistoryProvider } from '../../src/lib/StudyHistoryProvider';
+import { createMemoryHistoryRepository } from '../../src/lib/storage/studyHistoryRepository';
 import { parseStoredLibrary, type LibraryRepository } from '../../src/lib/storage';
 import {
   createFailingRepository,
@@ -33,9 +35,11 @@ function montarApp(repository: LibraryRepository, initialUrl = '/') {
     return (
       <SafeAreaProvider initialMetrics={metrics}>
         <LibraryProvider repository={repository}>
+          <StudyHistoryProvider repository={createMemoryHistoryRepository()}>
           <AppShell>
             <Slot />
           </AppShell>
+          </StudyHistoryProvider>
         </LibraryProvider>
       </SafeAreaProvider>
     );

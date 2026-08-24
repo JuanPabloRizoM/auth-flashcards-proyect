@@ -25,6 +25,11 @@ export function NavigationItemButton({
     <Pressable
       accessibilityRole="link"
       accessibilityState={{ selected: active }}
+      // `accessibilityState.selected` funciona en iOS y Android, pero react-native-web no
+      // lo traduce a nada para un elemento con rol de enlace: en el navegador el destino
+      // activo quedaría marcado solo por su color de fondo. `aria-current` es la forma
+      // estándar de decir "estás aquí" en web, y sí se propaga al DOM.
+      aria-current={active ? 'page' : undefined}
       onPress={() => onPress(item.href)}
       style={[
         styles.base,

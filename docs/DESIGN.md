@@ -70,10 +70,35 @@ Todavía no implementados. Crear solo cuando una tarea lo requiera:
 - Toast
 - IconButton
 
+## Gráficas
+
+Se dibujan con vistas, sin librería de gráficas: una barra es un rectángulo con altura
+proporcional y el calendario es una rejilla de celdas. Funciona igual en web, iOS y Android
+y no añade ninguna dependencia (docs/CONVENTIONS.md, reglas 2 y 8).
+
+Reglas:
+
+- Los colores salen de `chart` en `src/theme/tokens.ts`. Ningún componente declara el suyo.
+- La paleta es la académica: azul tinta para la actividad, verde académico para el tiempo, y
+  una escala de cinco pasos del crema al azul para el calendario. Sin neón y sin brillos.
+- **El color nunca es el único portador de información.** Cada barra y cada celda llevan una
+  etiqueta accesible con su fecha y su valor; la escala del calendario se explica además con
+  palabras, y las celdas con actividad llevan borde.
+- Toda gráfica tiene estado sin datos, y dice que no hay datos en vez de dibujar ceros.
+- El eje rotula el valor del pico: sin referencia numérica una altura no informa.
+- Con muchos puntos se rotula una etiqueta de cada N; las barras nunca se rotulan todas.
+- Las series llegan agregadas por día o por hora. Nunca se renderiza un punto por evento.
+
 ## Navegación
 
 Desktop: sidebar.
 Mobile: tabs/navegación compacta.
+
+Destinos de primer nivel: Mis mazos, Estadísticas y Componentes.
+
+El destino activo se marca con color y, además, se anuncia: `accessibilityState.selected`
+para iOS y Android y `aria-current="page"` para web, porque react-native-web no traduce el
+primero en un elemento con rol de enlace y el estado quedaría solo en el color.
 
 Los destinos de primer nivel sustituyen la ruta actual; no se apilan. Las pantallas de detalle sí
 se apilan y ofrecen una vuelta explícita.

@@ -35,6 +35,27 @@ export const colors = {
   disabledSurface: '#EFEDE7',
 } as const;
 
+/**
+ * Colores de las gráficas de estadísticas.
+ *
+ * Salen de la misma paleta académica: azul tinta para la actividad y verde académico para
+ * el tiempo. La escala del calendario son cinco pasos entre el crema del fondo y el azul
+ * tinta, calculados para que el salto entre niveles sea perceptible sin recurrir a la
+ * saturación. Nada de neón ni de brillos, aquí tampoco (docs/DESIGN.md).
+ *
+ * El color nunca es el único portador de información: cada barra y cada celda llevan su
+ * valor en la etiqueta accesible.
+ */
+export const chart = {
+  bar: colors.primary,
+  barAlternate: colors.success,
+  axis: colors.border,
+  /** Nivel 0 es "sin actividad"; del 1 al 4, intensidad creciente. */
+  calendarScale: ['#EFEDE7', '#C9DAE7', '#9BBBD3', '#6690B0', '#315B7D'],
+  /** Fondo de la pista de una barra, para que se vea el hueco de los días sin actividad. */
+  track: colors.surfaceMuted,
+} as const;
+
 export const typography = {
   /**
    * Sans para toda la interfaz; serif reservada al contenido de las flashcards
@@ -119,6 +140,7 @@ export const breakpoints = {
 } as const;
 
 export const theme = {
+  chart,
   colors,
   typography,
   spacing,
