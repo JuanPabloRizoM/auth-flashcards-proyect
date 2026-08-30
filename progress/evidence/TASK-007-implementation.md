@@ -280,8 +280,8 @@ otro, y hay un test que lo comprueba literalmente.
 
 | Gate | Antes | Ahora |
 |---|---|---|
-| `npm run test` (unit) | 430 | **633** |
-| `npm run test:integration` | 172 | **227** |
+| `npm run test` (unit) | 430 | **636** |
+| `npm run test:integration` | 172 | **229** |
 | `npm run test:e2e` | 178 + 6 skipped | **204 + 6 skipped** |
 
 ### Golden tests — `tests/unit/scheduler-golden.test.ts` (32 tests)
@@ -387,8 +387,8 @@ desbordamiento horizontal y con los cuatro botones por encima del mínimo tácti
 ```text
 npm run typecheck        OK
 npm run lint             OK
-npm run test             633 tests, 33 suites
-npm run test:integration 227 tests, 19 suites
+npm run test             636 tests, 33 suites
+npm run test:integration 229 tests, 19 suites
 npm run test:e2e         204 passed, 6 skipped (desktop-chrome, Pixel 5, iPhone 13)
 ./init.sh                exit 0
 ```
@@ -434,3 +434,17 @@ real que el primer reviewer no vio.
 | **F-6** — cobertura ausente en varias correcciones | **Diez tests nuevos**: `averagePerDay` nulo sin nada programado; `min`/`max`/`average` nulos sin muestra; `retentionExclusionNotice` en singular, plural y vacío; la línea del PDF con su cifra; el orden de escritura del historial (partición antes que metadatos) |
 | **F-7** — la evidencia describía mal el contador tras memoizarlo | §14 corregida: el resumen se recalcula al montar y al cambiar la biblioteca, no con el reloj |
 | **F-8** — `queue.isAvailable` y `scheduler.isDue` divergían ante una carta sin vencimiento | Alineadas: sin vencimiento no hay nada que esperar. Test parametrizado que compara las dos sobre seis estados, incluido el imposible-pero-aceptado por el validador |
+
+---
+
+## 18. Correcciones tras QA
+
+QA independiente condujo la aplicación en un navegador real y emitió **APPROVED** con cuatro
+hallazgos bajos. Tres se corrigieron; el cuarto se documenta.
+
+| Hallazgo | Qué se hizo |
+|---|---|
+| **QA-2** — *Actividad por hora* seguía diciendo "el estudio todavía no califica", cierto en TASK-006 y falso ahora | Texto sustituido en la pantalla y en el PDF, con test en los dos |
+| **QA-3** — el horizonte de Próximos repasos se anunciaba como "último mes", una etiqueta de pasado para algo que mira adelante | Ahora dice "Repasos programados para los próximos 30 días", y "sin límite de horizonte" con Todo. Con test en pantalla y en PDF |
+| **QA-4** — el panel mostraba la **mínima** probabilidad de recuerdo y el PDF el **máximo** | El helper de distribuciones acepta qué extremo mostrar; retrievability pide el mínimo en los dos. Test que compara la cifra del PDF con la que produce `retrievabilityMetrics` |
+| **QA-1** — un doble clic revela la respuesta de la tarjeta siguiente | **No corregido, con motivo.** La protección de doble pulsación funciona: no se califica dos veces ni se escribe un segundo registro, que es lo que exige L1. El efecto es de maquetación —el segundo clic cae donde ahora está *Mostrar respuesta*— y ninguna corrección es limpia: un antirrebote temporal haría el comportamiento dependiente del reloj, consumir la primera pulsación posterior rompería calificar y revelar seguido, y mover los controles desplazaría el problema a *Terminar sesión*. Queda como pendiente registrado |

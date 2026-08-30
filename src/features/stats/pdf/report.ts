@@ -326,6 +326,18 @@ function table(
   flow.y += 8;
 }
 
+/**
+ * Cómo se anuncia el horizonte de Future Due.
+ *
+ * El selector de periodo se reutiliza como horizonte, pero sus etiquetas miran hacia atrás
+ * ("último mes"). Aquí se mira hacia delante, así que se dice en esos términos.
+ */
+function futureDueHorizonLabel(report: StatsReport): string {
+  const dias = report.futureDue.horizonDays;
+  if (dias === null) return 'Repasos programados hacia delante, sin límite de horizonte.';
+  return `Repasos programados para los próximos ${formatNumber(dias)} días.`;
+}
+
 /** Por qué una sección de calificación está vacía. Nunca se sustituye por ceros. */
 function ratingNote(report: StatsReport): string {
   if (report.ratedSince === null) {
@@ -342,6 +354,14 @@ type DistributionOptions = {
   sampleLabel: string;
   color?: PdfColor;
   maxLabels?: number;
+  /**
+   * Cuarta cifra de la rejilla.
+   *
+   * Por defecto el máximo, que es lo interesante en un intervalo o en una estabilidad. En la
+   * probabilidad de recuerdo interesa el mínimo —la tarjeta que peor se recuerda—, y es lo
+   * que muestra el panel: el PDF tiene que decir lo mismo.
+   */
+  extreme?: 'max' | 'min';
 };
 
 /**
@@ -377,7 +397,9 @@ function distributionSection(
       { label: options.sampleLabel, value: formatNumber(distribution.samples) },
       { label: 'Mediana', value: options.format(distribution.median) },
       { label: 'Media', value: options.format(distribution.average) },
-      { label: 'Máximo', value: options.format(distribution.max) },
+      options.extreme === 'min'
+        ? { label: 'Mínima', value: options.format(distribution.min) }
+        : { label: 'Máximo', value: options.format(distribution.max) },
     ],
     4,
   );
@@ -583,7 +605,7 @@ export function buildStatsPdf(report: StatsReport, options: ReportOptions): Uint
   sectionTitle(
     flow,
     'Actividad por hora',
-    'Tarjetas completadas en cada hora local. No incluye tasa de acierto: el estudio todavía no califica.',
+    'Tarjetas completadas en cada hora local. El acierto por hora no se desglosa aquí: para eso están Calificaciones y Retención real.',
   );
   barChart(document, flow, {
     points: report.hourly.hours.map((hour) => ({
@@ -686,7 +708,7 @@ export function buildStatsPdf(report: StatsReport, options: ReportOptions): Uint
   sectionTitle(
     flow,
     'Próximos repasos',
-    `Repasos programados hacia delante. Horizonte: ${report.periodLabel.toLocaleLowerCase()}. Las tarjetas nuevas no aparecen porque todavía no tienen fecha.`,
+    `${futureDueHorizonLabel(report)} Las tarjetas nuevas no aparecen porque todavía no tienen fecha.`,
   );
   barChart(document, flow, {
     points: report.futureDue.buckets.map((bucket) => ({
@@ -843,6 +865,7 @@ export function buildStatsPdf(report: StatsReport, options: ReportOptions): Uint
     sampleLabel: 'Tarjetas de repaso',
     color: ink.success,
     maxLabels: 10,
+    extreme: 'min',
   });
 
   // ── Métricas todavía no disponibles ────────────────────────────────────────

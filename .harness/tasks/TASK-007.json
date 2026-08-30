@@ -1,7 +1,7 @@
 {
   "id": "TASK-007",
   "title": "Repetición espaciada FSRS, cola diaria de estudio y estadísticas de revisión",
-  "status": "QA",
+  "status": "DONE",
   "created_from_user_request": "Crear y ejecutar TASK-007 completa de principio a fin usando el Harness. La nueva funcionalidad es un sistema real de repetición espaciada basado en FSRS, integrado con el estudio, la persistencia y las estadísticas existentes. Sustituir el recorrido lineal actual de flashcards por un scheduler FSRS real, con estado de scheduling persistente por carta, cuatro calificaciones en español (Otra vez, Difícil, Bien, Fácil) con preview real de intervalos, cola de estudio determinista, migración versionada sin pérdida de datos, y las estadísticas que TASK-006 dejó diferidas: Future Due, Answer Buttons, True Retention, Review Intervals, Stability, Difficulty, Retrievability y Card Counts ampliados, integradas en el StatsEngine existente y en el PDF.",
   "goal": "Estudiar un mazo deja de ser un recorrido lineal y pasa a estar dirigido por un scheduler FSRS real detrás de una abstracción propia: cada carta tiene estado de scheduling persistente y versionado, la respuesta se califica con Otra vez / Difícil / Bien / Fácil mostrando el intervalo real que produce cada una, la cola se construye a partir del estado y del vencimiento, cada calificación queda registrada en un review log append-only, y el StatsEngine de TASK-006 se extiende con Future Due, Answer Buttons, True Retention, Review Intervals, Stability, Difficulty, Retrievability y Card Counts por estado, tanto en el panel como en el PDF, con los mismos filtros de ámbito y periodo.",
   "confirmed_requirements": [

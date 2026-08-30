@@ -92,6 +92,31 @@ describe('Answer Buttons en la pantalla', () => {
   });
 });
 
+describe('Textos que la pantalla ya no puede decir', () => {
+  it('no afirma que el estudio no califica, porque desde TASK-007 sí lo hace', async () => {
+    const app = entorno();
+    montarApp(app);
+    await screen.findByTestId('create-deck-button');
+    await crearYCalificar('Inglés', 'mazo-1', ['bien']);
+
+    await verEstadisticas();
+
+    expect(screen.queryByText(/el estudio todavía no califica/)).toBeNull();
+  });
+
+  it('anuncia el horizonte de los próximos repasos mirando hacia delante', async () => {
+    const app = entorno();
+    montarApp(app);
+    await screen.findByTestId('create-deck-button');
+    await crearYCalificar('Inglés', 'mazo-1', ['bien']);
+
+    await verEstadisticas();
+
+    // El periodo por defecto es 1 mes: 30 días hacia delante, no "último mes".
+    expect(screen.getByText(/Repasos programados para los próximos 30 días/)).toBeTruthy();
+  });
+});
+
 describe('Retención real', () => {
   it('dice cuántas respuestas quedan fuera por ser de tarjetas en aprendizaje', async () => {
     const app = entorno();

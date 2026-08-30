@@ -14,6 +14,8 @@ import {
   sesion,
   snapshot,
 } from '../fixtures/stats/builders';
+import { formatPercent } from '../../src/features/stats/format';
+import { retrievabilityMetrics } from '../../src/features/stats/view';
 import { A4, hexColor, measureText } from '../../src/features/stats/pdf/writer';
 import { chart } from '../../src/theme';
 import { expectValidPdfStructure } from '../fixtures/stats/pdfReader';
@@ -326,6 +328,13 @@ describe('Secciones del reporte', () => {
     expect(text).toContain('Origen desconocido / anterior al tracking');
   });
 
+  it('ya no dice que el estudio no califica: desde TASK-007 sí lo hace', () => {
+    const { text } = pdfDe();
+
+    expect(text).not.toContain('el estudio todavía no califica');
+    expect(text).toContain('Actividad por hora');
+  });
+
   it('declara Card Ease como la única métrica de Anki que no puede calcularse, con su motivo', () => {
     const { text } = pdfDe();
 
@@ -467,6 +476,25 @@ describe('Secciones de repetición espaciada', () => {
     ]) {
       expect(text).toContain(titulo);
     }
+  });
+
+  it('anuncia el horizonte mirando hacia delante, no con una etiqueta de periodo pasado', () => {
+    expect(pdfScheduler({ period: '1m' }).text).toContain('los próximos 30 días');
+    expect(pdfScheduler({ period: '3m' }).text).toContain('los próximos 90 días');
+    expect(pdfScheduler({ period: 'all' }).text).toContain('sin límite de horizonte');
+    // Y no cuela la etiqueta de periodo, que mira al pasado.
+    expect(pdfScheduler({ period: '1m' }).text).not.toContain('Horizonte: último mes');
+  });
+
+  it('la cuarta cifra de la probabilidad de recuerdo es la misma que en el panel', () => {
+    const { report, text } = pdfScheduler();
+
+    // El panel muestra la mínima; el PDF tiene que decir lo mismo, no el máximo.
+    expect(retrievabilityMetrics(report)[3]).toEqual({
+      label: 'Mínima',
+      value: formatPercent(report.retrievability.min),
+    });
+    expect(text).toContain('MÍNIMA');
   });
 
   it('sigue siendo un PDF válido con las secciones nuevas', () => {

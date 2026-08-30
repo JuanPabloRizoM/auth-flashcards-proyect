@@ -193,3 +193,95 @@ PDF y verificó que el de Inglés no contiene ni un dato exclusivo de Matemátic
 comprobaciones observables OK, cero errores de consola.**
 
 Gates finales: typecheck, lint, 430 unit, 172 integration, 178 E2E y `./init.sh` exit 0.
+
+---
+
+## TASK-007 — Repetición espaciada FSRS, cola diaria de estudio y estadísticas de revisión
+
+**Estado:** DONE · 2026-08-30
+
+### Qué se pidió
+
+Sustituir el recorrido lineal de flashcards por un scheduler FSRS real, integrado con el
+estudio, la persistencia y las estadísticas existentes: estado de scheduling persistente por
+carta, cuatro calificaciones en español con el intervalo real que produce cada una, cola
+determinista, migración versionada sin pérdida de datos, y las ocho métricas que TASK-006
+había dejado declaradas como no calculables.
+
+### Qué se decidió, y por qué
+
+**La implementación de FSRS es `ts-fsrs` 5.4.1 (MIT, FSRS-6.0), no una escrita a mano.** Se
+verificó antes de instalarla, sobre el tarball publicado y no sobre la descripción:
+mantenimiento, licencia, cero dependencias en runtime, `engines.node >= 20`, ausencia de APIs
+exclusivas de Node y formatos ESM/CJS/UMD con tipos. El `enable_fuzz` se mantiene en `false`,
+que además es su valor por defecto: sin fuzz, el intervalo que anuncia un botón antes de
+pulsarlo es exactamente el que se aplica al pulsarlo, y los tests golden pueden comparar
+contra valores fijos.
+
+**Está aislada tras una abstracción propia.** `src/features/scheduler/fsrsAdapter.ts` es el
+único archivo del proyecto que la importa; todo lo demás habla con
+`SpacedRepetitionScheduler`, en tipos propios y en español. Cambiar de versión, o de
+implementación, se reduce a reescribir ese archivo.
+
+**El reloj se inyecta.** El scheduler no lee la hora: la recibe. Es lo que permite fijar un
+instante, calificar, adelantar el reloj treinta días y comprobar que la tarjeta vuelve a la
+cola, en vez de esperar treinta días.
+
+**`due` es `null` en las cartas nuevas.** Una carta nueva está disponible siempre, pero no
+está *programada* para ningún día. Representarlo como "ahora" habría fabricado un dato y
+habría metido las cartas nuevas en Future Due.
+
+**Las cartas anteriores migran a Nueva y no reciben nada más.** Ni una revisión, ni una
+calificación, ni una fecha de vencimiento. El historial de TASK-006 se conserva íntegro, y
+sus eventos no se convierten en aciertos ni en fallos: registran que una carta se estudió, no
+cómo salió.
+
+**Consistencia al calificar sin transacción común.** Se escribe la biblioteca, después el
+historial, y si el historial falla se revierte la biblioteca al valor anterior. En ninguna
+rama se avanza de tarjeta. No es atomicidad real, y el límite está documentado en
+`docs/DATABASE.md` en vez de disimulado.
+
+**Las métricas de inventario no llevan periodo.** Un intervalo o una estabilidad no tienen un
+"hace tres meses": son los de hoy. Es el mismo convenio que TASK-006 ya seguía con el conteo
+de tarjetas y el origen.
+
+### Qué encontraron las revisiones
+
+Dos reviewers independientes, ambos `APPROVED`, ambos ejecutando los gates por su cuenta en
+vez de fiarse de la evidencia.
+
+El primero levantó un finding medio —el emparejamiento entre una revisión y su evento de
+carta era un invariante implícito y sin test— y once bajos. Uno de los bajos se rechazó con
+motivo, porque el finding no se sostenía al comprobarlo.
+
+El segundo, sobre el trabajo ya corregido, encontró **un bug real que el primero no vio**: la
+corrección aplicada a otro finding había abierto una ventana nueva. Si la partición del mes
+se escribía y los metadatos fallaban, el registro de la revisión ya estaba en disco; al
+reintentar, el evento de la carta se deduplicaba por su identificador estable, pero la
+revisión no, porque el suyo se emitía nuevo en cada intento. Una sola respuesta habría
+contado dos veces en Answer Buttons y en True Retention. Corregido derivando el identificador
+de la revisión del evento de la carta, con cuatro tests que fijan la idempotencia.
+
+QA condujo la aplicación en un navegador real y emitió `APPROVED` con cuatro hallazgos bajos.
+Tres se corrigieron: un texto que seguía afirmando que el estudio no califica, una etiqueta
+de horizonte que miraba al pasado, y una divergencia entre el panel y el PDF en la cuarta
+cifra de la probabilidad de recuerdo. El cuarto —un doble clic revela la respuesta de la
+tarjeta siguiente— se documentó como limitación conocida en vez de forzar un arreglo frágil:
+la protección de doble pulsación funciona, que es lo que el contrato exige, y el efecto es de
+maquetación.
+
+### Verificación
+
+Los tests golden comparan contra un fixture que registra versión de la librería, los
+veintiún pesos, la retención objetivo, la fecha de partida, las calificaciones y los
+resultados esperados. La secuencia recorre los cuatro estados y las cuatro calificaciones, y
+se comparan vencimientos exactos, intervalos, estabilidad, dificultad y contadores, además de
+los cuatro intervalos del preview en cada paso. Una actualización futura de FSRS que cambie
+el scheduling saldrá en rojo.
+
+La migración se prueba con documentos reales de las versiones anteriores, montados en los
+repositorios con sus claves de producción.
+
+Gates finales: typecheck, lint, **636 unit**, **229 integration**, **204 E2E** (más 6
+skipped condicionales) y `./init.sh` exit 0.
+

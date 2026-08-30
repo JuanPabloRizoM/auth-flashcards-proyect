@@ -243,6 +243,18 @@ export function retentionRows(report: StatsReport) {
   }));
 }
 
+/**
+ * Cómo se anuncia el horizonte de los próximos repasos.
+ *
+ * El selector de periodo se reutiliza como horizonte, pero sus etiquetas miran hacia atrás
+ * ("último mes"). Aquí se mira hacia delante, así que se dice en esos términos.
+ */
+export function futureDueHorizonLabel(report: StatsReport): string {
+  const dias = report.futureDue.horizonDays;
+  if (dias === null) return 'Repasos programados hacia delante, sin límite de horizonte.';
+  return `Repasos programados para los próximos ${formatNumber(dias)} días.`;
+}
+
 export function futureDueBars(report: StatsReport): BarChartPoint[] {
   return report.futureDue.buckets.map((bucket) => ({
     key: bucket.day,

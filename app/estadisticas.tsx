@@ -25,6 +25,7 @@ import {
   difficultyBars,
   difficultyMetrics,
   futureDueBars,
+  futureDueHorizonLabel,
   futureDueMetrics,
   hourlyBars,
   hourlyMetrics,
@@ -307,7 +308,7 @@ export default function EstadisticasScreen({
       </Card>
 
       <Card
-        description="Tarjetas completadas en cada hora local. No incluye tasa de acierto: el estudio todavía no califica."
+        description="Tarjetas completadas en cada hora local. El acierto por hora no se desglosa aquí: para eso están Calificaciones y Retención real."
         testID="stats-hourly"
         title="Actividad por hora"
       >
@@ -331,7 +332,7 @@ export default function EstadisticasScreen({
       </Card>
 
       <Card
-        description={`Repasos que el scheduler tiene programados hacia delante. Horizonte: ${report.periodLabel.toLocaleLowerCase()}. Las tarjetas nuevas no aparecen: todavía no tienen fecha.`}
+        description={`${futureDueHorizonLabel(report)} Las tarjetas nuevas no aparecen: todavía no tienen fecha.`}
         testID="stats-future-due"
         title="Próximos repasos"
       >
