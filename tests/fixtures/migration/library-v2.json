@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "decks": [
+    { "id": "mazo-1", "name": "Inglés", "updatedAt": "2026-08-20T10:00:00.000Z" },
+    { "id": "mazo-2", "name": "Matemáticas", "updatedAt": "2026-08-21T09:30:00.000Z" }
+  ],
+  "cards": [
+    { "id": "carta-1", "deckId": "mazo-1", "front": "to overlook", "back": "pasar por alto" },
+    { "id": "carta-2", "deckId": "mazo-1", "front": "to withstand", "back": "resistir" },
+    { "id": "carta-3", "deckId": "mazo-2", "front": "derivada de x²", "back": "2x" }
+  ]
+}

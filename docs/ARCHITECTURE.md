@@ -58,6 +58,49 @@ LibraryRepository          StudyHistoryRepository
 - La arquitectura admite añadir después métricas de repetición espaciada: serían campos
   nuevos en los eventos y secciones nuevas del informe, sin rehacer nada de lo anterior.
 
+## Repetición espaciada (TASK-007)
+
+El scheduler es FSRS, y vive detrás de una abstracción propia. Ninguna pantalla, ni el motor
+de estadísticas, ni el historial conocen la librería que hay debajo:
+
+```text
+Pantallas (estudiar, detalle del mazo, estadísticas)
+        │
+        ▼
+features/study            features/stats
+ (cola, sesión,            (motor puro)
+  confirmación)
+        │                        │
+        └────────► SpacedRepetitionScheduler ◄────┘
+                          │
+                          ▼
+                  fsrsAdapter.ts        ← único archivo que importa ts-fsrs
+                          │
+                          ▼
+                      ts-fsrs
+```
+
+- **`src/features/scheduler/types.ts`** define el contrato y los tipos propios:
+  `CardScheduling`, `ReviewRating`, `SchedulingState` y `SpacedRepetitionScheduler`, con
+  `preview`, `rate`, `getRetrievability` e `isDue`. Todo en español y en milisegundos desde
+  epoch, como el resto del dominio.
+- **`src/features/scheduler/fsrsAdapter.ts`** traduce en los dos sentidos. Cambiar de versión
+  de FSRS, o de implementación, se reduce a reescribir este archivo.
+- **`src/lib/clock.ts`** es el reloj. El scheduler no lo lee: recibe el instante como
+  argumento, y las pantallas reciben un `Clock` inyectable. Es lo que permite fijar una
+  fecha, calificar, adelantar el reloj y volver a consultar.
+- **`src/features/study/queue.ts`** construye la cola y los contadores del mazo a partir del
+  estado de cada carta, nunca de su posición.
+- **`src/features/study/review.ts`** confirma una calificación sobre los dos almacenes, con
+  su compensación explícita si el segundo falla.
+- **`src/features/stats/fsrs.ts`** son las secciones nuevas del informe. Las llama
+  `engine.ts`, que es quien decide el filtrado por ámbito y periodo, de modo que no puedan
+  existir dos criterios distintos.
+
+El estado de scheduling vive **con la carta**, en la biblioteca, porque su ciclo de vida es
+exactamente el de la carta. El registro de calificaciones vive **en el historial**, porque es
+una bitácora que solo crece y que sobrevive al borrado de la carta.
+
 ## Reglas
 
 1. UI no contiene lógica compleja de negocio.

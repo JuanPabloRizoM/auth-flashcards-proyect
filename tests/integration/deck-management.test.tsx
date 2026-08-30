@@ -6,6 +6,7 @@ import ComponentesScreen from '../../app/componentes';
 import MisMazosScreen from '../../app/index';
 import EstudiarScreen from '../../app/mazo/[id]/estudiar';
 import DetalleMazoScreen from '../../app/mazo/[id]/index';
+import { newScheduling } from '../../src/features/scheduler/types';
 import { AppShell } from '../../src/components/layout';
 import { LibraryProvider } from '../../src/lib/LibraryProvider';
 import { StudyHistoryProvider } from '../../src/lib/StudyHistoryProvider';
@@ -339,7 +340,14 @@ describe('Editar una carta', () => {
     await pulsar('save-card-carta-2');
 
     expect(guardado(repositorio).cards).toEqual([
-      { id: 'carta-2', deckId: 'mazo-1', front: 'Capital francesa', back: 'París' },
+      {
+        id: 'carta-2',
+        deckId: 'mazo-1',
+        front: 'Capital francesa',
+        back: 'París',
+        // Editar el contenido no toca la programación: sigue siendo la misma carta.
+        scheduling: newScheduling,
+      },
     ]);
   });
 

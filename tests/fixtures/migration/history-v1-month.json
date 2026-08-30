@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "month": "2026-08",
+  "sessions": [
+    {
+      "id": "sesion-1",
+      "deckId": "mazo-1",
+      "startedAt": 1787040000000,
+      "endedAt": 1787040300000,
+      "activeMs": 300000,
+      "completedCards": 2,
+      "localDay": "2026-08-20"
+    },
+    {
+      "id": "sesion-2",
+      "deckId": "mazo-borrado",
+      "startedAt": 1786953600000,
+      "endedAt": 1786953900000,
+      "activeMs": 120000,
+      "completedCards": 1,
+      "localDay": "2026-08-19"
+    }
+  ],
+  "cardEvents": [
+    {
+      "id": "evento-1",
+      "sessionId": "sesion-1",
+      "deckId": "mazo-1",
+      "cardId": "carta-1",
+      "shownAt": 1787040000000,
+      "revealedAt": 1787040005000,
+      "completedAt": 1787040030000,
+      "activeMs": 30000,
+      "localDay": "2026-08-20",
+      "localHour": 10
+    },
+    {
+      "id": "evento-2",
+      "sessionId": "sesion-1",
+      "deckId": "mazo-1",
+      "cardId": "carta-2",
+      "shownAt": 1787040030000,
+      "revealedAt": 1787040035000,
+      "completedAt": 1787040060000,
+      "activeMs": 30000,
+      "localDay": "2026-08-20",
+      "localHour": 10
+    },
+    {
+      "id": "evento-3",
+      "sessionId": "sesion-2",
+      "deckId": "mazo-borrado",
+      "cardId": "carta-borrada",
+      "shownAt": 1786953600000,
+      "revealedAt": 1786953605000,
+      "completedAt": 1786953660000,
+      "activeMs": 60000,
+      "localDay": "2026-08-19",
+      "localHour": 9
+    }
+  ],
+  "cardAdditions": [
+    {
+      "id": "alta-1",
+      "deckId": "mazo-1",
+      "cardId": "carta-1",
+      "addedAt": 1786953600000,
+      "origin": "manual",
+      "localDay": "2026-08-19"
+    },
+    {
+      "id": "alta-2",
+      "deckId": "mazo-1",
+      "cardId": "carta-2",
+      "addedAt": 1786953600000,
+      "origin": "csv",
+      "localDay": "2026-08-19"
+    }
+  ]
+}

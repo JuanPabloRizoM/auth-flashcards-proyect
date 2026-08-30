@@ -7,6 +7,7 @@ import {
   findDeck,
   libraryErrorMessage,
 } from '../../src/features/decks/library';
+import { newScheduling } from '../../src/features/scheduler/types';
 
 /** Reloj fijo: el modelo guarda la fecha de modificación y se afirma sobre un valor concreto. */
 const CREADO = '2026-08-22T09:00:00.000Z';
@@ -29,6 +30,7 @@ describe('createDeck', () => {
       library: {
         decks: [{ id: 'mazo-1', name: 'Inglés', updatedAt: CREADO }],
         cards: [],
+        scheduler: null,
       },
     });
   });
@@ -92,7 +94,17 @@ describe('addCard', () => {
       library: {
         // Añadir una carta cuenta como modificar el mazo: su fecha avanza.
         decks: [{ id: 'mazo-1', name: 'Inglés', updatedAt: MODIFICADO }],
-        cards: [{ id: 'carta-1', deckId: 'mazo-1', front: 'to overlook', back: 'pasar por alto' }],
+        cards: [
+          {
+            id: 'carta-1',
+            deckId: 'mazo-1',
+            front: 'to overlook',
+            back: 'pasar por alto',
+            // Una carta nueva nace siempre como Nueva para el scheduler.
+            scheduling: { ...newScheduling },
+          },
+        ],
+        scheduler: null,
       },
     });
   });

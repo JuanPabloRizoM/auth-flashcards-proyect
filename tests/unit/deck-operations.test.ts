@@ -10,6 +10,7 @@ import {
   findDeck,
   renameDeck,
 } from '../../src/features/decks/library';
+import { newScheduling } from '../../src/features/scheduler/types';
 import type { Library } from '../../src/types/domain';
 
 /** Relojes fijos: el modelo guarda la fecha de modificación y se afirma sobre valores concretos. */
@@ -31,10 +32,11 @@ const biblioteca: Library = {
     { id: 'mazo-b', name: 'Mazo B', updatedAt: T0 },
   ],
   cards: [
-    { id: 'carta-1', deckId: 'mazo-a', front: 'Carta 1', back: 'Uno' },
-    { id: 'carta-2', deckId: 'mazo-a', front: 'Carta 2', back: 'Dos' },
-    { id: 'carta-3', deckId: 'mazo-b', front: 'Carta 3', back: 'Tres' },
+    { id: 'carta-1', deckId: 'mazo-a', front: 'Carta 1', back: 'Uno', scheduling: { ...newScheduling } },
+    { id: 'carta-2', deckId: 'mazo-a', front: 'Carta 2', back: 'Dos', scheduling: { ...newScheduling } },
+    { id: 'carta-3', deckId: 'mazo-b', front: 'Carta 3', back: 'Tres', scheduling: { ...newScheduling } },
   ],
+  scheduler: null,
 };
 
 function libraryDe(result: ReturnType<typeof renameDeck>): Library {
@@ -162,6 +164,7 @@ describe('editCard', () => {
     expect(findCard(library, 'carta-1')).toEqual({
       id: 'carta-1',
       deckId: 'mazo-a',
+      scheduling: { ...newScheduling },
       front: 'Capital de Francia',
       back: 'París',
     });

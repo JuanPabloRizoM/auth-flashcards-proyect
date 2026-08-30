@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "decks": [{ "id": "mazo-1", "name": "Inglés" }],
+  "cards": [
+    { "id": "carta-1", "deckId": "mazo-1", "front": "to overlook", "back": "pasar por alto" }
+  ]
+}

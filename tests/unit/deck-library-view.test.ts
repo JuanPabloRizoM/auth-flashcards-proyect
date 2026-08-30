@@ -5,6 +5,7 @@ import {
   formatUpdatedAt,
   sortDecks,
 } from '../../src/features/decks/libraryView';
+import { newScheduling } from '../../src/features/scheduler/types';
 import type { Deck, Library } from '../../src/types/domain';
 
 const mazos: Deck[] = [
@@ -96,10 +97,11 @@ describe('buildDeckSummaries', () => {
   const library: Library = {
     decks: mazos,
     cards: [
-      { id: 'carta-1', deckId: 'mazo-1', front: 'a', back: 'b' },
-      { id: 'carta-2', deckId: 'mazo-1', front: 'c', back: 'd' },
-      { id: 'carta-3', deckId: 'mazo-2', front: 'e', back: 'f' },
+      { id: 'carta-1', deckId: 'mazo-1', front: 'a', back: 'b', scheduling: { ...newScheduling } },
+      { id: 'carta-2', deckId: 'mazo-1', front: 'c', back: 'd', scheduling: { ...newScheduling } },
+      { id: 'carta-3', deckId: 'mazo-2', front: 'e', back: 'f', scheduling: { ...newScheduling } },
     ],
+    scheduler: null,
   };
 
   it('cuenta las cartas de cada mazo', () => {

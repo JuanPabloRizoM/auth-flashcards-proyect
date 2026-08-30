@@ -230,18 +230,14 @@ describe('Sin datos', () => {
 });
 
 describe('Métricas diferidas', () => {
-  it('declara las de Anki que no pueden calcularse, sin dibujarlas a cero', async () => {
+  it('desde TASK-007 solo queda Card Ease, que FSRS no calcula', async () => {
     await prepararDosMazos();
 
     expect(screen.getByTestId('stats-deferred')).toBeTruthy();
-    for (const metrica of [
-      'Future Due',
-      'Review Intervals',
-      'Card Ease',
-      'Retention',
-      'Answer Buttons',
-    ]) {
-      expect(screen.getByTestId(`stats-deferred-table-fila-${metrica}`)).toBeTruthy();
+    expect(screen.getByTestId('stats-deferred-table-fila-Card Ease')).toBeTruthy();
+    // Las otras cuatro ya existen: las hace posibles el scheduler.
+    for (const metrica of ['Future Due', 'Review Intervals', 'Retention', 'Answer Buttons']) {
+      expect(screen.queryByTestId(`stats-deferred-table-fila-${metrica}`)).toBeNull();
     }
   });
 });

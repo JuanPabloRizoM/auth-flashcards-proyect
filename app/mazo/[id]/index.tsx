@@ -1,9 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { DeckCardRow, DeckRenameForm } from '../../../src/components/decks';
 import { ScreenHeader } from '../../../src/components/layout';
+import { DeckSummary } from '../../../src/components/study';
 import {
   Button,
   Card,
@@ -14,13 +15,28 @@ import {
   Message,
 } from '../../../src/components/ui';
 import { cardsOfDeck, findDeck, libraryErrorMessage } from '../../../src/features/decks/library';
+import { deckStudySummary } from '../../../src/features/study/queue';
+import { systemClock, type Clock } from '../../../src/lib/clock';
 import { useLibrary } from '../../../src/lib/LibraryProvider';
 import { useStudyHistory } from '../../../src/lib/StudyHistoryProvider';
 import { goBackOr } from '../../../src/lib/navigation';
 import { spacing } from '../../../src/theme';
 
-/** Detalle de un mazo: renombrarlo, eliminarlo, y crear, editar y borrar sus cartas. */
-export default function DetalleMazoScreen() {
+export type DetalleMazoScreenProps = {
+  /** Reloj inyectable: los contadores dependen de qué está vencido ahora mismo. */
+  clock?: Clock;
+};
+
+/**
+ * Detalle de un mazo: resumen de estudio, renombrarlo, eliminarlo, y crear, editar y borrar
+ * sus cartas.
+ *
+ * Los contadores de Nuevas, Aprendiendo y Repasar los calcula `features/study` a partir del
+ * estado del scheduler. La pantalla no cuenta nada por su cuenta.
+ */
+export default function DetalleMazoScreen({
+  clock = systemClock,
+}: DetalleMazoScreenProps = {}) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { library, status, addCard, renameDeck, deleteDeck, editCard, deleteCard } = useLibrary();
@@ -41,6 +57,13 @@ export default function DetalleMazoScreen() {
   const deckId = id ?? '';
   const deck = findDeck(library, deckId);
   const goToDecks = () => goBackOr(router, () => router.replace('/'));
+
+  // El resumen se calcula una vez por biblioteca, no en cada renderizado: leer el reloj en
+  // el cuerpo del componente haría que el mismo estado produjera contadores distintos.
+  const summary = useMemo(
+    () => deckStudySummary(cardsOfDeck(library, deckId), clock.now()),
+    [clock, deckId, library],
+  );
 
   // Sin esperar a la hidratación, un mazo persistido se declararía inexistente.
   if (status === 'loading') {
@@ -141,6 +164,16 @@ export default function DetalleMazoScreen() {
         subtitle={cardCount === 1 ? '1 carta' : `${cardCount} cartas`}
         title={deck.name}
       />
+
+      {cardCount > 0 ? (
+        <Card
+          description="Lo que toca estudiar ahora mismo, según el estado de cada tarjeta."
+          testID="deck-summary-card"
+          title="Resumen de estudio"
+        >
+          <DeckSummary summary={summary} testID="deck-summary" />
+        </Card>
+      ) : null}
 
       <View style={styles.actions}>
         <Button

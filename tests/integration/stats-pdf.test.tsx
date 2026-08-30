@@ -191,3 +191,88 @@ describe('Fallo al guardar', () => {
     expect(screen.getByTestId('stats-scope')).toBeTruthy();
   });
 });
+
+/**
+ * Las secciones de repetición espaciada en el reporte.
+ *
+ * Se estudia calificando de verdad y se comprueba que el PDF trae las cifras nuevas, que
+ * coinciden con las del panel y que un reporte de un mazo no arrastra las del otro.
+ */
+describe('El reporte con repetición espaciada', () => {
+  async function prepararCalificado() {
+    const guardador = guardadorDePrueba();
+    const repos = repositorios();
+    montarApp({ ...repos, fileSaver: guardador.saver });
+    await screen.findByTestId('create-deck-button');
+
+    // `crearEstudiarMazo` califica Fácil todas las tarjetas de cada mazo.
+    await crearEstudiarMazo('Inglés', 'mazo-1', 4);
+    await crearEstudiarMazo('Matemáticas', 'mazo-6', 2);
+
+    await irA('nav-estadisticas');
+    await screen.findByTestId('stats-scope');
+    return { guardador };
+  }
+
+  it('incluye las secciones nuevas', async () => {
+    const { guardador } = await prepararCalificado();
+    await generar();
+
+    const { text } = expectValidPdfStructure(guardador.guardados[0]!.bytes);
+
+    for (const titulo of [
+      'Estado de las tarjetas',
+      'Próximos repasos',
+      'Calificaciones',
+      'Retención real',
+      'Intervalos de repaso',
+      'Estabilidad',
+      'Dificultad',
+      'Probabilidad de recuerdo',
+    ]) {
+      expect(text).toContain(titulo);
+    }
+  });
+
+  it('las cifras de calificaciones coinciden con las del panel', async () => {
+    const { guardador } = await prepararCalificado();
+    const enPantalla = cifra('stats-answer-buttons-metrics-respuestas-calificadas');
+    await generar();
+
+    const { text } = expectValidPdfStructure(guardador.guardados[0]!.bytes);
+
+    expect(enPantalla).toBe('6');
+    expect(text).toContain('Fácil');
+    // La misma cifra aparece en el reporte, porque sale del mismo informe.
+    expect(text).toContain(enPantalla);
+  });
+
+  it('el reporte de un mazo no contiene datos del otro', async () => {
+    const { guardador } = await prepararCalificado();
+
+    await irA('report-open');
+    await screen.findByTestId('report-confirm');
+    await irA('report-scope-mazo-1');
+    await irA('report-confirm');
+    await screen.findByTestId('report-feedback');
+
+    const { text } = expectValidPdfStructure(guardador.guardados[0]!.bytes);
+
+    expect(text).toContain('Inglés');
+    expect(text).not.toContain('Matemáticas');
+  });
+
+  it('el conteo por estado del panel y el del PDF dicen lo mismo', async () => {
+    const { guardador } = await prepararCalificado();
+    const young = cifra('stats-scheduler-counts-young');
+    const nuevas = cifra('stats-scheduler-counts-nuevas');
+    await generar();
+
+    const { text } = expectValidPdfStructure(guardador.guardados[0]!.bytes);
+
+    expect(nuevas).toBe('0');
+    expect(young).toBe('6');
+    expect(text).toContain('YOUNG');
+    expect(text).toContain(young);
+  });
+});

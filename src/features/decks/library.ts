@@ -1,3 +1,5 @@
+import { newScheduling, type CardScheduling } from '../scheduler/types';
+
 import type { Card, Deck, Library } from '../../types/domain';
 
 /**
@@ -22,7 +24,7 @@ export type LibraryResult =
   | { ok: true; library: Library }
   | { ok: false; error: LibraryErrorCode };
 
-export const emptyLibrary: Library = { decks: [], cards: [] };
+export const emptyLibrary: Library = { decks: [], cards: [], scheduler: null };
 
 /** Mensajes de error orientados a la persona usuaria: qué pasó y qué hacer. */
 const errorMessages: Record<LibraryErrorCode, string> = {
@@ -137,6 +139,7 @@ export function deleteDeck(library: Library, deckId: string): LibraryResult {
   return {
     ok: true,
     library: {
+      ...library,
       decks: library.decks.filter((deck) => deck.id !== deckId),
       cards: library.cards.filter((card) => card.deckId !== deckId),
     },
@@ -165,10 +168,19 @@ export function addCard(
     return { ok: false, error: 'reverso-requerido' };
   }
 
-  const card: Card = { id, deckId, front: trimmedFront, back: trimmedBack };
+  // Una carta nace siempre como Nueva para el scheduler, se cree a mano o se importe
+  // (docs/PRODUCT.md, 2026-08-30).
+  const card: Card = {
+    id,
+    deckId,
+    front: trimmedFront,
+    back: trimmedBack,
+    scheduling: { ...newScheduling },
+  };
   return {
     ok: true,
     library: {
+      ...library,
       decks: touchDeck(library.decks, deckId, now),
       cards: [...library.cards, card],
     },
@@ -209,12 +221,13 @@ export function addCards(
     if (back.length === 0) {
       return { ok: false, error: 'reverso-requerido' };
     }
-    cards.push({ id: ids[index]!, deckId, front, back });
+    cards.push({ id: ids[index]!, deckId, front, back, scheduling: { ...newScheduling } });
   }
 
   return {
     ok: true,
     library: {
+      ...library,
       decks: touchDeck(library.decks, deckId, now),
       cards: [...library.cards, ...cards],
     },
@@ -251,7 +264,10 @@ export function editCard(
   return {
     ok: true,
     library: {
+      ...library,
       decks: touchDeck(library.decks, existing.deckId, now),
+      // Editar el contenido no toca la programación: sigue siendo la misma carta, con lo
+      // que la persona usuaria ya ha aprendido de ella.
       cards: library.cards.map((card) =>
         card.id === cardId ? { ...card, front: trimmedFront, back: trimmedBack } : card,
       ),
@@ -273,8 +289,33 @@ export function deleteCard(
   return {
     ok: true,
     library: {
+      ...library,
       decks: touchDeck(library.decks, existing.deckId, now),
       cards: library.cards.filter((card) => card.id !== cardId),
+    },
+  };
+}
+
+/**
+ * Aplica a una carta el estado de scheduling que ha producido el scheduler.
+ *
+ * No cambia `updatedAt` del mazo: calificar no modifica el contenido del mazo, y hacerlo
+ * reordenaría Mis mazos cada vez que alguien estudia, que no es lo que la fecha de
+ * modificación significa.
+ */
+export function applyScheduling(
+  library: Library,
+  cardId: string,
+  scheduling: CardScheduling,
+): LibraryResult {
+  if (!findCard(library, cardId)) {
+    return { ok: false, error: 'carta-inexistente' };
+  }
+  return {
+    ok: true,
+    library: {
+      ...library,
+      cards: library.cards.map((card) => (card.id === cardId ? { ...card, scheduling } : card)),
     },
   };
 }

@@ -1,4 +1,6 @@
 import { chart, colors } from '../../../theme';
+import { formatIntervalDays } from '../../scheduler/format';
+import { reviewRatingLabels, reviewRatings } from '../../scheduler/types';
 import {
   formatAverage,
   formatDayLong,
@@ -14,6 +16,7 @@ import {
 } from '../format';
 import { weekdayOfDay } from '../time';
 import type { DayPoint, StatsReport } from '../engine';
+import type { DistributionStats } from '../fsrs';
 
 import {
   A4,
@@ -323,6 +326,63 @@ function table(
   flow.y += 8;
 }
 
+/** Por qué una sección de calificación está vacía. Nunca se sustituye por ceros. */
+function ratingNote(report: StatsReport): string {
+  if (report.ratedSince === null) {
+    return 'Todavía no se ha calificado ninguna tarjeta en este dispositivo. Esta sección aparecerá en cuanto se estudie con Otra vez, Difícil, Bien o Fácil.';
+  }
+  return `Sin calificaciones en este ámbito y periodo. Hay datos de calificación desde ${formatInstantLong(report.ratedSince)}; la actividad anterior se registró sin calificación y no se cuenta aquí.`;
+}
+
+type DistributionOptions = {
+  emptyMessage: string;
+  unit: string;
+  /** Cómo se lee la mediana y la media de esta magnitud. */
+  format: (value: number | null) => string;
+  sampleLabel: string;
+  color?: PdfColor;
+  maxLabels?: number;
+};
+
+/**
+ * Una distribución con su gráfica y sus tres cifras.
+ *
+ * Las cuatro secciones del scheduler que son distribuciones —intervalos, estabilidad,
+ * dificultad y probabilidad de recuerdo— se dibujan igual. Repetir el bloque cuatro veces
+ * habría multiplicado por cuatro el sitio donde equivocarse.
+ */
+function distributionSection(
+  document: PdfDocument,
+  flow: Flow,
+  distribution: DistributionStats,
+  options: DistributionOptions,
+): void {
+  if (distribution.samples === 0) {
+    emptyNote(flow, options.emptyMessage);
+    return;
+  }
+  barChart(document, flow, {
+    points: distribution.buckets.map((bucket) => ({
+      label: bucket.label,
+      value: bucket.count,
+    })),
+    formatValue: (value) => `${formatNumber(value)} ${options.unit}`,
+    color: options.color,
+    maxLabels: options.maxLabels ?? 11,
+    emptyMessage: options.emptyMessage,
+  });
+  metricGrid(
+    flow,
+    [
+      { label: options.sampleLabel, value: formatNumber(distribution.samples) },
+      { label: 'Mediana', value: options.format(distribution.median) },
+      { label: 'Media', value: options.format(distribution.average) },
+      { label: 'Máximo', value: options.format(distribution.max) },
+    ],
+    4,
+  );
+}
+
 function pointsFrom(series: readonly DayPoint[], transform: (value: number) => number = (v) => v) {
   return series.map((point) => ({ label: formatDayShort(point.day), value: transform(point.value) }));
 }
@@ -601,6 +661,189 @@ export function buildStatsPdf(report: StatsReport, options: ReportOptions): Uint
       ]),
     );
   }
+
+  // ── Reparto por estado del scheduler ───────────────────────────────────────
+  ensure(document, flow, 140);
+  sectionTitle(
+    flow,
+    'Estado de las tarjetas',
+    'Reparto por estado del scheduler. Young son las tarjetas de repaso con menos de 21 días de intervalo; Mature, las de 21 o más.',
+  );
+  metricGrid(
+    flow,
+    [
+      { label: 'Nuevas', value: formatNumber(report.counts.scheduler.nuevas) },
+      { label: 'Aprendiendo', value: formatNumber(report.counts.scheduler.aprendiendo) },
+      { label: 'Reaprendiendo', value: formatNumber(report.counts.scheduler.reaprendiendo) },
+      { label: 'Young', value: formatNumber(report.counts.scheduler.young) },
+      { label: 'Mature', value: formatNumber(report.counts.scheduler.mature) },
+    ],
+    5,
+  );
+
+  // ── Próximos repasos ───────────────────────────────────────────────────────
+  ensure(document, flow, 200);
+  sectionTitle(
+    flow,
+    'Próximos repasos',
+    `Repasos programados hacia delante. Horizonte: ${report.periodLabel.toLocaleLowerCase()}. Las tarjetas nuevas no aparecen porque todavía no tienen fecha.`,
+  );
+  barChart(document, flow, {
+    points: report.futureDue.buckets.map((bucket) => ({
+      label: bucket.offset === 0 ? 'Hoy' : formatDayShort(bucket.day),
+      value: bucket.reviews,
+    })),
+    formatValue: (value) => `${formatNumber(value)} repasos`,
+    emptyMessage: 'No hay ningún repaso programado en este horizonte.',
+  });
+  metricGrid(
+    flow,
+    [
+      { label: 'Programadas', value: formatNumber(report.futureDue.total) },
+      { label: 'Vencidas ahora', value: formatNumber(report.futureDue.backlog) },
+      { label: 'Días con repasos', value: formatNumber(report.futureDue.daysWithReviews) },
+      { label: 'Media por día', value: formatAverage(report.futureDue.averagePerDay) },
+    ],
+    4,
+  );
+
+  // ── Calificaciones ─────────────────────────────────────────────────────────
+  ensure(document, flow, 200);
+  sectionTitle(
+    flow,
+    'Calificaciones',
+    'Cuántas veces se usó cada botón en el periodo. La actividad anterior a la calificación se cuenta aparte.',
+  );
+  if (report.answerButtons.total === 0) {
+    // Ni una gráfica de ceros ni una sección omitida en silencio: se dice por qué está vacía.
+    emptyNote(flow, ratingNote(report));
+  } else {
+    barChart(document, flow, {
+      points: reviewRatings.map((rating) => ({
+        label: reviewRatingLabels[rating],
+        value: report.answerButtons.slices.find((slice) => slice.rating === rating)?.reviews ?? 0,
+      })),
+      formatValue: (value) => `${formatNumber(value)} respuestas`,
+      maxLabels: 4,
+      emptyMessage: 'Sin calificaciones en este periodo.',
+    });
+    metricGrid(
+      flow,
+      [
+        ...reviewRatings.map((rating) => ({
+          label: reviewRatingLabels[rating],
+          value: formatNumber(
+            report.answerButtons.slices.find((slice) => slice.rating === rating)?.reviews ?? 0,
+          ),
+        })),
+        { label: 'Sin calificar', value: formatNumber(report.answerButtons.unrated) },
+      ],
+      5,
+    );
+  }
+
+  // ── Retención real ─────────────────────────────────────────────────────────
+  ensure(document, flow, 180);
+  sectionTitle(
+    flow,
+    'Retención real',
+    'Porcentaje de repasos acertados. Otra vez es fallo; Difícil, Bien y Fácil son aciertos. Se cuenta el primer repaso de cada tarjeta en cada día.',
+  );
+  if (report.trueRetention.rows.every((row) => row.total.total === 0)) {
+    emptyNote(flow, ratingNote(report));
+  } else {
+    table(
+      document,
+      flow,
+      [
+        { header: 'Periodo', width: CONTENT_WIDTH - 320 },
+        { header: 'Young', width: 80, align: 'right' },
+        { header: 'Mature', width: 80, align: 'right' },
+        { header: 'Total', width: 80, align: 'right' },
+        { header: 'Repasos', width: 80, align: 'right' },
+      ],
+      report.trueRetention.rows.map((row) => [
+        row.label,
+        formatPercent(row.young.retention),
+        formatPercent(row.mature.retention),
+        formatPercent(row.total.retention),
+        formatNumber(row.total.total),
+      ]),
+    );
+  }
+  // Lo que queda fuera se dice pase lo que pase: es justo cuando la tabla está vacía cuando
+  // más falta hace saber por qué.
+  if (report.trueRetention.excludedLearning > 0) {
+    // Reserva su hueco: la tabla puede haber dejado el cursor justo en el margen inferior.
+    ensure(document, flow, 26);
+    flow.page.text(
+      MARGIN,
+      flow.y + 8,
+      `${formatNumber(report.trueRetention.excludedLearning)} respuestas quedan fuera por ser de tarjetas que todavía se estaban aprendiendo.`,
+      { size: 8, color: ink.muted },
+    );
+    flow.y += 18;
+  }
+
+  // ── Intervalos de repaso ───────────────────────────────────────────────────
+  ensure(document, flow, 200);
+  sectionTitle(
+    flow,
+    'Intervalos de repaso',
+    'Cuánto tiempo pasa entre repasos de las tarjetas que ya están en repaso. Describe la biblioteca de hoy, no el periodo.',
+  );
+  distributionSection(document, flow, report.reviewIntervals, {
+    emptyMessage: 'Todavía no hay ninguna tarjeta en repaso.',
+    unit: 'tarjetas',
+    format: formatIntervalDays,
+    sampleLabel: 'Tarjetas en repaso',
+  });
+
+  // ── Estabilidad ────────────────────────────────────────────────────────────
+  ensure(document, flow, 200);
+  sectionTitle(
+    flow,
+    'Estabilidad',
+    'Estimación de cuánto tarda la probabilidad de recordar una tarjeta en bajar hasta cerca del 90 %. Solo entran las tarjetas con historial en el scheduler.',
+  );
+  distributionSection(document, flow, report.stability, {
+    emptyMessage: 'Ninguna tarjeta tiene todavía estabilidad calculada.',
+    unit: 'tarjetas',
+    format: formatIntervalDays,
+    sampleLabel: 'Tarjetas con estado FSRS',
+    color: ink.success,
+  });
+
+  // ── Dificultad ─────────────────────────────────────────────────────────────
+  ensure(document, flow, 200);
+  sectionTitle(
+    flow,
+    'Dificultad',
+    'Cuánto cuesta mantener cada tarjeta en memoria según su historial, de 1 a 10. No es el botón Difícil: aquello es una respuesta puntual, esto es una propiedad de la tarjeta.',
+  );
+  distributionSection(document, flow, report.difficulty, {
+    emptyMessage: 'Ninguna tarjeta tiene todavía dificultad calculada.',
+    unit: 'tarjetas',
+    format: (value) => formatAverage(value),
+    sampleLabel: 'Tarjetas con estado FSRS',
+    maxLabels: 9,
+  });
+
+  // ── Probabilidad de recuerdo ───────────────────────────────────────────────
+  ensure(document, flow, 200);
+  sectionTitle(
+    flow,
+    'Probabilidad de recuerdo',
+    'Probabilidad estimada de recordar ahora mismo cada tarjeta en repaso. Se calcula en el momento de generar el reporte y no se guarda.',
+  );
+  distributionSection(document, flow, report.retrievability, {
+    emptyMessage: 'Todavía no hay ninguna tarjeta en repaso que medir.',
+    unit: 'tarjetas',
+    format: (value) => formatPercent(value),
+    sampleLabel: 'Tarjetas de repaso',
+    color: ink.success,
+    maxLabels: 10,
+  });
 
   // ── Métricas todavía no disponibles ────────────────────────────────────────
   ensure(document, flow, 130);

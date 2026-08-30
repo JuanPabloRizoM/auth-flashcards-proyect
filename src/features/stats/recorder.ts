@@ -1,5 +1,11 @@
+import type {
+  CardScheduling,
+  SchedulerIdentity,
+  SchedulingOutcome,
+} from '../scheduler/types';
+
 import { localDayOf, localHourOf } from './time';
-import type { StudyCardEvent, StudySession } from './types';
+import type { StudyCardEvent, StudyReviewEvent, StudySession } from './types';
 
 /**
  * Registro de una sesión de estudio.
@@ -125,6 +131,59 @@ export function endSession(recording: SessionRecording, at: number): SessionReco
     ...recording,
     session: { ...recording.session, endedAt: at },
     pending: null,
+  };
+}
+
+export type BuildReviewInput = {
+  eventId: string;
+  previous: CardScheduling;
+  outcome: SchedulingOutcome;
+  scheduler: SchedulerIdentity;
+  at: number;
+  durationMs: number;
+};
+
+/**
+ * Construye el registro de una calificación.
+ *
+ * Guarda de dónde venía la carta y a dónde va: sin el estado y el intervalo previos, una
+ * estadística no podría clasificar la revisión por la madurez que la carta tenía en ese
+ * momento, que es justo lo que separa Young de Mature.
+ *
+ * Devuelve `null` si no hay ninguna carta a la vista: una calificación sin carta no existe.
+ */
+export function buildReviewEvent(
+  recording: SessionRecording,
+  { eventId, previous, outcome, scheduler, at, durationMs }: BuildReviewInput,
+): StudyReviewEvent | null {
+  const { pending } = recording;
+  if (!pending) {
+    return null;
+  }
+
+  const { scheduling } = outcome;
+  return {
+    id: eventId,
+    sessionId: recording.session.id,
+    deckId: pending.deckId,
+    cardId: pending.cardId,
+    reviewedAt: at,
+    rating: outcome.rating,
+    previousState: previous.state,
+    newState: scheduling.state,
+    previousDue: previous.due,
+    // Una carta siempre sale de una calificación con un vencimiento concreto.
+    newDue: scheduling.due ?? at,
+    previousIntervalDays: previous.scheduledDays,
+    newIntervalDays: scheduling.scheduledDays,
+    elapsedDays: scheduling.elapsedDays,
+    stability: scheduling.stability,
+    difficulty: scheduling.difficulty,
+    durationMs: Math.max(0, Math.round(durationMs)),
+    schedulerId: scheduler.id,
+    schedulerVersion: scheduler.version,
+    localDay: localDayOf(at),
+    localHour: localHourOf(at),
   };
 }
 

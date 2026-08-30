@@ -5,10 +5,12 @@ import {
   alta,
   biblioteca,
   carta,
+  cartaEnRepaso,
   eventos,
   historial,
   mazo,
   resetSequence,
+  revision,
   sesion,
   snapshot,
 } from '../fixtures/stats/builders';
@@ -26,6 +28,7 @@ import { expectValidPdfStructure } from '../fixtures/stats/pdfReader';
  */
 
 const HOY = '2026-08-23';
+const AHORA = Date.parse(`${HOY}T12:00:00Z`);
 /** 23 de agosto de 2026 a mediodía local. */
 const GENERADO = new Date(2026, 7, 23, 12, 0, 0).getTime();
 /** 1 de agosto de 2026: cuando se activó el tracking en este dispositivo. */
@@ -89,6 +92,7 @@ function informe(partes: Partial<StatsQuery> = {}) {
     scope: { kind: 'all' },
     period: 'all',
     today: HOY,
+    now: AHORA,
     ...partes,
   });
 }
@@ -169,7 +173,7 @@ describe('Portada', () => {
   it('sin tracking activado, lo dice en vez de inventar una fecha', () => {
     const report = buildStatsReport(
       { library: biblioteca(), history: historial({ trackedSince: null }) },
-      { scope: { kind: 'all' }, period: 'all', today: HOY },
+      { scope: { kind: 'all' }, period: 'all', today: HOY, now: AHORA },
     );
     const pdf = expectValidPdfStructure(buildStatsPdf(report, { generatedAt: GENERADO }));
 
@@ -204,7 +208,7 @@ describe('Periodos', () => {
     const textoDe = (period: StatsPeriod) =>
       expectValidPdfStructure(
         buildStatsPdf(
-          buildStatsReport(conAntiguo, { scope: { kind: 'all' }, period, today: HOY }),
+          buildStatsReport(conAntiguo, { scope: { kind: 'all' }, period, today: HOY, now: AHORA }),
           { generatedAt: GENERADO },
         ),
       ).text;
@@ -322,20 +326,13 @@ describe('Secciones del reporte', () => {
     expect(text).toContain('Origen desconocido / anterior al tracking');
   });
 
-  it('declara las métricas de Anki que todavía no pueden calcularse, con su motivo', () => {
+  it('declara Card Ease como la única métrica de Anki que no puede calcularse, con su motivo', () => {
     const { text } = pdfDe();
 
     expect(text).toContain('Métricas todavía no disponibles');
-    for (const metrica of [
-      'Future Due',
-      'Review Intervals',
-      'Card Ease',
-      'Retention',
-      'Answer Buttons',
-    ]) {
-      expect(text).toContain(metrica);
-    }
-    expect(text).toContain('Necesita un scheduler');
+    expect(text).toContain('Card Ease');
+    // Su motivo: FSRS no usa Ease, usa Difficulty, y esa sí se muestra.
+    expect(text).toContain('Difficulty');
   });
 });
 
@@ -348,7 +345,7 @@ describe('Sin datos', () => {
             library: biblioteca([mazo('mazo-a', 'Inglés')], [carta('c-1', 'mazo-a')]),
             history: historial({ trackedSince: TRACKED }),
           },
-          { scope: { kind: 'all' }, period: '1m', today: HOY },
+          { scope: { kind: 'all' }, period: '1m', today: HOY, now: AHORA },
         ),
         { generatedAt: GENERADO },
       ),
@@ -392,5 +389,207 @@ describe('Coherencia con el motor', () => {
     // 30 s por tarjeta.
     expect(report.speed.averageSeconds).toBe(30);
     expect(lineas).toContain('30.0 s');
+  });
+});
+
+/**
+ * Secciones de repetición espaciada.
+ *
+ * Se construye una colección con programación y calificaciones reales, y se comprueba que
+ * el PDF las presenta, que respeta ámbito y periodo, y que sin calificaciones dice por qué
+ * está vacío en vez de dibujar una gráfica de ceros.
+ */
+describe('Secciones de repetición espaciada', () => {
+  /**
+   * Inglés con cinco cartas programadas y calificaciones; Matemáticas con dos.
+   *
+   * ```text
+   * Inglés        3 en repaso (5, 25 y 100 días) · 1 aprendiendo · 1 nueva
+   *               6 calificaciones: 1 Otra vez, 2 Difícil, 2 Bien, 1 Fácil
+   * Matemáticas   2 en repaso (7 y 40 días) · 4 calificaciones Bien
+   * ```
+   */
+  function conScheduler() {
+    const decks = [mazo('mazo-ingles', 'Inglés'), mazo('mazo-mates', 'Matemáticas')];
+    const cards = [
+      cartaEnRepaso('ing-1', 'mazo-ingles', { intervalo: 5, enDias: 3, desde: AHORA }),
+      cartaEnRepaso('ing-2', 'mazo-ingles', { intervalo: 25, enDias: 12, desde: AHORA }),
+      cartaEnRepaso('ing-3', 'mazo-ingles', { intervalo: 100, enDias: 60, desde: AHORA }),
+      carta('ing-4', 'mazo-ingles'),
+      cartaEnRepaso('mat-1', 'mazo-mates', { intervalo: 7, enDias: 4, desde: AHORA }),
+      cartaEnRepaso('mat-2', 'mazo-mates', { intervalo: 40, enDias: 20, desde: AHORA }),
+    ];
+
+    const reviews = [
+      revision({ deckId: 'mazo-ingles', cardId: 'ing-1', day: HOY, rating: 'otra-vez' }),
+      revision({ deckId: 'mazo-ingles', cardId: 'ing-2', day: HOY, rating: 'dificil' }),
+      revision({ deckId: 'mazo-ingles', cardId: 'ing-3', day: HOY, rating: 'dificil' }),
+      revision({ deckId: 'mazo-ingles', cardId: 'ing-5', day: HOY, rating: 'bien' }),
+      revision({ deckId: 'mazo-ingles', cardId: 'ing-6', day: HOY, rating: 'bien' }),
+      revision({ deckId: 'mazo-ingles', cardId: 'ing-7', day: HOY, rating: 'facil' }),
+      ...Array.from({ length: 4 }, (_, i) =>
+        revision({ deckId: 'mazo-mates', cardId: `mat-r-${i}`, day: HOY, rating: 'bien' }),
+      ),
+    ];
+
+    return {
+      library: biblioteca(decks, cards),
+      history: historial({ trackedSince: TRACKED, ratedSince: AHORA, reviews }),
+    };
+  }
+
+  function pdfScheduler(partes: Partial<StatsQuery> = {}) {
+    const report = buildStatsReport(conScheduler(), {
+      scope: { kind: 'all' },
+      period: 'all',
+      today: HOY,
+      now: AHORA,
+      ...partes,
+    });
+    return {
+      report,
+      ...expectValidPdfStructure(buildStatsPdf(report, { generatedAt: GENERADO })),
+    };
+  }
+
+  it('incluye las ocho secciones nuevas', () => {
+    const { text } = pdfScheduler();
+
+    for (const titulo of [
+      'Estado de las tarjetas',
+      'Próximos repasos',
+      'Calificaciones',
+      'Retención real',
+      'Intervalos de repaso',
+      'Estabilidad',
+      'Dificultad',
+      'Probabilidad de recuerdo',
+    ]) {
+      expect(text).toContain(titulo);
+    }
+  });
+
+  it('sigue siendo un PDF válido con las secciones nuevas', () => {
+    const pdf = pdfScheduler();
+    expect(pdf.pageCount).toBeGreaterThan(2);
+  });
+
+  it('el reporte global muestra las cifras de los dos mazos', () => {
+    const { report, text } = pdfScheduler();
+
+    expect(report.answerButtons.total).toBe(10);
+    expect(text).toContain('Otra vez');
+    expect(text).toContain('Difícil');
+    expect(text).toContain('Bien');
+    expect(text).toContain('Fácil');
+  });
+
+  it('el reporte de un mazo solo lleva sus cifras', () => {
+    const { report } = pdfScheduler({ scope: { kind: 'deck', deckId: 'mazo-mates' } });
+
+    expect(report.answerButtons.total).toBe(4);
+    expect(report.counts.total).toBe(2);
+    expect(report.futureDue.total).toBe(2);
+  });
+
+  it('el reporte de un mazo no menciona el otro', () => {
+    const { text } = pdfScheduler({ scope: { kind: 'deck', deckId: 'mazo-ingles' } });
+
+    expect(text).toContain('Inglés');
+    expect(text).not.toContain('Matemáticas');
+  });
+
+  it('el periodo cambia el horizonte de los próximos repasos', () => {
+    const unMes = pdfScheduler({ period: '1m' }).report.futureDue;
+    const todo = pdfScheduler({ period: 'all' }).report.futureDue;
+
+    // A 60 días solo entra en el horizonte largo.
+    expect(unMes.total).toBe(4);
+    expect(unMes.beyondHorizon).toBe(1);
+    expect(todo.total).toBe(5);
+    expect(todo.beyondHorizon).toBe(0);
+  });
+
+  it('las cifras del PDF coinciden con las del informe que lo genera', () => {
+    const { report, text } = pdfScheduler();
+
+    expect(text).toContain(String(report.counts.scheduler.mature));
+    expect(text).toContain(String(report.answerButtons.total));
+  });
+
+  it('dice cuántas respuestas quedan fuera de la retención, y sigue siendo válido', () => {
+    const soloAprendizaje = {
+      library: biblioteca([mazo('mazo-ingles', 'Inglés')], [carta('ing-1', 'mazo-ingles')]),
+      history: historial({
+        trackedSince: TRACKED,
+        ratedSince: AHORA,
+        reviews: Array.from({ length: 4 }, (_, index) =>
+          revision({
+            deckId: 'mazo-ingles',
+            cardId: `ing-${index}`,
+            day: HOY,
+            previousState: 'aprendiendo',
+          }),
+        ),
+      }),
+    };
+    const report = buildStatsReport(soloAprendizaje, {
+      scope: { kind: 'all' },
+      period: 'all',
+      today: HOY,
+      now: AHORA,
+    });
+    const pdf = expectValidPdfStructure(buildStatsPdf(report, { generatedAt: GENERADO }));
+
+    expect(report.trueRetention.excludedLearning).toBe(4);
+    expect(pdf.text).toContain('4 respuestas quedan fuera');
+    expect(pdf.pageCount).toBeGreaterThan(1);
+  });
+
+  it('sin ninguna calificación explica por qué, en vez de dibujar ceros', () => {
+    const sinCalificar = {
+      library: biblioteca([mazo('mazo-ingles', 'Inglés')], [carta('ing-1', 'mazo-ingles')]),
+      history: historial({
+        trackedSince: TRACKED,
+        ratedSince: null,
+        cardEvents: eventos(5, { deckId: 'mazo-ingles', day: '2026-08-20' }),
+      }),
+    };
+    const report = buildStatsReport(sinCalificar, {
+      scope: { kind: 'all' },
+      period: 'all',
+      today: HOY,
+      now: AHORA,
+    });
+    const { text } = expectValidPdfStructure(buildStatsPdf(report, { generatedAt: GENERADO }));
+
+    expect(text).toContain('Calificaciones');
+    expect(text).toContain('Todavía no se ha calificado ninguna tarjeta');
+    expect(text).not.toContain('NaN');
+  });
+
+  it('la actividad histórica sin calificación no se presenta como si lo estuviera', () => {
+    const mixto = {
+      library: biblioteca([mazo('mazo-ingles', 'Inglés')], [carta('ing-1', 'mazo-ingles')]),
+      history: historial({
+        trackedSince: TRACKED,
+        ratedSince: AHORA,
+        cardEvents: eventos(5, { deckId: 'mazo-ingles', day: HOY }),
+        reviews: [revision({ deckId: 'mazo-ingles', cardId: 'ing-1', day: HOY, rating: 'bien' })],
+      }),
+    };
+    const report = buildStatsReport(mixto, {
+      scope: { kind: 'all' },
+      period: 'all',
+      today: HOY,
+      now: AHORA,
+    });
+
+    // Cinco eventos sin calificación y una calificación: ni se suman ni se reparten.
+    expect(report.answerButtons.total).toBe(1);
+    expect(report.answerButtons.unrated).toBe(5);
+    expect(
+      report.answerButtons.slices.reduce((sum, slice) => sum + slice.reviews, 0),
+    ).toBe(1);
   });
 });

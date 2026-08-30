@@ -1,5 +1,7 @@
 import { act, fireEvent, screen } from 'expo-router/testing-library';
 
+import { newScheduling } from '../../src/features/scheduler/types';
+import { createTestClock } from '../../src/lib/clock';
 import type { StudyHistory } from '../../src/features/stats/types';
 import {
   abrirMazo,
@@ -99,6 +101,7 @@ describe('Una sesión de estudio produce historial', () => {
     await repos.libraryRepository.save({
       decks: [{ id: 'mazo-1', name: 'Vacío', updatedAt: '2026-08-01T00:00:00.000Z' }],
       cards: [],
+      scheduler: null,
     });
     montarApp({ ...repos, initialUrl: '/mazo/mazo-1/estudiar' });
     await screen.findByTestId('study-empty');
@@ -112,13 +115,17 @@ describe('Una sesión de estudio produce historial', () => {
 describe('Varias sesiones y varios mazos', () => {
   it('dos sesiones sobre el mismo mazo se registran por separado', async () => {
     const repos = repositorios();
-    montarApp(repos);
+    // Con repetición espaciada, la segunda sesión solo existe si las tarjetas han vuelto a
+    // vencer. Se adelanta el reloj en vez de esperar días reales.
+    const clock = createTestClock('2026-03-10T09:00:00.000Z');
+    montarApp({ ...repos, clock });
     await screen.findByTestId('create-deck-button');
 
     await crearEstudiarMazo('Inglés', 'mazo-1', 2);
-    // Se vuelve al mazo y se estudia otra vez.
+    // Se vuelve al mazo, pasa un mes —de sobra para que venzan— y se estudia otra vez.
     await irA('finish-back-button');
     await screen.findByTestId('study-button');
+    clock.advanceDays(30);
     await estudiarMazo(2);
 
     const history = await leerHistorial(repos.historyRepository);
@@ -185,9 +192,10 @@ describe('Inicio del tracking', () => {
     await repos.libraryRepository.save({
       decks: [{ id: 'mazo-9', name: 'Anterior', updatedAt: '2026-01-01T00:00:00.000Z' }],
       cards: [
-        { id: 'carta-90', deckId: 'mazo-9', front: 'a', back: 'b' },
-        { id: 'carta-91', deckId: 'mazo-9', front: 'c', back: 'd' },
+        { id: 'carta-90', deckId: 'mazo-9', front: 'a', back: 'b', scheduling: { ...newScheduling } },
+        { id: 'carta-91', deckId: 'mazo-9', front: 'c', back: 'd', scheduling: { ...newScheduling } },
       ],
+    scheduler: null,
     });
 
     montarApp(repos);

@@ -3,6 +3,7 @@ import type {
   DeckSnapshot,
   StudyCardEvent,
   StudyHistory,
+  StudyReviewEvent,
   StudySession,
 } from './types';
 
@@ -15,9 +16,11 @@ import type {
  */
 export type HistoryChange = {
   trackedSince?: number;
+  ratedSince?: number;
   sessions?: readonly StudySession[];
   cardEvents?: readonly StudyCardEvent[];
   cardAdditions?: readonly CardAddedEvent[];
+  reviews?: readonly StudyReviewEvent[];
   deckSnapshots?: readonly DeckSnapshot[];
 };
 
@@ -44,11 +47,14 @@ function upsertSnapshots(
 
 export function applyHistoryChange(history: StudyHistory, change: HistoryChange): StudyHistory {
   return {
-    // El inicio del tracking se fija una sola vez y ya no se mueve.
+    // El inicio del tracking se fija una sola vez y ya no se mueve. Lo mismo con el inicio
+    // de los datos de calificación: es la frontera entre lo que se midió y lo que no.
     trackedSince: history.trackedSince ?? change.trackedSince ?? null,
+    ratedSince: history.ratedSince ?? change.ratedSince ?? null,
     sessions: upsert(history.sessions, change.sessions ?? []),
     cardEvents: upsert(history.cardEvents, change.cardEvents ?? []),
     cardAdditions: upsert(history.cardAdditions, change.cardAdditions ?? []),
+    reviews: upsert(history.reviews, change.reviews ?? []),
     deckSnapshots: upsertSnapshots(history.deckSnapshots, change.deckSnapshots ?? []),
   };
 }
@@ -59,7 +65,12 @@ export function nextHistoryCounter(history: StudyHistory): number {
     const match = /-(\d+)$/.exec(id);
     return match?.[1] ? Number(match[1]) : 0;
   };
-  return [...history.sessions, ...history.cardEvents, ...history.cardAdditions].reduce(
+  return [
+    ...history.sessions,
+    ...history.cardEvents,
+    ...history.cardAdditions,
+    ...history.reviews,
+  ].reduce(
     (highest, entry) => Math.max(highest, suffixOf(entry.id)),
     0,
   );

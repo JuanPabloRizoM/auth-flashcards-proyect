@@ -1,5 +1,26 @@
+import { appScheduler } from '../scheduler';
+import type { SpacedRepetitionScheduler } from '../scheduler/types';
+
 import type { Library } from '../../types/domain';
 
+import {
+  buildAnswerButtons,
+  countUnratedEvents,
+  buildDifficultyStats,
+  buildFutureDue,
+  buildReviewIntervals,
+  buildSchedulerCounts,
+  buildStabilityStats,
+  buildRetrievabilityStats,
+  buildTrueRetention,
+  rangedReviews,
+  scopedReviews,
+  type AnswerButtonsStats,
+  type DistributionStats,
+  type FutureDueStats,
+  type SchedulerCountStats,
+  type TrueRetentionStats,
+} from './fsrs';
 import {
   addDays,
   dayInRange,
@@ -117,6 +138,8 @@ export type CardCountStats = {
   neverStudied: number;
   studiedAtLeastOnce: number;
   studiedToday: number;
+  /** Reparto por estado del scheduler. Suma exactamente `total`. */
+  scheduler: SchedulerCountStats;
 };
 
 export type AddedStats = {
@@ -181,12 +204,28 @@ export type StatsReport = {
   origin: OriginStats;
   /** `null` cuando el ámbito es un solo mazo: comparar un mazo consigo mismo no informa. */
   deckComparison: DeckComparisonRow[] | null;
+  /** Cuándo se registró la primera calificación. `null` si todavía no hay ninguna. */
+  ratedSince: number | null;
+  answerButtons: AnswerButtonsStats;
+  trueRetention: TrueRetentionStats;
+  futureDue: FutureDueStats;
+  reviewIntervals: DistributionStats;
+  stability: DistributionStats;
+  difficulty: DistributionStats;
+  retrievability: DistributionStats;
   deferred: DeferredMetric[];
 };
 
 export type StatsInput = {
   library: Library;
   history: StudyHistory;
+  /**
+   * Scheduler con el que se derivan las métricas que dependen del algoritmo.
+   *
+   * Se inyecta para que un test pueda usar otro y para que el motor siga sin conocer la
+   * librería que hay debajo. Por defecto, el de la aplicación.
+   */
+  scheduler?: SpacedRepetitionScheduler;
 };
 
 /**
@@ -197,24 +236,11 @@ export type StatsInput = {
  */
 export const deferredMetrics: readonly DeferredMetric[] = [
   {
-    anki: 'Future Due',
-    reason: 'Necesita un scheduler que fije cuándo vuelve a tocar cada carta. No existe todavía.',
-  },
-  {
-    anki: 'Review Intervals',
-    reason: 'Necesita repetición espaciada: sin intervalos programados no hay intervalos que medir.',
-  },
-  {
     anki: 'Card Ease',
-    reason: 'El Ease lo produce el algoritmo de repetición. Inventarlo sería inventar el dato.',
-  },
-  {
-    anki: 'Retention',
-    reason: 'Necesita saber si un repaso se acertó o se falló. El estudio actual no califica.',
-  },
-  {
-    anki: 'Answer Buttons',
-    reason: 'No existen Again/Hard/Good/Easy, y no se crean botones solo para llenar una gráfica.',
+    // El texto es corto a propósito: es una celda de tabla, y el PDF la recorta al ancho de
+    // su columna. Lo importante —que el sustituto es Difficulty— tiene que caber.
+    reason:
+      'FSRS no usa Ease: su equivalente es Difficulty, que sí se muestra. El Ease es propio de SM-2.',
   },
 ] as const;
 
@@ -308,8 +334,8 @@ function buildStreak(studiedDays: ReadonlySet<string>, today: string): StreakSta
 }
 
 export function buildStatsReport(input: StatsInput, query: StatsQuery): StatsReport {
-  const { library, history } = input;
-  const { scope, period, today } = query;
+  const { library, history, scheduler = appScheduler } = input;
+  const { scope, period, today, now } = query;
   const range = periodRange(period, today);
 
   // ── Selección ────────────────────────────────────────────────────────────────
@@ -469,6 +495,9 @@ export function buildStatsReport(input: StatsInput, query: StatsQuery): StatsRep
     neverStudied: scopedCards.length - studiedOnce,
     studiedAtLeastOnce: studiedOnce,
     studiedToday: scopedCards.filter((card) => todayCardIds.has(card.id)).length,
+    // El reparto por estado del scheduler describe la biblioteca de hoy, igual que el resto
+    // de este bloque: no depende del periodo.
+    scheduler: buildSchedulerCounts(scopedCards),
   };
 
   // ── Tarjetas añadidas ────────────────────────────────────────────────────────
@@ -541,6 +570,25 @@ export function buildStatsReport(input: StatsInput, query: StatsQuery): StatsRep
       .sort((a, b) => b.studied - a.studied || a.deckId.localeCompare(b.deckId));
   }
 
+  // ── Repetición espaciada ─────────────────────────────────────────────────────
+  // Answer Buttons y True Retention describen actividad, así que se filtran igual que el
+  // resto de secciones. Las de inventario miran la biblioteca de hoy. Future Due usa el
+  // periodo como horizonte hacia delante. Está todo explicado en fsrs.ts.
+  const allScopedReviews = scopedReviews(history.reviews, scope);
+  const periodReviews = rangedReviews(allScopedReviews, range);
+
+  const answerButtons = buildAnswerButtons(
+    periodReviews,
+    countUnratedEvents(rangedEvents, periodReviews),
+    history.ratedSince,
+  );
+  const trueRetention = buildTrueRetention(allScopedReviews, today, history.ratedSince);
+  const futureDue = buildFutureDue(scopedCards, now, today, range.days);
+  const reviewIntervals = buildReviewIntervals(scopedCards);
+  const stability = buildStabilityStats(scopedCards);
+  const difficulty = buildDifficultyStats(scopedCards);
+  const retrievability = buildRetrievabilityStats(scopedCards, scheduler, now);
+
   const scopeResolved =
     scope.kind === 'all'
       ? { name: 'Todos los mazos', deleted: false }
@@ -567,6 +615,14 @@ export function buildStatsReport(input: StatsInput, query: StatsQuery): StatsRep
     added,
     origin,
     deckComparison,
+    ratedSince: history.ratedSince,
+    answerButtons,
+    trueRetention,
+    futureDue,
+    reviewIntervals,
+    stability,
+    difficulty,
+    retrievability,
     deferred: [...deferredMetrics],
   };
 }

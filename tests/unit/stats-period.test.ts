@@ -21,6 +21,8 @@ import { biblioteca, evento, historial, mazo, resetSequence } from '../fixtures/
  */
 
 const HOY = '2026-08-23';
+/** Instante de referencia dentro de HOY. Las métricas de scheduling lo necesitan. */
+const AHORA = Date.parse(`${HOY}T12:00:00Z`);
 
 beforeEach(resetSequence);
 
@@ -127,7 +129,7 @@ describe('Fronteras aplicadas al informe', () => {
     'en %s entra el evento del primer día y queda fuera el del día anterior',
     (period) => {
       const { input } = datasetDeFrontera(period);
-      const report = buildStatsReport(input, { scope: { kind: 'all' }, period, today: HOY });
+      const report = buildStatsReport(input, { scope: { kind: 'all' }, period, today: HOY, now: AHORA });
 
       expect(report.activity.total).toBe(1);
     },
@@ -139,6 +141,7 @@ describe('Fronteras aplicadas al informe', () => {
       scope: { kind: 'all' },
       period: 'all',
       today: HOY,
+      now: AHORA,
     });
 
     expect(report.activity.total).toBe(2);
@@ -156,7 +159,7 @@ describe('Fronteras aplicadas al informe', () => {
       }),
     };
     const totalCon = (period: StatsPeriod) =>
-      buildStatsReport(input, { scope: { kind: 'all' }, period, today: HOY }).activity.total;
+      buildStatsReport(input, { scope: { kind: 'all' }, period, today: HOY, now: AHORA }).activity.total;
 
     expect(totalCon('1m')).toBe(1);
     expect(totalCon('3m')).toBe(2);
@@ -191,6 +194,7 @@ describe('Zona horaria', () => {
       scope: { kind: 'all' },
       period: 'all',
       today: HOY,
+      now: AHORA,
     });
     return {
       porDia: report.calendar.days.map((day) => [day.day, day.cards] as const),

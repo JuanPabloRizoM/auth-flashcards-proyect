@@ -1,9 +1,11 @@
+import { newScheduling, type CardScheduling, type ReviewRating, type SchedulingState } from '../../../src/features/scheduler/types';
 import type {
   CardAddedEvent,
   CardOrigin,
   DeckSnapshot,
   StudyCardEvent,
   StudyHistory,
+  StudyReviewEvent,
   StudySession,
 } from '../../../src/features/stats/types';
 import type { Card, Deck, Library } from '../../../src/types/domain';
@@ -124,14 +126,75 @@ export function snapshot(deckId: string, name: string, day = '2026-08-01'): Deck
   return { deckId, name, lastSeenAt: instantOf(day, 12) };
 }
 
+export type RevisionOptions = {
+  deckId: string;
+  cardId: string;
+  day: string;
+  rating?: ReviewRating;
+  hour?: number;
+  /** Estado en el que estaba la carta al aparecer. Decide Young/Mature y si cuenta. */
+  previousState?: SchedulingState;
+  /** Intervalo que la carta tenía al aparecer. Menos de 21 días es Young. */
+  previousIntervalDays?: number;
+  newIntervalDays?: number;
+  id?: string;
+  sessionId?: string;
+};
+
+export function revision({
+  deckId,
+  cardId,
+  day,
+  rating = 'bien',
+  hour = 10,
+  previousState = 'repaso',
+  previousIntervalDays = 5,
+  newIntervalDays = 12,
+  id,
+  sessionId = `sesion-${deckId}-${day}`,
+}: RevisionOptions): StudyReviewEvent {
+  const at = instantOf(day, hour);
+  return {
+    id: id ?? nextId('review'),
+    sessionId,
+    deckId,
+    cardId,
+    reviewedAt: at,
+    rating,
+    previousState,
+    newState: rating === 'otra-vez' ? 'reaprendiendo' : 'repaso',
+    previousDue: at - previousIntervalDays * 86_400_000,
+    newDue: at + newIntervalDays * 86_400_000,
+    previousIntervalDays,
+    newIntervalDays,
+    elapsedDays: previousIntervalDays,
+    stability: 12.5,
+    difficulty: 5,
+    durationMs: 8_000,
+    schedulerId: 'fsrs',
+    schedulerVersion: 'ts-fsrs v5.4.1 using FSRS-6.0',
+    localDay: day,
+    localHour: hour,
+  };
+}
+
+/** `cantidad` revisiones idénticas salvo por la carta. Para armar volumen. */
+export function revisiones(cantidad: number, options: RevisionOptions): StudyReviewEvent[] {
+  return Array.from({ length: cantidad }, () =>
+    revision({ ...options, cardId: options.cardId || nextId('carta') }),
+  );
+}
+
 export function historial(partes: Partial<StudyHistory> = {}): StudyHistory {
   return {
     // `null` explícito significa "todavía sin tracking" y debe respetarse: es justo el caso
     // que hay que poder probar. Por eso no se usa `??`, que lo trataría como "no indicado".
     trackedSince: 'trackedSince' in partes ? partes.trackedSince! : instantOf('2026-08-01', 8),
+    ratedSince: 'ratedSince' in partes ? partes.ratedSince! : null,
     sessions: partes.sessions ?? [],
     cardEvents: partes.cardEvents ?? [],
     cardAdditions: partes.cardAdditions ?? [],
+    reviews: partes.reviews ?? [],
     deckSnapshots: partes.deckSnapshots ?? [],
   };
 }
@@ -140,10 +203,37 @@ export function mazo(id: string, name: string): Deck {
   return { id, name, updatedAt: '2026-08-01T12:00:00.000Z' };
 }
 
-export function carta(id: string, deckId: string): Card {
-  return { id, deckId, front: `frente ${id}`, back: `reverso ${id}` };
+/** Estado de scheduling arbitrario, para armar bibliotecas con inventario conocido. */
+export function programacion(partes: Partial<CardScheduling> = {}): CardScheduling {
+  return { ...newScheduling, ...partes };
+}
+
+/** Carta en repaso con un intervalo dado. `due` se sitúa a `enDias` días de `desde`. */
+export function cartaEnRepaso(
+  id: string,
+  deckId: string,
+  options: { intervalo: number; enDias: number; desde: number; stability?: number; difficulty?: number },
+): Card {
+  return {
+    ...carta(id, deckId),
+    scheduling: programacion({
+      state: 'repaso',
+      due: options.desde + options.enDias * 86_400_000,
+      lastReview: options.desde - options.intervalo * 86_400_000,
+      stability: options.stability ?? options.intervalo * 1.2,
+      difficulty: options.difficulty ?? 5,
+      elapsedDays: options.intervalo,
+      scheduledDays: options.intervalo,
+      reps: 3,
+      lapses: 0,
+    }),
+  };
+}
+
+export function carta(id: string, deckId: string, scheduling: CardScheduling = { ...newScheduling }): Card {
+  return { id, deckId, front: `frente ${id}`, back: `reverso ${id}`, scheduling };
 }
 
 export function biblioteca(decks: readonly Deck[] = [], cards: readonly Card[] = []): Library {
-  return { decks: [...decks], cards: [...cards] };
+  return { decks: [...decks], cards: [...cards], scheduler: null };
 }

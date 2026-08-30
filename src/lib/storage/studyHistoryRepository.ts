@@ -5,6 +5,7 @@ import type {
   DeckSnapshot,
   StudyCardEvent,
   StudyHistory,
+  StudyReviewEvent,
   StudySession,
 } from '../../features/stats/types';
 import { emptyHistory } from '../../features/stats/types';
@@ -51,9 +52,12 @@ export type StudyHistoryRepository = {
 export type HistoryPatch = {
   /** Se fija la primera vez que se activa el tracking y nunca se mueve después. */
   trackedSince?: number;
+  /** Se fija con la primera calificación y nunca se mueve después. */
+  ratedSince?: number;
   sessions?: readonly StudySession[];
   cardEvents?: readonly StudyCardEvent[];
   cardAdditions?: readonly CardAddedEvent[];
+  reviews?: readonly StudyReviewEvent[];
   deckSnapshots?: readonly DeckSnapshot[];
 };
 
@@ -169,37 +173,14 @@ export function createStudyHistoryRepository(
       const sessions = patch.sessions ?? [];
       const cardEvents = patch.cardEvents ?? [];
       const cardAdditions = patch.cardAdditions ?? [];
-
-      // ── Metadatos ────────────────────────────────────────────────────────────
-      if (
-        patch.trackedSince !== undefined ||
-        (patch.deckSnapshots !== undefined && patch.deckSnapshots.length > 0)
-      ) {
-        const current = (await readMeta()) ?? emptyMeta;
-        const snapshots = new Map(current.decks.map((deck) => [deck.deckId, deck]));
-        for (const snapshot of patch.deckSnapshots ?? []) {
-          const previous = snapshots.get(snapshot.deckId);
-          // El snapshot solo avanza: un nombre viejo no debe pisar a uno más reciente.
-          if (!previous || snapshot.lastSeenAt >= previous.lastSeenAt) {
-            snapshots.set(snapshot.deckId, snapshot);
-          }
-        }
-        await storage.setItem(
-          HISTORY_META_KEY,
-          serializeMeta({
-            // El inicio del tracking se fija una sola vez. Moverlo hacia adelante borraría
-            // la frontera entre lo que se registró y lo que nunca existió.
-            trackedSince: current.trackedSince ?? patch.trackedSince ?? null,
-            decks: [...snapshots.values()],
-          }),
-        );
-      }
+      const reviews = patch.reviews ?? [];
 
       // ── Particiones ──────────────────────────────────────────────────────────
       const touched = new Set<string>([
         ...sessions.map(monthOfEntry),
         ...cardEvents.map(monthOfEntry),
         ...cardAdditions.map(monthOfEntry),
+        ...reviews.map(monthOfEntry),
       ]);
 
       for (const month of touched) {
@@ -218,9 +199,43 @@ export function createStudyHistoryRepository(
             current.cardAdditions,
             cardAdditions.filter((entry) => monthOfEntry(entry) === month),
           ),
+          reviews: upsertById(
+            current.reviews,
+            reviews.filter((entry) => monthOfEntry(entry) === month),
+          ),
         };
         await storage.setItem(monthKey(month), serializePartition(next));
       }
+      // ── Metadatos ────────────────────────────────────────────────────────────
+      // Después de las particiones a propósito: `ratedSince` marca que existen
+      // calificaciones, y escribirlo antes de que lleguen dejaría la pantalla anunciando
+      // datos de calificación que todavía no están en disco.
+      if (
+        patch.trackedSince !== undefined ||
+        patch.ratedSince !== undefined ||
+        (patch.deckSnapshots !== undefined && patch.deckSnapshots.length > 0)
+      ) {
+        const current = (await readMeta()) ?? emptyMeta;
+        const snapshots = new Map(current.decks.map((deck) => [deck.deckId, deck]));
+        for (const snapshot of patch.deckSnapshots ?? []) {
+          const previous = snapshots.get(snapshot.deckId);
+          // El snapshot solo avanza: un nombre viejo no debe pisar a uno más reciente.
+          if (!previous || snapshot.lastSeenAt >= previous.lastSeenAt) {
+            snapshots.set(snapshot.deckId, snapshot);
+          }
+        }
+        await storage.setItem(
+          HISTORY_META_KEY,
+          serializeMeta({
+            // El inicio del tracking se fija una sola vez. Moverlo hacia adelante borraría
+            // la frontera entre lo que se registró y lo que nunca existió.
+            trackedSince: current.trackedSince ?? patch.trackedSince ?? null,
+            ratedSince: current.ratedSince ?? patch.ratedSince ?? null,
+            decks: [...snapshots.values()],
+          }),
+        );
+      }
+
   }
 }
 

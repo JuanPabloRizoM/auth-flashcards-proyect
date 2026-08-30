@@ -12,6 +12,7 @@ import {
 import {
   addCard as addCardTo,
   addCards as addCardsTo,
+  applyScheduling,
   createDeck as createDeckIn,
   deleteCard as deleteCardIn,
   deleteDeck as deleteDeckIn,
@@ -21,7 +22,9 @@ import {
   type LibraryErrorCode,
 } from '../features/decks/library';
 import type { ImportRow } from '../features/import/mapping';
-import type { Library } from '../types/domain';
+import { appScheduler } from '../features/scheduler';
+import type { CardScheduling } from '../features/scheduler/types';
+import type { Library, SchedulerMetadata } from '../types/domain';
 
 import { createAsyncStorageRepository } from './storage/asyncStorageRepository';
 import { storageErrorMessage, type LibraryRepository } from './storage/types';
@@ -76,6 +79,16 @@ export type LibraryValue = {
    * tarjetas que en realidad no se guardaron.
    */
   importCards: (deckId: string, rows: readonly ImportRow[]) => Promise<AsyncLibraryAction>;
+  /**
+   * Guarda la programación de una carta y espera a que llegue al medio.
+   *
+   * A diferencia del resto de operaciones, no publica el estado nuevo hasta que el
+   * almacenamiento confirma: calificar tiene que poder fallar de forma visible, y avanzar de
+   * carta sobre una escritura que no ocurrió dejaría la sesión adelantada respecto a lo
+   * guardado. También es lo que permite revertir la programación si después falla el
+   * historial (ver src/features/study/review.ts).
+   */
+  saveCardScheduling: (cardId: string, scheduling: CardScheduling) => Promise<boolean>;
 };
 
 const LibraryContext = createContext<LibraryValue | null>(null);
@@ -126,6 +139,23 @@ function createMonotonicClock(): {
   };
 }
 
+/**
+ * Metadata del scheduler activo.
+ *
+ * Se sella en cada escritura para que el documento guardado diga siempre con qué algoritmo,
+ * con qué versión y con qué parámetros se calcularon sus vencimientos. Una migración futura
+ * podrá compararla en vez de adivinar (docs/PRODUCT.md, 2026-08-30).
+ */
+const schedulerMetadata: SchedulerMetadata = {
+  id: appScheduler.id,
+  version: appScheduler.version,
+  parameters: appScheduler.parameters,
+};
+
+function stamped(library: Library): Library {
+  return { ...library, scheduler: schedulerMetadata };
+}
+
 /** La marca más alta ya guardada, para que la sesión nueva no emita fechas anteriores. */
 function latestUpdatedAt(library: Library): string | undefined {
   return library.decks.reduce<string | undefined>(
@@ -153,6 +183,14 @@ export function LibraryProvider({ children, repository }: LibraryProviderProps) 
   }
 
   const [library, setLibrary] = useState<Library>(emptyLibrary);
+  /**
+   * La biblioteca más reciente, legible desde callbacks sin recrearlos.
+   *
+   * Calificar dos cartas seguidas ocurre más rápido de lo que React vuelve a pintar. Con
+   * solo el valor capturado en el closure, la segunda calificación partiría de la
+   * biblioteca anterior y borraría la primera.
+   */
+  const libraryRef = useRef<Library>(emptyLibrary);
   const [status, setStatus] = useState<LibraryStatus>('loading');
   const [storageError, setStorageError] = useState<string | undefined>(undefined);
   const nextId = useRef(0);
@@ -172,6 +210,7 @@ export function LibraryProvider({ children, repository }: LibraryProviderProps) 
       if (cancelled) return;
 
       if (result.status === 'ok') {
+        libraryRef.current = result.library;
         setLibrary(result.library);
         nextId.current = nextCounterFrom(result.library);
         clock.current.seed(latestUpdatedAt(result.library));
@@ -216,8 +255,10 @@ export function LibraryProvider({ children, repository }: LibraryProviderProps) 
       if (!result.ok) {
         return { ok: false as const, error: result.error };
       }
-      setLibrary(result.library);
-      persist(result.library);
+      const next = stamped(result.library);
+      libraryRef.current = next;
+      setLibrary(next);
+      persist(next);
       return { ok: true as const };
     },
     [persist],
@@ -268,19 +309,47 @@ export function LibraryProvider({ children, repository }: LibraryProviderProps) 
 
       // Se escribe antes de publicar. Si el medio falla, el estado visible no llega a incluir
       // las cartas nuevas y lo guardado sigue siendo exactamente lo que había.
+      const next = stamped(result.library);
       if (!writesSuspended.current) {
         try {
-          await repositoryRef.current!.save(result.library);
+          await repositoryRef.current!.save(next);
         } catch {
           setStorageError('No se han podido guardar las tarjetas importadas en este dispositivo.');
           return { ok: false, error: 'escritura-fallida' };
         }
       }
 
-      setLibrary(result.library);
+      libraryRef.current = next;
+      setLibrary(next);
       return { ok: true, imported: rows.length, cardIds: ids };
     },
     [generateId, library],
+  );
+
+  const saveCardScheduling = useCallback(
+    async (cardId: string, scheduling: CardScheduling): Promise<boolean> => {
+      const result = applyScheduling(libraryRef.current, cardId, scheduling);
+      if (!result.ok) {
+        return false;
+      }
+
+      const next = stamped(result.library);
+      // Se escribe antes de publicar. Si el medio falla, ni el estado visible ni lo guardado
+      // incluyen la calificación, y quien llama decide qué hacer.
+      if (!writesSuspended.current) {
+        try {
+          await repositoryRef.current!.save(next);
+        } catch {
+          setStorageError('No se han podido guardar los últimos cambios en este dispositivo.');
+          return false;
+        }
+      }
+
+      libraryRef.current = next;
+      setLibrary(next);
+      return true;
+    },
+    [],
   );
 
   const value = useMemo<LibraryValue>(
@@ -295,6 +364,7 @@ export function LibraryProvider({ children, repository }: LibraryProviderProps) 
       editCard,
       deleteCard,
       importCards,
+      saveCardScheduling,
     }),
     [
       addCard,
@@ -305,6 +375,7 @@ export function LibraryProvider({ children, repository }: LibraryProviderProps) 
       importCards,
       library,
       renameDeck,
+      saveCardScheduling,
       status,
       storageError,
     ],

@@ -9,6 +9,8 @@
  * después (docs/PRODUCT.md, 2026-08-23).
  */
 
+import type { ReviewRating, SchedulingState } from '../scheduler/types';
+
 /** De dónde salió una carta. Solo se conoce para las creadas desde que hay tracking. */
 export type CardOrigin = 'manual' | 'csv' | 'xlsx' | 'markdown';
 
@@ -63,6 +65,54 @@ export type StudyCardEvent = {
   localHour: number;
 };
 
+/**
+ * Una calificación aplicada a una carta.
+ *
+ * Es el registro de auditoría de la repetición espaciada: guarda de dónde venía la carta y
+ * a dónde fue, no solo el resultado. Con eso, una estadística puede clasificar la revisión
+ * por el intervalo que la carta tenía **en ese momento** —que es lo que distingue Young de
+ * Mature— sin depender del intervalo que tenga hoy.
+ *
+ * Es append-only: una revisión nunca se reescribe ni se borra, ni siquiera cuando se
+ * elimina la carta o el mazo (docs/PRODUCT.md, 2026-08-23 y 2026-08-30).
+ *
+ * Solo existen registros desde TASK-007. La actividad anterior quedó en `StudyCardEvent`,
+ * que no tiene calificación, y **no se convierte** en revisiones inventadas: las métricas
+ * que dependen de la calificación la excluyen en vez de suponerla.
+ */
+export type StudyReviewEvent = {
+  id: string;
+  sessionId: string;
+  deckId: string;
+  cardId: string;
+  /** Instante de la calificación, en milisegundos desde epoch. */
+  reviewedAt: number;
+  rating: ReviewRating;
+  previousState: SchedulingState;
+  newState: SchedulingState;
+  /** Vencimiento que tenía la carta. `null` si era una carta nueva. */
+  previousDue: number | null;
+  newDue: number;
+  /** Intervalo en días que la carta tenía al aparecer. 0 en aprendizaje y en cartas nuevas. */
+  previousIntervalDays: number;
+  /** Intervalo en días que el scheduler ha programado. */
+  newIntervalDays: number;
+  /** Días transcurridos desde la revisión anterior, según el scheduler. */
+  elapsedDays: number;
+  /** Estabilidad resultante, en días. */
+  stability: number;
+  /** Dificultad resultante, entre 1 y 10. */
+  difficulty: number;
+  /** Tiempo activo dedicado a esta carta antes de calificarla. */
+  durationMs: number;
+  schedulerId: string;
+  schedulerVersion: string;
+  /** Día local de la calificación, congelado al registrarla. */
+  localDay: string;
+  /** Hora local 0..23 de la calificación, congelada al registrarla. */
+  localHour: number;
+};
+
 /** El alta de una carta. Solo existe para las creadas desde que hay tracking. */
 export type CardAddedEvent = {
   id: string;
@@ -98,7 +148,17 @@ export type StudyHistory = {
   sessions: StudySession[];
   cardEvents: StudyCardEvent[];
   cardAdditions: CardAddedEvent[];
+  /** Calificaciones. Vacío en un historial anterior a TASK-007. */
+  reviews: StudyReviewEvent[];
   deckSnapshots: DeckSnapshot[];
+  /**
+   * Instante de la primera calificación registrada en este dispositivo.
+   *
+   * Marca desde cuándo existen datos de calificación. `null` mientras no se haya calificado
+   * nada: es lo que permite decir "datos de calificación disponibles desde…" en vez de
+   * enseñar una gráfica vacía como si significara cero (docs/PRODUCT.md, 2026-08-30).
+   */
+  ratedSince: number | null;
 };
 
 export const emptyHistory: StudyHistory = {
@@ -106,7 +166,9 @@ export const emptyHistory: StudyHistory = {
   sessions: [],
   cardEvents: [],
   cardAdditions: [],
+  reviews: [],
   deckSnapshots: [],
+  ratedSince: null,
 };
 
 /** Ámbito de la consulta: toda la actividad o la de un solo mazo. */
@@ -123,9 +185,14 @@ export const statsPeriods: readonly StatsPeriod[] = ['1m', '3m', '1y', 'all'] as
  * que permite que un test afirme sobre fronteras de fecha concretas en lugar de sobre
  * "más o menos hoy", y lo que hace que el resultado no dependa de la zona horaria en la
  * que se ejecute.
+ *
+ * `now` es el mismo instante, en milisegundos. Hace falta aparte de `today` porque la
+ * retrievability y el vencimiento no se miden en días de calendario sino en el momento
+ * exacto: una carta que vence dentro de tres horas vence hoy y todavía no está disponible.
  */
 export type StatsQuery = {
   scope: StatsScope;
   period: StatsPeriod;
   today: string;
+  now: number;
 };

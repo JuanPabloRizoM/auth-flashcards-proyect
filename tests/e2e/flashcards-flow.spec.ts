@@ -71,25 +71,28 @@ test.describe('Recorrido completo: mazo, cartas y estudio', () => {
     await expect(page).toHaveURL(/\/mazo\/mazo-1\/estudiar$/);
     await expect(page.getByTestId('study-front')).toContainText('to overlook');
     await expect(page.getByTestId('study-back')).toHaveCount(0);
-    await expect(page.getByText('Carta 1 de 2')).toBeVisible();
+    await expect(page.getByText('2 tarjetas por delante')).toBeVisible();
+    // Sin respuesta a la vista no hay nada que calificar.
+    await expect(page.getByTestId('rating-buttons')).toHaveCount(0);
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 
-    // 6. Mostrar respuesta: frente y reverso a la vez.
+    // 6. Mostrar respuesta: frente, reverso y las cuatro calificaciones.
     await page.getByTestId('reveal-button').click();
     await expect(page.getByTestId('study-front')).toContainText('to overlook');
     await expect(page.getByTestId('study-back')).toContainText('pasar por alto');
     await expect(page.getByTestId('reveal-button')).toHaveCount(0);
+    await expect(page.getByTestId('rating-buttons')).toBeVisible();
 
-    // 7. Siguiente carta: de nuevo solo el frente.
-    await page.getByTestId('next-card-button').click();
+    // 7. Calificar: la siguiente tarjeta vuelve a mostrarse solo por el frente.
+    await page.getByTestId('rate-easy').click();
     await expect(page.getByTestId('study-front')).toContainText('to withstand');
     await expect(page.getByTestId('study-back')).toHaveCount(0);
-    await expect(page.getByText('Carta 2 de 2')).toBeVisible();
+    await expect(page.getByText('1 respuesta · 1 pendiente')).toBeVisible();
 
     // 8. Terminar la sesión.
     await page.getByTestId('reveal-button').click();
     await expect(page.getByTestId('study-back')).toContainText('resistir');
-    await page.getByTestId('next-card-button').click();
+    await page.getByTestId('rate-easy').click();
     await expect(page.getByTestId('study-finished')).toBeVisible();
     await expect(page.getByText('Sesión terminada')).toBeVisible();
 
@@ -137,23 +140,28 @@ test.describe('Recorrido completo: mazo, cartas y estudio', () => {
     await expect(page.getByTestId('cards-empty')).toBeVisible();
   });
 
-  test('no existe ningún control de calificación en la pantalla de estudio', async ({ page }) => {
+  test('las calificaciones solo aparecen tras revelar la respuesta', async ({ page }) => {
     await page.goto('/');
     await crearMazo(page, 'Inglés');
     await page.getByTestId('deck-mazo-1').click();
     await anadirCarta(page, 'to overlook', 'pasar por alto');
     await page.getByTestId('study-button').click();
-    await page.getByTestId('reveal-button').click();
+    await expect(page.getByTestId('study-card')).toBeVisible();
 
-    for (const etiqueta of ['Otra vez', 'Difícil', 'Bien', 'Fácil', 'Calificar']) {
+    // Antes de revelar no hay ninguna de las cuatro.
+    for (const etiqueta of ['Otra vez', 'Difícil', 'Bien', 'Fácil']) {
       await expect(page.getByText(etiqueta, { exact: true })).toHaveCount(0);
     }
 
-    // El único control disponible tras revelar es avanzar.
-    const controles = page.locator('#root [role="button"]:visible');
-    const etiquetas = await controles.allTextContents();
-    const enTarjeta = etiquetas.filter((texto) => /otra vez|difícil|fácil|calificar/i.test(texto));
-    expect(enTarjeta).toEqual([]);
+    await page.getByTestId('reveal-button').click();
+
+    // Después están las cuatro, en español, y cada una con su intervalo real.
+    for (const etiqueta of ['Otra vez', 'Difícil', 'Bien', 'Fácil']) {
+      await expect(page.getByText(etiqueta, { exact: true })).toBeVisible();
+    }
+    for (const testId of ['rate-again', 'rate-hard', 'rate-good', 'rate-easy']) {
+      await expect(page.getByTestId(testId)).toHaveAttribute('aria-label', /Volverá en /);
+    }
   });
 
   test('los controles del recorrido son alcanzables con el dedo', async ({ page }, testInfo) => {
@@ -165,6 +173,10 @@ test.describe('Recorrido completo: mazo, cartas y estudio', () => {
     await anadirCarta(page, 'to overlook', 'pasar por alto');
     await page.getByTestId('study-button').click();
     await expect(page.getByTestId('study-card')).toBeVisible();
+    // Con la respuesta a la vista para que los cuatro botones de calificación entren en la
+    // comprobación: son los controles más pequeños de la pantalla.
+    await page.getByTestId('reveal-button').click();
+    await expect(page.getByTestId('rating-buttons')).toBeVisible();
 
     const controles = page.locator(
       '#root [role="button"], #root [role="link"], #root input, #root textarea',

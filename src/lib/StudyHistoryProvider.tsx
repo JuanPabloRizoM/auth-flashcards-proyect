@@ -14,6 +14,7 @@ import { applyHistoryChange, nextHistoryCounter, type HistoryChange } from '../f
 import { createPlatformVisibility } from '../features/stats/platformVisibility';
 import {
   beginSession,
+  buildReviewEvent,
   completeCard,
   endSession,
   isWorthPersisting,
@@ -23,6 +24,8 @@ import {
 } from '../features/stats/recorder';
 import { localDayOf } from '../features/stats/time';
 import { emptyHistory, type CardOrigin, type StudyHistory } from '../features/stats/types';
+import { appScheduler } from '../features/scheduler';
+import type { CardScheduling, SchedulingOutcome } from '../features/scheduler/types';
 import type { Deck } from '../types/domain';
 
 import {
@@ -70,8 +73,22 @@ export type StudyRecorderApi = {
   begin: (deckId: string) => void;
   show: (cardId: string) => void;
   reveal: () => void;
-  complete: () => void;
+  /**
+   * Registra una calificación y espera a que llegue al almacenamiento.
+   *
+   * Es la única operación del registro que se espera: quien califica necesita saber si se
+   * guardó para poder revertir la programación si no (ver src/features/study/review.ts).
+   * Devuelve `false` si el medio falló, y en ese caso no consume la carta a la vista, de
+   * modo que reintentar sea posible.
+   */
+  review: (input: ReviewRecordInput) => Promise<boolean>;
   end: () => void;
+};
+
+export type ReviewRecordInput = {
+  /** Programación que la carta tenía antes de calificar. */
+  previous: CardScheduling;
+  outcome: SchedulingOutcome;
 };
 
 const StudyHistoryContext = createContext<StudyHistoryValue | null>(null);
@@ -130,6 +147,32 @@ export function StudyHistoryProvider({
     repositoryRef.current!.append(change).catch(() => {
       setHistoryError('No se ha podido guardar la actividad de estudio en este dispositivo.');
     });
+  }, []);
+
+  /**
+   * Igual que `commit`, pero esperando a que la escritura llegue al medio.
+   *
+   * El estado visible solo se actualiza si la escritura sale bien: si el historial falla,
+   * la pantalla no debe mostrar una calificación que no está guardada.
+   */
+  const commitAwaited = useCallback(async (change: HistoryChange): Promise<boolean> => {
+    // Con el registro suspendido se devuelve `true` a propósito: no se ha escrito nada, pero
+    // tampoco ha fallado nada que se pueda reintentar, y bloquear el estudio entero porque el
+    // historial no se pudo leer sería peor. La asimetría está documentada en
+    // docs/DATABASE.md, y mientras dura la pantalla muestra el aviso del problema.
+    if (!writesSuspended.current) {
+      try {
+        await repositoryRef.current!.append(change);
+        await repositoryRef.current!.flush();
+      } catch {
+        setHistoryError('No se ha podido guardar la actividad de estudio en este dispositivo.');
+        return false;
+      }
+    }
+    const next = applyHistoryChange(historyRef.current, change);
+    historyRef.current = next;
+    setHistory(next);
+    return true;
   }, []);
 
   useEffect(() => {
@@ -237,18 +280,47 @@ export function StudyHistoryProvider({
         if (!recording.current) return;
         recording.current = revealAnswer(recording.current, now());
       },
-      complete: () => {
+      review: async ({ previous, outcome }: ReviewRecordInput): Promise<boolean> => {
         const current = recording.current;
-        if (!current || !current.pending) return;
-        const next = completeCard(current, {
-          at: now(),
-          activeMs: timer.current?.elapsed() ?? 0,
+        if (!current || !current.pending) return false;
+
+        // Un solo instante para las dos cosas: el registro de la calificación y el cierre
+        // del evento de la carta. Es lo que permite emparejarlos después, y lo que hace que
+        // el recuento de actividad "sin calificar" no cuente lo que sí se calificó
+        // (ver `countUnratedEvents` en src/features/stats/fsrs.ts).
+        const at = now();
+        const durationMs = timer.current?.elapsed() ?? 0;
+        const review = buildReviewEvent(current, {
+          // El id se deriva del evento de la carta, que es estable durante toda la aparición,
+          // en vez de emitir uno nuevo en cada intento. Así, si una escritura queda a medias
+          // y se reintenta, `upsertById` reemplaza la revisión en vez de añadir una segunda:
+          // una respuesta no puede acabar contando dos veces en las estadísticas.
+          eventId: `${current.pending.id}-review`,
+          previous,
+          outcome,
+          scheduler: { id: appScheduler.id, version: appScheduler.version },
+          at,
+          durationMs,
         });
-        recording.current = next;
+        if (!review) return false;
+
+        const next = completeCard(current, { at, activeMs: durationMs });
         const event = next.events[next.events.length - 1];
-        // Se persiste carta a carta: si la persona usuaria recarga a mitad de la sesión,
-        // lo que ya estudió no se pierde.
-        commit({ sessions: [next.session], cardEvents: event ? [event] : [] });
+
+        // Se persiste carta a carta: si la persona usuaria recarga a mitad de la sesión, lo
+        // que ya calificó no se pierde. La calificación, el evento estadístico y la sesión
+        // viajan en el mismo cambio, de modo que el historial no pueda quedarse con la
+        // mitad.
+        const saved = await commitAwaited({
+          ratedSince: at,
+          sessions: [next.session],
+          cardEvents: event ? [event] : [],
+          reviews: [review],
+        });
+        // La carta a la vista solo se consume si la escritura salió bien: reintentar tiene
+        // que ser posible sin perder la carta ni duplicar el registro.
+        if (saved) recording.current = next;
+        return saved;
       },
       end: () => {
         const current = recording.current;
@@ -261,7 +333,7 @@ export function StudyHistoryProvider({
         }
       },
     }),
-    [commit, nextId, now],
+    [commit, commitAwaited, nextId, now],
   );
 
   const value = useMemo<StudyHistoryValue>(

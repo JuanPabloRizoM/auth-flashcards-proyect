@@ -93,6 +93,35 @@ Añade aquí únicamente decisiones que el usuario haya tomado explícitamente.
 - [2026-08-23] Todavía no se implementa ni se simula repetición espaciada, Ease, retención ni botones
   Again/Hard/Good/Easy.
 - [2026-08-23] Las estadísticas que requieren un algoritmo de repetición no muestran datos falsos.
+- [2026-08-30] La aplicación utiliza repetición espaciada.
+- [2026-08-30] El scheduler es FSRS. No se crea un algoritmo de repetición propio.
+- [2026-08-30] El usuario califica cada respuesta con cuatro botones: Otra vez, Difícil, Bien y Fácil.
+- [2026-08-30] Semántica de las calificaciones: Otra vez = no recordó correctamente; Difícil =
+  recordó correctamente, pero con dificultad; Bien = recordó correctamente con esfuerzo normal;
+  Fácil = recordó correctamente con poco o ningún esfuerzo.
+- [2026-08-30] Difícil es una calificación aprobatoria, no un fallo.
+- [2026-08-30] La retención objetivo inicial es del 90 %.
+- [2026-08-30] La retención objetivo no es configurable por el usuario en esta etapa.
+- [2026-08-30] Todavía no hay configuración avanzada de FSRS.
+- [2026-08-30] Cada carta tiene estado de scheduling persistente.
+- [2026-08-30] Los estados conceptuales de una carta son Nueva, Aprendiendo, Repaso y Reaprendiendo.
+- [2026-08-30] Las cartas nuevas, creadas a mano o importadas, empiezan como Nueva.
+- [2026-08-30] Las cartas anteriores a TASK-007 también empiezan como Nueva para el scheduler.
+- [2026-08-30] No se reconstruyen calificaciones FSRS anteriores que nunca se registraron.
+- [2026-08-30] El historial estadístico anterior a TASK-007 se conserva, pero los eventos sin
+  calificación no cuentan como acierto ni como fallo en las estadísticas que dependen de la
+  calificación.
+- [2026-08-30] Las fechas de revisión futura se persisten.
+- [2026-08-30] Estudiar un mazo prioriza las tarjetas que de verdad corresponde estudiar.
+- [2026-08-30] El usuario puede terminar voluntariamente una sesión aunque queden tarjetas.
+- [2026-08-30] No hay límite configurable de tarjetas nuevas por día ni de repasos por día.
+- [2026-08-30] No hay presets ni optimización personalizada de parámetros.
+- [2026-08-30] Las estadísticas de FSRS se derivan de datos reales del scheduler y del registro de
+  revisiones.
+- [2026-08-30] No se muestran estadísticas de FSRS para datos históricos anteriores a TASK-007.
+- [2026-08-30] El scheduler y la calificación funcionan por completo sin conexión, sobre la
+  persistencia local existente. Calcular la programación de una tarjeta nunca hace una petición
+  externa.
 ```
 
 ## Decisiones todavía NO tomadas
@@ -104,15 +133,21 @@ No asumir ni completar automáticamente temas como:
 - sincronización entre dispositivos;
 - cuentas de usuario y colaboración;
 - modelo de suscripción;
-- algoritmo de repetición espaciada;
-- escala de calificación, y cualquier botón de calificación;
-- Ease;
-- scheduler;
-- retención basada en aprobación/fallo de un repaso;
-- Future Due derivado de un scheduler;
+- configuración avanzada de FSRS;
+- parámetros personalizados de FSRS;
+- optimización automática de parámetros;
+- presets por mazo;
+- límite de tarjetas nuevas por día;
+- máximo de repasos por día;
+- bury;
+- suspend;
+- leeches;
+- sibling cards;
+- custom study;
+- reprogramación manual de una tarjeta;
+- deshacer una calificación;
 - subcategorías anidadas dentro de un mazo;
 - modo oscuro;
-- funcionamiento offline;
 - importación desde Anki y exportación a Anki;
 - notificaciones;
 - colaboración;

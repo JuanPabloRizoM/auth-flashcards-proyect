@@ -1,3 +1,4 @@
+import { newScheduling } from '../../src/features/scheduler/types';
 import {
   parseStoredLibrary,
   serializeLibrary,
@@ -14,7 +15,16 @@ import type { Library } from '../../src/types/domain';
 
 const biblioteca: Library = {
   decks: [{ id: 'mazo-1', name: 'Inglés', updatedAt: '2026-08-20T10:00:00.000Z' }],
-  cards: [{ id: 'carta-1', deckId: 'mazo-1', front: 'to overlook', back: 'pasar por alto' }],
+  cards: [
+    {
+      id: 'carta-1',
+      deckId: 'mazo-1',
+      front: 'to overlook',
+      back: 'pasar por alto',
+      scheduling: { ...newScheduling },
+    },
+  ],
+  scheduler: null,
 };
 
 describe('serializeLibrary', () => {
@@ -25,6 +35,7 @@ describe('serializeLibrary', () => {
       version: STORAGE_VERSION,
       decks: biblioteca.decks,
       cards: biblioteca.cards,
+      scheduler: null,
     });
   });
 
@@ -98,7 +109,7 @@ describe('parseStoredLibrary', () => {
 
     expect(parseStoredLibrary(vacia)).toEqual({
       status: 'ok',
-      library: { decks: [], cards: [] },
+      library: { decks: [], cards: [], scheduler: null },
     });
   });
 });
@@ -169,11 +180,11 @@ describe.each([
   it('guardar dos veces conserva lo último, sin mezclar', async () => {
     await repositorio.save(biblioteca);
 
-    const ampliada = {
-      decks: biblioteca.decks,
+    const ampliada: Library = {
+      ...biblioteca,
       cards: [
         ...biblioteca.cards,
-        { id: 'carta-2', deckId: 'mazo-1', front: 'to withstand', back: 'resistir' },
+        { id: 'carta-2', deckId: 'mazo-1', front: 'to withstand', back: 'resistir', scheduling: { ...newScheduling } },
       ],
     };
     await repositorio.save(ampliada);
@@ -182,14 +193,15 @@ describe.each([
   });
 
   it('conserva la pertenencia de cada carta a su mazo', async () => {
-    const dosMazos = {
+    const dosMazos: Library = {
+      scheduler: null,
       decks: [
         { id: 'mazo-1', name: 'Inglés', updatedAt: '2026-08-20T10:00:00.000Z' },
         { id: 'mazo-2', name: 'Alemán', updatedAt: '2026-08-20T11:00:00.000Z' },
       ],
       cards: [
-        { id: 'carta-1', deckId: 'mazo-1', front: 'to overlook', back: 'pasar por alto' },
-        { id: 'carta-2', deckId: 'mazo-2', front: 'übersehen', back: 'pasar por alto' },
+        { id: 'carta-1', deckId: 'mazo-1', front: 'to overlook', back: 'pasar por alto', scheduling: { ...newScheduling } },
+        { id: 'carta-2', deckId: 'mazo-2', front: 'übersehen', back: 'pasar por alto', scheduling: { ...newScheduling } },
       ],
     };
 
@@ -265,7 +277,7 @@ describe('migración de la versión 1 a la versión 2', () => {
       { id: 'mazo-1', name: 'Inglés' },
       { id: 'mazo-2', name: 'Alemán' },
     ],
-    cards: [{ id: 'carta-1', deckId: 'mazo-1', front: 'to overlook', back: 'pasar por alto' }],
+    cards: [{ id: 'carta-1', deckId: 'mazo-1', front: 'to overlook', back: 'pasar por alto', scheduling: { ...newScheduling } }],
   });
 
   it('lee un documento de la versión 1 sin darlo por inválido', () => {
@@ -298,7 +310,7 @@ describe('migración de la versión 1 a la versión 2', () => {
     const reescrito = JSON.parse(serializeLibrary(resultado.library));
 
     expect(reescrito.version).toBe(STORAGE_VERSION);
-    expect(STORAGE_VERSION).toBe(2);
+    expect(STORAGE_VERSION).toBe(3);
   });
 
   it('migrar dos veces da el mismo resultado', () => {
@@ -329,5 +341,195 @@ describe('migración de la versión 1 a la versión 2', () => {
       status: 'error',
       reason: 'contenido-invalido',
     });
+  });
+});
+
+describe('migración a la versión 3: scheduling de las cartas', () => {
+  /** Documento tal y como lo escribía TASK-005: versión 2, cartas sin `scheduling`. */
+  const documentoV2 = JSON.stringify({
+    version: 2,
+    decks: [
+      { id: 'mazo-1', name: 'Inglés', updatedAt: '2026-08-20T10:00:00.000Z' },
+      { id: 'mazo-2', name: 'Alemán', updatedAt: '2026-08-21T09:30:00.000Z' },
+    ],
+    cards: [
+      { id: 'carta-1', deckId: 'mazo-1', front: 'to overlook', back: 'pasar por alto' },
+      { id: 'carta-2', deckId: 'mazo-2', front: 'übersehen', back: 'pasar por alto' },
+    ],
+  });
+
+  it('todas las cartas anteriores entran como Nueva', () => {
+    const resultado = parseStoredLibrary(documentoV2);
+
+    expect(resultado.status).toBe('ok');
+    if (resultado.status !== 'ok') return;
+    expect(resultado.library.cards).toHaveLength(2);
+    for (const card of resultado.library.cards) {
+      expect(card.scheduling).toEqual(newScheduling);
+      expect(card.scheduling.state).toBe('nueva');
+    }
+  });
+
+  it('no se inventa ninguna revisión ni ninguna calificación', () => {
+    const resultado = parseStoredLibrary(documentoV2);
+
+    if (resultado.status !== 'ok') throw new Error('debería migrar');
+    for (const card of resultado.library.cards) {
+      expect(card.scheduling.reps).toBe(0);
+      expect(card.scheduling.lapses).toBe(0);
+      expect(card.scheduling.lastReview).toBeNull();
+      expect(card.scheduling.due).toBeNull();
+      expect(card.scheduling.stability).toBe(0);
+      expect(card.scheduling.difficulty).toBe(0);
+    }
+  });
+
+  it('conserva intactos los mazos, sus nombres y sus fechas de modificación', () => {
+    const resultado = parseStoredLibrary(documentoV2);
+
+    if (resultado.status !== 'ok') throw new Error('debería migrar');
+    expect(resultado.library.decks).toEqual([
+      { id: 'mazo-1', name: 'Inglés', updatedAt: '2026-08-20T10:00:00.000Z' },
+      { id: 'mazo-2', name: 'Alemán', updatedAt: '2026-08-21T09:30:00.000Z' },
+    ]);
+  });
+
+  it('conserva id, mazo, frente y reverso de cada carta', () => {
+    const resultado = parseStoredLibrary(documentoV2);
+
+    if (resultado.status !== 'ok') throw new Error('debería migrar');
+    expect(
+      resultado.library.cards.map(({ id, deckId, front, back }) => ({ id, deckId, front, back })),
+    ).toEqual([
+      { id: 'carta-1', deckId: 'mazo-1', front: 'to overlook', back: 'pasar por alto' },
+      { id: 'carta-2', deckId: 'mazo-2', front: 'übersehen', back: 'pasar por alto' },
+    ]);
+  });
+
+  it('la biblioteca no se resetea: se migra, no se descarta', () => {
+    const resultado = parseStoredLibrary(documentoV2);
+
+    expect(resultado.status).not.toBe('error');
+    if (resultado.status !== 'ok') return;
+    expect(resultado.library.decks).toHaveLength(2);
+    expect(resultado.library.cards).toHaveLength(2);
+  });
+
+  it('una biblioteca de la versión 1 también migra: fecha de mazo y scheduling a la vez', () => {
+    const documentoV1 = JSON.stringify({
+      version: 1,
+      decks: [{ id: 'mazo-1', name: 'Inglés' }],
+      cards: [{ id: 'carta-1', deckId: 'mazo-1', front: 'a', back: 'b' }],
+    });
+
+    const resultado = parseStoredLibrary(documentoV1, '2026-08-30T00:00:00.000Z');
+
+    if (resultado.status !== 'ok') throw new Error('debería migrar');
+    expect(resultado.library.decks[0]?.updatedAt).toBe('2026-08-30T00:00:00.000Z');
+    expect(resultado.library.cards[0]?.scheduling).toEqual(newScheduling);
+  });
+
+  it('la versión anterior no traía metadata del scheduler, y no se inventa', () => {
+    const resultado = parseStoredLibrary(documentoV2);
+
+    if (resultado.status !== 'ok') throw new Error('debería migrar');
+    expect(resultado.library.scheduler).toBeNull();
+  });
+
+  it('la clave de almacenamiento no cambia: la versión vive dentro del documento', () => {
+    expect(STORAGE_KEY).toBe('flashcards:library:v1');
+  });
+});
+
+describe('metadata del scheduler', () => {
+  const metadata = {
+    id: 'fsrs',
+    version: 'ts-fsrs v5.4.1 using FSRS-6.0',
+    parameters: {
+      requestRetention: 0.9,
+      maximumIntervalDays: 36500,
+      learningSteps: ['1m', '10m'],
+      relearningSteps: ['10m'],
+      enableFuzz: false,
+      enableShortTerm: true,
+      weights: [0.212, 1.2931],
+    },
+  };
+
+  it('se escribe con la biblioteca y se recupera al leerla', () => {
+    const conMetadata: Library = { ...biblioteca, scheduler: metadata };
+    const documento = JSON.parse(serializeLibrary(conMetadata));
+
+    expect(documento.scheduler).toEqual(metadata);
+    expect(parseStoredLibrary(serializeLibrary(conMetadata))).toEqual({
+      status: 'ok',
+      library: conMetadata,
+    });
+  });
+
+  it('una metadata con forma inesperada invalida el documento en vez de leerse a medias', () => {
+    const roto = JSON.stringify({
+      version: STORAGE_VERSION,
+      decks: [],
+      cards: [],
+      scheduler: { id: 'fsrs', version: 3, parameters: {} },
+    });
+
+    expect(parseStoredLibrary(roto)).toEqual({
+      status: 'error',
+      reason: 'contenido-invalido',
+    });
+  });
+});
+
+describe('scheduling persistido', () => {
+  it('conserva estado, vencimiento, estabilidad y dificultad al ir y volver', () => {
+    const programada: Library = {
+      ...biblioteca,
+      cards: [
+        {
+          id: 'carta-1',
+          deckId: 'mazo-1',
+          front: 'a',
+          back: 'b',
+          scheduling: {
+            state: 'repaso',
+            due: 1_800_000_000_000,
+            lastReview: 1_799_000_000_000,
+            stability: 12.34,
+            difficulty: 5.67,
+            elapsedDays: 4,
+            scheduledDays: 12,
+            learningSteps: 0,
+            reps: 7,
+            lapses: 2,
+          },
+        },
+      ],
+    };
+
+    expect(parseStoredLibrary(serializeLibrary(programada))).toEqual({
+      status: 'ok',
+      library: programada,
+    });
+  });
+
+  it('un scheduling con un estado desconocido invalida el documento', () => {
+    const roto = JSON.stringify({
+      version: STORAGE_VERSION,
+      decks: [],
+      cards: [
+        {
+          id: 'carta-1',
+          deckId: 'mazo-1',
+          front: 'a',
+          back: 'b',
+          scheduling: { ...newScheduling, state: 'inventado' },
+        },
+      ],
+      scheduler: null,
+    });
+
+    expect(parseStoredLibrary(roto)).toEqual({ status: 'error', reason: 'contenido-invalido' });
   });
 });

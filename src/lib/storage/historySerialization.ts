@@ -1,9 +1,11 @@
+import { reviewRatings, schedulingStates } from '../../features/scheduler/types';
 import { isValidDay, monthOfDay } from '../../features/stats/time';
 import type {
   CardAddedEvent,
   DeckSnapshot,
   StudyCardEvent,
   StudyHistory,
+  StudyReviewEvent,
   StudySession,
 } from '../../features/stats/types';
 import { cardOrigins } from '../../features/stats/types';
@@ -16,10 +18,11 @@ import { cardOrigins } from '../../features/stats/types';
  * documento por mes natural.
  *
  * ```text
- * flashcards:history:v1:meta          { "version": 1, "trackedSince": 1766…, "decks": [...] }
- * flashcards:history:v1:month:2026-08 { "version": 1, "month": "2026-08",
+ * flashcards:history:v1:meta          { "version": 2, "trackedSince": 1766…, "ratedSince": 1787…,
+ *                                       "decks": [...] }
+ * flashcards:history:v1:month:2026-08 { "version": 2, "month": "2026-08",
  *                                       "sessions": [...], "cardEvents": [...],
- *                                       "cardAdditions": [...] }
+ *                                       "cardAdditions": [...], "reviews": [...] }
  * ```
  *
  * **Estrategia de crecimiento.** Completar una carta reescribe solo la partición del mes
@@ -34,12 +37,23 @@ import { cardOrigins } from '../../features/stats/types';
  * partición ilegible se omite y se informa, y las demás siguen cargándose: un mes dañado
  * no se lleva por delante el resto del historial. Nada se borra.
  *
- * **Migración.** Solo existe la versión 1. Cuando haya una 2, esta función seguirá leyendo
- * la 1 y migrándola al vuelo, como hace `serialization.ts` con la biblioteca: subir la
- * versión sin migrar marcaría como inválido el historial de quien ya estuviera usando la
- * aplicación.
+ * **Migración.** La versión 1 es la de TASK-006: sin calificaciones. La versión 2, de
+ * TASK-007, añade `reviews` a cada partición y `ratedSince` a los metadatos. La 1 se sigue
+ * leyendo y se migra al vuelo con `reviews` vacío y `ratedSince` nulo, como hace
+ * `serialization.ts` con la biblioteca: subir la versión sin migrar marcaría como inválido
+ * el historial de quien ya estuviera usando la aplicación.
+ *
+ * La migración **no fabrica calificaciones**. Los eventos de TASK-006 registran que una
+ * carta se estudió, no cómo salió; convertirlos en aciertos o en fallos sería inventarse el
+ * dato (docs/PRODUCT.md, 2026-08-30).
+ *
+ * La clave conserva el sufijo `v1` con el que nació, igual que la de la biblioteca: la
+ * versión vive dentro del documento, que es donde puede migrarse.
  */
-export const HISTORY_VERSION = 1;
+export const HISTORY_VERSION = 2;
+
+/** Versiones que esta build sabe leer. Escribir, escribe siempre la actual. */
+const READABLE_HISTORY_VERSIONS = [1, HISTORY_VERSION];
 
 export const HISTORY_META_KEY = 'flashcards:history:v1:meta';
 export const HISTORY_MONTH_PREFIX = 'flashcards:history:v1:month:';
@@ -60,10 +74,12 @@ export function monthOfKey(key: string): string {
 /** Metadatos: cuándo empezó el tracking y el último nombre conocido de cada mazo. */
 export type HistoryMeta = {
   trackedSince: number | null;
+  /** Cuándo se registró la primera calificación. `null` si todavía no hay ninguna. */
+  ratedSince: number | null;
   decks: DeckSnapshot[];
 };
 
-export const emptyMeta: HistoryMeta = { trackedSince: null, decks: [] };
+export const emptyMeta: HistoryMeta = { trackedSince: null, ratedSince: null, decks: [] };
 
 /** Contenido de un mes. */
 export type HistoryPartition = {
@@ -71,10 +87,11 @@ export type HistoryPartition = {
   sessions: StudySession[];
   cardEvents: StudyCardEvent[];
   cardAdditions: CardAddedEvent[];
+  reviews: StudyReviewEvent[];
 };
 
 export function emptyPartition(month: string): HistoryPartition {
-  return { month, sessions: [], cardEvents: [], cardAdditions: [] };
+  return { month, sessions: [], cardEvents: [], cardAdditions: [], reviews: [] };
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -137,6 +154,37 @@ function isCardAddition(value: unknown): value is CardAddedEvent {
   );
 }
 
+function isReview(value: unknown): value is StudyReviewEvent {
+  if (!isObject(value)) return false;
+  return (
+    typeof value.id === 'string' &&
+    typeof value.sessionId === 'string' &&
+    typeof value.deckId === 'string' &&
+    typeof value.cardId === 'string' &&
+    isFiniteNumber(value.reviewedAt) &&
+    typeof value.rating === 'string' &&
+    (reviewRatings as readonly string[]).includes(value.rating) &&
+    typeof value.previousState === 'string' &&
+    (schedulingStates as readonly string[]).includes(value.previousState) &&
+    typeof value.newState === 'string' &&
+    (schedulingStates as readonly string[]).includes(value.newState) &&
+    isNullableNumber(value.previousDue) &&
+    isFiniteNumber(value.newDue) &&
+    isFiniteNumber(value.previousIntervalDays) &&
+    isFiniteNumber(value.newIntervalDays) &&
+    isFiniteNumber(value.elapsedDays) &&
+    isFiniteNumber(value.stability) &&
+    isFiniteNumber(value.difficulty) &&
+    isFiniteNumber(value.durationMs) &&
+    typeof value.schedulerId === 'string' &&
+    typeof value.schedulerVersion === 'string' &&
+    isDay(value.localDay) &&
+    isFiniteNumber(value.localHour) &&
+    value.localHour >= 0 &&
+    value.localHour < 24
+  );
+}
+
 function isDeckSnapshot(value: unknown): value is DeckSnapshot {
   if (!isObject(value)) return false;
   return (
@@ -150,6 +198,7 @@ export function serializeMeta(meta: HistoryMeta): string {
   return JSON.stringify({
     version: HISTORY_VERSION,
     trackedSince: meta.trackedSince,
+    ratedSince: meta.ratedSince,
     decks: meta.decks,
   });
 }
@@ -161,6 +210,7 @@ export function serializePartition(partition: HistoryPartition): string {
     sessions: partition.sessions,
     cardEvents: partition.cardEvents,
     cardAdditions: partition.cardAdditions,
+    reviews: partition.reviews,
   });
 }
 
@@ -172,7 +222,10 @@ function parseDocument(raw: string | null): Record<string, unknown> | null {
   } catch {
     return null;
   }
-  if (!isObject(parsed) || parsed.version !== HISTORY_VERSION) return null;
+  if (!isObject(parsed)) return null;
+  if (typeof parsed.version !== 'number' || !READABLE_HISTORY_VERSIONS.includes(parsed.version)) {
+    return null;
+  }
   return parsed;
 }
 
@@ -182,7 +235,14 @@ export function parseMeta(raw: string | null): HistoryMeta | null {
   if (!document) return null;
   if (!isNullableNumber(document.trackedSince)) return null;
   if (!Array.isArray(document.decks) || !document.decks.every(isDeckSnapshot)) return null;
-  return { trackedSince: document.trackedSince, decks: document.decks as DeckSnapshot[] };
+  // La versión 1 no conocía `ratedSince`: se lee como "todavía no se ha calificado nada".
+  const ratedSince = document.ratedSince ?? null;
+  if (!isNullableNumber(ratedSince)) return null;
+  return {
+    trackedSince: document.trackedSince,
+    ratedSince,
+    decks: document.decks as DeckSnapshot[],
+  };
 }
 
 export function parsePartition(month: string, raw: string | null): HistoryPartition | null {
@@ -192,11 +252,15 @@ export function parsePartition(month: string, raw: string | null): HistoryPartit
   if (!Array.isArray(sessions) || !sessions.every(isSession)) return null;
   if (!Array.isArray(cardEvents) || !cardEvents.every(isCardEvent)) return null;
   if (!Array.isArray(cardAdditions) || !cardAdditions.every(isCardAddition)) return null;
+  // Una partición de la versión 1 no tiene `reviews`, y no se le inventa ninguna.
+  const reviews = document.reviews ?? [];
+  if (!Array.isArray(reviews) || !reviews.every(isReview)) return null;
   return {
     month,
     sessions: sessions as StudySession[],
     cardEvents: cardEvents as StudyCardEvent[],
     cardAdditions: cardAdditions as CardAddedEvent[],
+    reviews: reviews as StudyReviewEvent[],
   };
 }
 
@@ -208,10 +272,12 @@ export function mergeHistory(
   const ordered = [...partitions].sort((a, b) => a.month.localeCompare(b.month));
   return {
     trackedSince: meta.trackedSince,
+    ratedSince: meta.ratedSince,
     deckSnapshots: meta.decks,
     sessions: ordered.flatMap((partition) => partition.sessions),
     cardEvents: ordered.flatMap((partition) => partition.cardEvents),
     cardAdditions: ordered.flatMap((partition) => partition.cardAdditions),
+    reviews: ordered.flatMap((partition) => partition.reviews),
   };
 }
 

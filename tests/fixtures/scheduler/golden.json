@@ -1,0 +1,190 @@
+{
+  "scheduler": {
+    "id": "fsrs",
+    "version": "ts-fsrs v5.4.1 using FSRS-6.0"
+  },
+  "parameters": {
+    "requestRetention": 0.9,
+    "maximumIntervalDays": 36500,
+    "learningSteps": [
+      "1m",
+      "10m"
+    ],
+    "relearningSteps": [
+      "10m"
+    ],
+    "enableFuzz": false,
+    "enableShortTerm": true,
+    "weights": [
+      0.212,
+      1.2931,
+      2.3065,
+      8.2956,
+      6.4133,
+      0.8334,
+      3.0194,
+      0.001,
+      1.8722,
+      0.1666,
+      0.796,
+      1.4835,
+      0.0614,
+      0.2629,
+      1.6483,
+      0.6014,
+      1.8729,
+      0.5425,
+      0.0912,
+      0.0658,
+      0.1542
+    ]
+  },
+  "requestRetention": 0.9,
+  "generatedFor": "2026-01-01T10:00:00.000Z",
+  "sequence": [
+    "bien",
+    "bien",
+    "otra-vez",
+    "dificil",
+    "facil"
+  ],
+  "previews": [
+    {
+      "at": "2026-01-01T10:00:00.000Z",
+      "intervals": {
+        "otra-vez": 60000,
+        "dificil": 360000,
+        "bien": 600000,
+        "facil": 691200000
+      }
+    },
+    {
+      "at": "2026-01-01T10:10:00.000Z",
+      "intervals": {
+        "otra-vez": 60000,
+        "dificil": 360000,
+        "bien": 172800000,
+        "facil": 345600000
+      }
+    },
+    {
+      "at": "2026-01-03T10:10:00.000Z",
+      "intervals": {
+        "otra-vez": 600000,
+        "dificil": 691200000,
+        "bien": 950400000,
+        "facil": 1641600000
+      }
+    },
+    {
+      "at": "2026-01-03T10:20:00.000Z",
+      "intervals": {
+        "otra-vez": 600000,
+        "dificil": 900000,
+        "bien": 86400000,
+        "facil": 86400000
+      }
+    },
+    {
+      "at": "2026-01-03T10:35:00.000Z",
+      "intervals": {
+        "otra-vez": 600000,
+        "dificil": 900000,
+        "bien": 86400000,
+        "facil": 86400000
+      }
+    }
+  ],
+  "steps": [
+    {
+      "at": "2026-01-01T10:00:00.000Z",
+      "rating": "bien",
+      "intervalMs": 600000,
+      "scheduling": {
+        "state": "aprendiendo",
+        "due": 1767262200000,
+        "lastReview": 1767261600000,
+        "stability": 2.3065,
+        "difficulty": 2.11810397,
+        "elapsedDays": 0,
+        "scheduledDays": 0,
+        "learningSteps": 1,
+        "reps": 1,
+        "lapses": 0,
+        "dueIso": "2026-01-01T10:10:00.000Z"
+      }
+    },
+    {
+      "at": "2026-01-01T10:10:00.000Z",
+      "rating": "bien",
+      "intervalMs": 172800000,
+      "scheduling": {
+        "state": "repaso",
+        "due": 1767435000000,
+        "lastReview": 1767262200000,
+        "stability": 2.3065,
+        "difficulty": 2.11121424,
+        "elapsedDays": 0,
+        "scheduledDays": 2,
+        "learningSteps": 0,
+        "reps": 2,
+        "lapses": 0,
+        "dueIso": "2026-01-03T10:10:00.000Z"
+      }
+    },
+    {
+      "at": "2026-01-03T10:10:00.000Z",
+      "rating": "otra-vez",
+      "intervalMs": 600000,
+      "scheduling": {
+        "state": "reaprendiendo",
+        "due": 1767435600000,
+        "lastReview": 1767435000000,
+        "stability": 0.60770166,
+        "difficulty": 7.39223814,
+        "elapsedDays": 2,
+        "scheduledDays": 0,
+        "learningSteps": 0,
+        "reps": 3,
+        "lapses": 1,
+        "dueIso": "2026-01-03T10:20:00.000Z"
+      }
+    },
+    {
+      "at": "2026-01-03T10:20:00.000Z",
+      "rating": "dificil",
+      "intervalMs": 900000,
+      "scheduling": {
+        "state": "reaprendiendo",
+        "due": 1767436500000,
+        "lastReview": 1767435600000,
+        "stability": 0.60770166,
+        "difficulty": 8.25407453,
+        "elapsedDays": 0,
+        "scheduledDays": 0,
+        "learningSteps": 0,
+        "reps": 4,
+        "lapses": 1,
+        "dueIso": "2026-01-03T10:35:00.000Z"
+      }
+    },
+    {
+      "at": "2026-01-03T10:35:00.000Z",
+      "rating": "facil",
+      "intervalMs": 86400000,
+      "scheduling": {
+        "state": "repaso",
+        "due": 1767522900000,
+        "lastReview": 1767436500000,
+        "stability": 1.13505133,
+        "difficulty": 7.65589596,
+        "elapsedDays": 0,
+        "scheduledDays": 1,
+        "learningSteps": 0,
+        "reps": 5,
+        "lapses": 1,
+        "dueIso": "2026-01-04T10:35:00.000Z"
+      }
+    }
+  ]
+}

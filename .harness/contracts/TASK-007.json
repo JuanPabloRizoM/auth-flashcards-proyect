@@ -1,0 +1,1481 @@
+{
+  "task_id": "TASK-007",
+  "goal": "Estudiar un mazo deja de ser un recorrido lineal y pasa a estar dirigido por un scheduler FSRS real detrás de una abstracción propia: cada carta tiene estado de scheduling persistente y versionado, la respuesta se califica con Otra vez / Difícil / Bien / Fácil mostrando el intervalo real que produce cada una, la cola se construye a partir del estado y del vencimiento, cada calificación queda registrada en un review log append-only, y el StatsEngine de TASK-006 se extiende con Future Due, Answer Buttons, True Retention, Review Intervals, Stability, Difficulty, Retrievability y Card Counts por estado, tanto en el panel como en el PDF, con los mismos filtros de ámbito y periodo.",
+  "requirements_snapshot": [
+    "A1 — La implementación de FSRS proviene de una librería mantenida y compatible con el stack (TypeScript, Expo, React Native, web, Node del proyecto), verificada antes de instalarla: mantenimiento, licencia, dependencias, ausencia de APIs exclusivas de Node y tamaño. No se escriben las fórmulas FSRS a mano ni se sustituye FSRS por SM-2 o por un scheduler parecido.",
+    "A2 — Ningún componente React importa la librería FSRS. Existe una abstracción propia de scheduler con operaciones de preview, calificación, retrievability y vencimiento, y un único adaptador que traduce entre el dominio propio y la librería. La dirección es UI -> servicio de estudio -> abstracción -> adaptador -> implementación FSRS.",
+    "A3 — El modelo de Card se extiende con el estado de scheduling necesario: estado, vencimiento, última revisión, estabilidad, dificultad, días transcurridos, días programados, repeticiones, lapsos y cualquier campo que la implementación elegida requiera de verdad. Sin campos redundantes.",
+    "B1 — Existe migración versionada del documento de biblioteca. Las cartas anteriores a TASK-007 conservan id, deckId, frente, reverso, el updatedAt de su mazo y su historial estadístico, y reciben estado de scheduler Nueva. No se les inventan revisiones ni calificaciones FSRS.",
+    "B2 — La clave persistente no cambia de forma que se pierdan datos existentes sin migración. La biblioteca no se resetea. Existen fixtures de versiones anteriores y la migración se prueba sobre ellas.",
+    "B3 — Se persiste metadata suficiente para saber qué scheduler se usó, con qué versión y con qué parámetros relevantes.",
+    "C1 — Tras Mostrar respuesta aparecen exactamente cuatro botones de calificación con etiquetas en español: Otra vez, Difícil, Bien y Fácil. No aparecen antes de revelar la respuesta.",
+    "C2 — Cada botón muestra el próximo intervalo calculado por el preview real del scheduler. Ningún intervalo está escrito a mano.",
+    "C3 — Calificar produce el mismo resultado que el preview mostrado inmediatamente antes para esa misma calificación e instante, salvo fuzz documentado y controlado.",
+    "C4 — Otra vez significa respuesta incorrecta o no recordada; Difícil, correcta pero dudosa o lenta; Bien, correcta con esfuerzo normal; Fácil, correcta prácticamente sin esfuerzo. Difícil es aprobatoria. La ayuda visual es discreta y la pantalla no se convierte en un tutorial permanente.",
+    "D1 — El flujo de estudio es: abrir mazo, ver resumen, estudiar ahora, el scheduler construye la cola, mostrar tarjeta, mostrar respuesta, calificar, persistir, siguiente tarjeta elegible.",
+    "D2 — Siempre existe una acción de Terminar sesión que cierra correctamente la StudySession, persiste las estadísticas, no modifica tarjetas no respondidas y vuelve al mazo de forma coherente.",
+    "E1 — El detalle del mazo muestra contadores reales de Nuevas, Aprendiendo y Repasar derivados del estado del scheduler, no de la posición visual. Repasar cuenta solo tarjetas de repaso realmente disponibles; una tarjeta futura no se cuenta como vencida.",
+    "F1 — La cola de estudio es determinista y documentada. Incluye, como mínimo, aprendizaje y reaprendizaje ya vencidos, repasos con vencimiento menor o igual a ahora, y tarjetas nuevas, en ese orden de preferencia salvo que se documente otra estrategia. No se introduce aleatoriedad que haga los tests no deterministas; si se usa fuzz, debe poder deshabilitarse o controlarse el RNG y el reloj en tests.",
+    "G1 — Future Due, diferido en TASK-006, se implementa con scheduling real, con horizontes de 1 mes, 3 meses, 1 año y todo, para todos los mazos y para un mazo concreto. No incluye tarjetas Nueva que no tengan una fecha real de revisión futura.",
+    "G2 — Answer Buttons muestra cuántas veces se usó cada calificación, con filtro de ámbito y de periodo. Los eventos históricos sin calificación no se tratan como una quinta categoría: se excluyen y se indica desde cuándo hay datos de calificación.",
+    "G3 — True Retention usa calificaciones reales: Otra vez es fallo y Difícil, Bien y Fácil son acierto. Se toma la primera revisión calificable de cada tarjeta por día. Se muestran al menos hoy, ayer, última semana, último mes y último año, separando Young (intervalo menor de 21 días) y Mature (intervalo de 21 días o más) y el total, clasificando por el intervalo real del momento de la revisión.",
+    "G4 — Review Intervals muestra la distribución real de intervalos, con mediana y cantidad por rango, para todos los mazos y por mazo.",
+    "G5 — FSRS Stability muestra la distribución de la estabilidad y su mediana, solo de las tarjetas con estado FSRS suficiente, sin presentar las cartas nuevas como si tuvieran estabilidad significativa.",
+    "G6 — FSRS Difficulty muestra la distribución de la dificultad y una medida central apropiada, con un texto que explica qué es y que no la confunde con el botón Difícil.",
+    "G7 — Retrievability muestra la probabilidad estimada actual de recordar las tarjetas de repaso, calculada para el instante actual, filtrable por mazo, y no se persiste como verdad histórica porque puede derivarse del estado FSRS y del tiempo.",
+    "G8 — Card Counts amplía el conteo de TASK-006 con estados reales: Nuevas, Aprendiendo, Reaprendiendo, Young y Mature. No se implementan Suspended ni Buried porque esas features no existen.",
+    "H1 — El historial de estudio se extiende con un registro de revisión que conserva al menos cardId, deckId, sessionId, instante, calificación, estado previo y nuevo, vencimiento previo y nuevo, intervalo previo y nuevo, estabilidad y dificultad cuando aplican, tiempo transcurrido, duración y versión del scheduler. El registro es append-only y no sobrescribe revisiones anteriores.",
+    "I1 — No se crea un segundo sistema de estadísticas: se extiende el StatsEngine de TASK-006. Las gráficas nuevas usan los mismos filtros de ámbito (todos / un mazo) y de periodo (1 mes, 3 meses, 1 año, todo).",
+    "I2 — El PDF existente incorpora las secciones nuevas cuando hay datos, respetando ámbito y periodo, sin filtrar datos de otros mazos, y mostrando un estado informativo en vez de una gráfica falsa llena de ceros cuando todavía no hay calificaciones suficientes.",
+    "J1 — La retención objetivo es 0,90 y no hay interfaz para cambiarla. Los demás parámetros provienen de los valores por defecto oficiales de la implementación elegida o de una configuración técnica explícita y documentada. No se copian parámetros optimizados de terceros ni se implementa optimización automática.",
+    "K1 — El scheduler y los tests no dependen de llamadas dispersas a new Date(): existe una abstracción de reloj o inyección de fecha que permite fijar un instante, calificar, avanzar el reloj y volver a consultar.",
+    "L1 — Una acción de calificación no puede ejecutarse dos veces por doble pulsación: mientras se guarda, los botones quedan deshabilitados, no se escribe un segundo registro de revisión ni se aplica dos veces el cambio de scheduling. Existe test.",
+    "M1 — FSRS y la calificación funcionan completamente sin conexión sobre la persistencia local existente. Calcular la programación no hace peticiones externas.",
+    "N1 — Si falla la escritura después de calificar, no se avanza en silencio a la siguiente tarjeta dejando un estado inconsistente. La actualización del estado de scheduling, el registro de revisión y el evento estadístico se comportan de forma consistente; si no puede garantizarse atomicidad real, la estrategia se documenta y no quedan estados parcialmente aplicados.",
+    "O1 — Una tarjeta eliminada desaparece de la cola y de la biblioteca, no genera Future Due, y sus registros de revisión y estadísticas históricas permanecen.",
+    "O2 — Un mazo eliminado no aparece como mazo activo ni en la cola, no genera Future Due, y su historial pasado sigue contando en las estadísticas globales históricas.",
+    "P1 — Las cartas importadas desde CSV, XLSX y Markdown reciben automáticamente el estado Nueva. No cambia el formato de los archivos y no se importa estado FSRS desde esas fuentes.",
+    "Q1 — Los tests del scheduler son deterministas y comparan resultados contra fixtures golden que registran versión de la librería, parámetros, retención objetivo, fecha, calificaciones y resultados esperados. No se aceptan tests que solo comprueben que existe un vencimiento o que un intervalo es mayor que cero.",
+    "R1 — Se prueban volúmenes razonables: al menos 1.000 tarjetas y 10.000 eventos de revisión en el motor de estadísticas, sin coste cuadrático innecesario en cada renderizado."
+  ],
+  "confirmed_decisions": [
+    "Las decisiones de producto de repetición espaciada están confirmadas por el usuario y registradas en docs/PRODUCT.md con fecha 2026-08-30.",
+    "El scheduler es FSRS; no se crea un algoritmo propio ni se sustituye por SM-2.",
+    "Las cuatro calificaciones son Otra vez, Difícil, Bien y Fácil, con Difícil como calificación aprobatoria.",
+    "La retención objetivo inicial es 0,90 y no es configurable por el usuario en esta task.",
+    "Las cartas anteriores a TASK-007 empiezan como Nueva y no reciben calificaciones inventadas.",
+    "El historial anterior a TASK-007 se conserva pero no cuenta como acierto ni fallo en las métricas que dependen de la calificación.",
+    "Se conserva la identidad visual académica de docs/DESIGN.md."
+  ],
+  "open_questions": [],
+  "acceptance": [
+    "AC-FSRS — El scheduler es una implementación FSRS mantenida y compatible, aislada tras una abstracción propia; los cuatro estados y las cuatro transiciones producen vencimiento, estabilidad, dificultad, repeticiones y lapsos reales, y las cartas existentes migran a Nueva sin calificaciones inventadas.",
+    "AC-PREVIEW — Antes de calificar existen los cuatro intervalos reales del preview del scheduler, el preview no muta la carta, y calificar coincide con el preview mostrado.",
+    "AC-UI — Las calificaciones están ocultas antes de revelar la respuesta y visibles después, con etiquetas en español, intervalo visible, protección frente a doble pulsación, y comportamiento correcto en desktop, Chrome móvil y WebKit móvil con objetivos táctiles suficientes.",
+    "AC-COLA — La cola selecciona aprendizaje vencido, repasos vencidos y nuevas; excluye repasos futuros, tarjetas eliminadas y tarjetas de otros mazos; permite terminar la sesión y maneja la cola vacía.",
+    "AC-PERSISTENCIA — Calificación, vencimiento, estado, estabilidad y dificultad se persisten; recargar y recrear el repositorio conservan la programación; el registro de revisión se persiste; la migración se prueba con un fixture real anterior a TASK-007.",
+    "AC-HISTORIAL — Cada calificación queda registrada con estado previo y nuevo, vencimiento previo y nuevo, intervalo, versión del scheduler, y una doble pulsación no genera un segundo registro.",
+    "AC-ANSWERBUTTONS — Answer Buttons cuenta Otra vez, Difícil, Bien y Fácil, con ámbito todos y por mazo y con los cuatro periodos.",
+    "AC-RETENCION — Otra vez cuenta como fallo y Difícil, Bien y Fácil como acierto; se usa la primera revisión calificable por tarjeta y día; se separan Young, Mature y total; los eventos históricos sin calificación quedan excluidos.",
+    "AC-FUTUREDUE — Future Due muestra las revisiones programadas para mañana y en horizontes de 1 mes, 3 meses, 1 año y todo, con filtro por mazo, y una tarjeta eliminada no aparece como vencida.",
+    "AC-INTERVALOS — Review Intervals muestra la distribución real y la mediana, con aislamiento por mazo.",
+    "AC-ESTABILIDAD — La estabilidad tiene valores válidos y distribución correcta, y las cartas nuevas no se presentan de forma engañosa.",
+    "AC-DIFICULTAD — La dificultad tiene una distribución válida y no se confunde con la calificación Difícil.",
+    "AC-RETRIEVABILITY — La retrievability se calcula para un instante fijo, cambia al avanzar el reloj y se filtra por mazo.",
+    "AC-CONTEOS — Card Counts muestra Nuevas, Aprendiendo, Reaprendiendo, Young y Mature, y el total es consistente con la suma.",
+    "AC-PDF — El PDF incorpora las gráficas nuevas para todos los mazos y para un mazo concreto, con el periodo correcto, sin filtrado entre mazos, con valores que coinciden con el panel, sin tergiversar los datos históricos sin calificación y produciendo un PDF válido.",
+    "AC-ATOMICIDAD — Un fallo de persistencia durante la calificación no deja la programación actualizada sin registro de revisión ni al revés, y no se avanza de tarjeta en silencio.",
+    "AC-RELOJ — El scheduler y los tests usan una abstracción de reloj: se puede fijar un instante, calificar, avanzar el reloj y comprobar que una tarjeta futura pasa a estar disponible.",
+    "AC-GOLDEN — Existen tests golden deterministas de secuencias de calificación, con fixtures que registran versión de la librería, parámetros, retención objetivo, fecha, calificaciones y resultados esperados.",
+    "AC-AISLAMIENTO — Con 10 revisiones en un mazo y 30 en otro, el ámbito global cuenta 40 y cada mazo el suyo; Future Due y Answer Buttons respetan el mismo aislamiento.",
+    "AC-RENDIMIENTO — El scheduling y las estadísticas se prueban con al menos 1.000 tarjetas y 10.000 eventos de revisión sin coste cuadrático innecesario.",
+    "AC-REGRESION — Crear, renombrar y eliminar mazos; crear, editar y eliminar cartas; importar CSV, XLSX y Markdown; la persistencia, las estadísticas de TASK-006, el PDF anterior y la navegación siguen funcionando.",
+    "AC-FINAL — typecheck, lint, unit, integration y E2E pasan, ./init.sh termina en 0, Reviewer APPROVED, QA APPROVED y la evidencia está completa."
+  ],
+  "verification_matrix": [
+    {
+      "id": "VM-001",
+      "group": "FSRS",
+      "acceptance": "1. La dependencia de FSRS elegida está mantenida, tiene licencia compatible y funciona en el runtime del proyecto (Node, Jest, Metro web y nativo) sin APIs exclusivas de Node.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "inspection",
+      "command_or_procedure": "Revisión de metadatos del paquete y del bundle publicado, más su uso real en los gates unit, integration y E2E web.",
+      "evidence_expected": "progress/evidence/TASK-007-implementation.md documenta nombre, versión, licencia, dependencias, tamaño y el resultado del análisis; los gates que importan la librería pasan."
+    },
+    {
+      "id": "VM-002",
+      "group": "FSRS",
+      "acceptance": "2. Existe una abstracción propia de scheduler y ningún componente React importa la librería FSRS.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "static",
+      "command_or_procedure": "npm run lint && grep -rn \"ts-fsrs\" app src | sort",
+      "evidence_expected": "La única coincidencia fuera de la abstracción es el adaptador src/features/scheduler/fsrsAdapter.ts."
+    },
+    {
+      "id": "VM-003",
+      "group": "FSRS",
+      "acceptance": "3. Una carta recién creada está en estado Nueva con vencimiento sin programar y sin estabilidad ni dificultad.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-fsrs.test.ts",
+      "evidence_expected": "newScheduling tiene state 'nueva', due null, lastReview null, reps 0 y lapses 0."
+    },
+    {
+      "id": "VM-004",
+      "group": "FSRS",
+      "acceptance": "4. Calificar una carta Nueva la lleva al estado Aprendiendo con vencimiento en minutos.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-fsrs.test.ts",
+      "evidence_expected": "Tras Bien sobre una carta Nueva el estado es 'aprendiendo' y el vencimiento cae dentro del mismo día."
+    },
+    {
+      "id": "VM-005",
+      "group": "FSRS",
+      "acceptance": "5. Una carta puede alcanzar el estado Repaso con vencimiento en días.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-fsrs.test.ts",
+      "evidence_expected": "Tras la secuencia golden la carta queda en 'repaso' con scheduledDays >= 1."
+    },
+    {
+      "id": "VM-006",
+      "group": "FSRS",
+      "acceptance": "6. Fallar una carta en Repaso la lleva a Reaprendiendo.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-fsrs.test.ts",
+      "evidence_expected": "Otra vez sobre una carta en 'repaso' produce 'reaprendiendo' y lapses + 1."
+    },
+    {
+      "id": "VM-007",
+      "group": "FSRS",
+      "acceptance": "7. La transición de Otra vez produce el estado y el vencimiento esperados.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-golden.test.ts",
+      "evidence_expected": "El resultado coincide con el fixture golden para Otra vez."
+    },
+    {
+      "id": "VM-008",
+      "group": "FSRS",
+      "acceptance": "8. La transición de Difícil produce el estado y el vencimiento esperados.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-golden.test.ts",
+      "evidence_expected": "El resultado coincide con el fixture golden para Difícil."
+    },
+    {
+      "id": "VM-009",
+      "group": "FSRS",
+      "acceptance": "9. La transición de Bien produce el estado y el vencimiento esperados.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-golden.test.ts",
+      "evidence_expected": "El resultado coincide con el fixture golden para Bien."
+    },
+    {
+      "id": "VM-010",
+      "group": "FSRS",
+      "acceptance": "10. La transición de Fácil produce el estado y el vencimiento esperados.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-golden.test.ts",
+      "evidence_expected": "El resultado coincide con el fixture golden para Fácil."
+    },
+    {
+      "id": "VM-011",
+      "group": "FSRS",
+      "acceptance": "11. El vencimiento resultante es un instante real calculado por el scheduler, no un valor fijo.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-golden.test.ts",
+      "evidence_expected": "Los vencimientos de la secuencia coinciden exactamente con los instantes del fixture golden."
+    },
+    {
+      "id": "VM-012",
+      "group": "FSRS",
+      "acceptance": "12. La estabilidad resultante es la que produce FSRS.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-golden.test.ts",
+      "evidence_expected": "stability coincide con el fixture golden en cada paso."
+    },
+    {
+      "id": "VM-013",
+      "group": "FSRS",
+      "acceptance": "13. La dificultad resultante es la que produce FSRS.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-golden.test.ts",
+      "evidence_expected": "difficulty coincide con el fixture golden en cada paso."
+    },
+    {
+      "id": "VM-014",
+      "group": "FSRS",
+      "acceptance": "14. El contador de repeticiones aumenta con cada calificación.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-fsrs.test.ts",
+      "evidence_expected": "reps pasa de 0 a 1, 2, 3… en la secuencia."
+    },
+    {
+      "id": "VM-015",
+      "group": "FSRS",
+      "acceptance": "15. El contador de lapsos aumenta solo al fallar una carta ya aprendida.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-fsrs.test.ts",
+      "evidence_expected": "lapses sigue en 0 tras Difícil, Bien y Fácil, y sube tras Otra vez en 'repaso'."
+    },
+    {
+      "id": "VM-016",
+      "group": "FSRS",
+      "acceptance": "16. Las cartas existentes anteriores a TASK-007 migran a estado Nueva.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/storage-serialization.test.ts",
+      "evidence_expected": "Al leer un documento de biblioteca versión 2 todas las cartas salen con newScheduling."
+    },
+    {
+      "id": "VM-017",
+      "group": "FSRS",
+      "acceptance": "17. La migración no fabrica ninguna calificación ni revisión histórica.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/storage-serialization.test.ts",
+      "evidence_expected": "Tras migrar, reps y lapses son 0, lastReview es null y no aparece ningún registro de revisión."
+    },
+    {
+      "id": "VM-018",
+      "group": "Preview",
+      "acceptance": "18. Antes de calificar están disponibles los cuatro intervalos del preview.",
+      "acceptance_ref": "AC-PREVIEW",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-fsrs.test.ts",
+      "evidence_expected": "preview devuelve las cuatro calificaciones con su intervalo en milisegundos."
+    },
+    {
+      "id": "VM-019",
+      "group": "Preview",
+      "acceptance": "19. El intervalo de Otra vez proviene del scheduler.",
+      "acceptance_ref": "AC-PREVIEW",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-golden.test.ts",
+      "evidence_expected": "El intervalo de Otra vez coincide con el fixture golden."
+    },
+    {
+      "id": "VM-020",
+      "group": "Preview",
+      "acceptance": "20. El intervalo de Difícil proviene del scheduler.",
+      "acceptance_ref": "AC-PREVIEW",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-golden.test.ts",
+      "evidence_expected": "El intervalo de Difícil coincide con el fixture golden."
+    },
+    {
+      "id": "VM-021",
+      "group": "Preview",
+      "acceptance": "21. El intervalo de Bien proviene del scheduler.",
+      "acceptance_ref": "AC-PREVIEW",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-golden.test.ts",
+      "evidence_expected": "El intervalo de Bien coincide con el fixture golden."
+    },
+    {
+      "id": "VM-022",
+      "group": "Preview",
+      "acceptance": "22. El intervalo de Fácil proviene del scheduler.",
+      "acceptance_ref": "AC-PREVIEW",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-golden.test.ts",
+      "evidence_expected": "El intervalo de Fácil coincide con el fixture golden."
+    },
+    {
+      "id": "VM-023",
+      "group": "Preview",
+      "acceptance": "23. El preview no muta la carta ni su estado de scheduling.",
+      "acceptance_ref": "AC-PREVIEW",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-fsrs.test.ts",
+      "evidence_expected": "El objeto de entrada es idéntico antes y después de llamar a preview, comparado en profundidad."
+    },
+    {
+      "id": "VM-024",
+      "group": "UI",
+      "acceptance": "24. Las calificaciones no se muestran antes de revelar la respuesta.",
+      "acceptance_ref": "AC-UI",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "Con la carta sin revelar no existe ningún botón de calificación en el árbol."
+    },
+    {
+      "id": "VM-025",
+      "group": "UI",
+      "acceptance": "25. Las calificaciones se muestran después de revelar la respuesta.",
+      "acceptance_ref": "AC-UI",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "Tras Mostrar respuesta existen los cuatro botones de calificación."
+    },
+    {
+      "id": "VM-026",
+      "group": "UI",
+      "acceptance": "26. Las etiquetas están en español: Otra vez, Difícil, Bien y Fácil.",
+      "acceptance_ref": "AC-UI",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "Los cuatro textos aparecen literalmente en la pantalla."
+    },
+    {
+      "id": "VM-027",
+      "group": "UI",
+      "acceptance": "27. Cada botón muestra el intervalo que produciría esa calificación.",
+      "acceptance_ref": "AC-UI",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "Cada botón contiene el intervalo formateado a partir del preview real, no un literal."
+    },
+    {
+      "id": "VM-028",
+      "group": "UI",
+      "acceptance": "28. Una doble pulsación sobre una calificación no se ejecuta dos veces.",
+      "acceptance_ref": "AC-UI",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "Dos pulsaciones seguidas producen una sola escritura y un solo registro de revisión."
+    },
+    {
+      "id": "VM-029",
+      "group": "UI",
+      "acceptance": "29. El estudio se comporta correctamente en desktop.",
+      "acceptance_ref": "AC-UI",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e tests/e2e/study-fsrs.spec.ts",
+      "evidence_expected": "El proyecto desktop-chrome pasa sin desbordamiento horizontal."
+    },
+    {
+      "id": "VM-030",
+      "group": "UI",
+      "acceptance": "30. El estudio se comporta correctamente en Chrome móvil.",
+      "acceptance_ref": "AC-UI",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e tests/e2e/study-fsrs.spec.ts",
+      "evidence_expected": "El proyecto mobile-chrome (Pixel 5) pasa sin desbordamiento horizontal."
+    },
+    {
+      "id": "VM-031",
+      "group": "UI",
+      "acceptance": "31. El estudio se comporta correctamente en WebKit móvil.",
+      "acceptance_ref": "AC-UI",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e tests/e2e/study-fsrs.spec.ts",
+      "evidence_expected": "El proyecto mobile-safari (iPhone 13) pasa sin desbordamiento horizontal."
+    },
+    {
+      "id": "VM-032",
+      "group": "UI",
+      "acceptance": "32. Los botones de calificación cumplen el objetivo táctil mínimo.",
+      "acceptance_ref": "AC-UI",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e tests/e2e/study-fsrs.spec.ts",
+      "evidence_expected": "Los cuatro botones miden al menos 44 px de alto en los proyectos móviles."
+    },
+    {
+      "id": "VM-033",
+      "group": "Cola",
+      "acceptance": "33. La cola selecciona las cartas de aprendizaje ya vencidas.",
+      "acceptance_ref": "AC-COLA",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/study-queue.test.ts",
+      "evidence_expected": "Una carta en 'aprendiendo' con vencimiento pasado entra en la cola y va primero."
+    },
+    {
+      "id": "VM-034",
+      "group": "Cola",
+      "acceptance": "34. La cola selecciona los repasos vencidos.",
+      "acceptance_ref": "AC-COLA",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/study-queue.test.ts",
+      "evidence_expected": "Una carta en 'repaso' con due <= now entra en la cola, después de las de aprendizaje."
+    },
+    {
+      "id": "VM-035",
+      "group": "Cola",
+      "acceptance": "35. La cola selecciona las cartas nuevas.",
+      "acceptance_ref": "AC-COLA",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/study-queue.test.ts",
+      "evidence_expected": "Las cartas en 'nueva' entran al final, en el orden de creación."
+    },
+    {
+      "id": "VM-036",
+      "group": "Cola",
+      "acceptance": "36. La cola excluye los repasos con vencimiento futuro.",
+      "acceptance_ref": "AC-COLA",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/study-queue.test.ts",
+      "evidence_expected": "Una carta en 'repaso' con due > now no aparece en la cola."
+    },
+    {
+      "id": "VM-037",
+      "group": "Cola",
+      "acceptance": "37. Una tarjeta eliminada no aparece en la cola.",
+      "acceptance_ref": "AC-COLA",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "Tras eliminar la carta, la sesión siguiente no la muestra."
+    },
+    {
+      "id": "VM-038",
+      "group": "Cola",
+      "acceptance": "38. La cola de un mazo no contiene cartas de otro mazo.",
+      "acceptance_ref": "AC-COLA",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/study-queue.test.ts",
+      "evidence_expected": "Construida sobre las cartas del mazo A, ninguna carta del mazo B aparece."
+    },
+    {
+      "id": "VM-039",
+      "group": "Cola",
+      "acceptance": "39. Terminar la sesión cierra la sesión y vuelve al mazo sin tocar las tarjetas no respondidas.",
+      "acceptance_ref": "AC-COLA",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "Tras Terminar sesión la StudySession queda cerrada y el scheduling de las cartas no respondidas es idéntico al anterior."
+    },
+    {
+      "id": "VM-040",
+      "group": "Cola",
+      "acceptance": "40. Con la cola vacía se muestra un estado informativo y no una pantalla rota.",
+      "acceptance_ref": "AC-COLA",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "Sin cartas disponibles aparece el estado vacío de la sesión con acción para volver."
+    },
+    {
+      "id": "VM-041",
+      "group": "Persistencia",
+      "acceptance": "41. La calificación queda persistida.",
+      "acceptance_ref": "AC-PERSISTENCIA",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "El repositorio de historial contiene el registro de revisión con su calificación."
+    },
+    {
+      "id": "VM-042",
+      "group": "Persistencia",
+      "acceptance": "42. El vencimiento queda persistido.",
+      "acceptance_ref": "AC-PERSISTENCIA",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "El documento de biblioteca guardado contiene el due nuevo de la carta."
+    },
+    {
+      "id": "VM-043",
+      "group": "Persistencia",
+      "acceptance": "43. El estado de scheduling queda persistido.",
+      "acceptance_ref": "AC-PERSISTENCIA",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "El documento guardado contiene el estado nuevo de la carta."
+    },
+    {
+      "id": "VM-044",
+      "group": "Persistencia",
+      "acceptance": "44. La estabilidad queda persistida.",
+      "acceptance_ref": "AC-PERSISTENCIA",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "El documento guardado contiene la estabilidad calculada."
+    },
+    {
+      "id": "VM-045",
+      "group": "Persistencia",
+      "acceptance": "45. La dificultad queda persistida.",
+      "acceptance_ref": "AC-PERSISTENCIA",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "El documento guardado contiene la dificultad calculada."
+    },
+    {
+      "id": "VM-046",
+      "group": "Persistencia",
+      "acceptance": "46. Recargar conserva la programación.",
+      "acceptance_ref": "AC-PERSISTENCIA",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "Tras desmontar y volver a montar sobre el mismo repositorio, la carta conserva estado y vencimiento."
+    },
+    {
+      "id": "VM-047",
+      "group": "Persistencia",
+      "acceptance": "47. El registro de revisión queda persistido.",
+      "acceptance_ref": "AC-PERSISTENCIA",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "La partición mensual del historial contiene el registro tras recargar."
+    },
+    {
+      "id": "VM-048",
+      "group": "Persistencia",
+      "acceptance": "48. Recrear el repositorio conserva la programación.",
+      "acceptance_ref": "AC-PERSISTENCIA",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "Un repositorio nuevo construido sobre los mismos bytes devuelve la misma programación."
+    },
+    {
+      "id": "VM-049",
+      "group": "Persistencia",
+      "acceptance": "49. La migración se prueba con un fixture real anterior a TASK-007.",
+      "acceptance_ref": "AC-PERSISTENCIA",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/library-migration.test.tsx",
+      "evidence_expected": "Un documento versión 2 con mazos, cartas, historial y altas se migra conservando todo y añadiendo scheduling Nueva."
+    },
+    {
+      "id": "VM-050",
+      "group": "Historial",
+      "acceptance": "50. Se registra la calificación.",
+      "acceptance_ref": "AC-HISTORIAL",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/history-serialization.test.ts",
+      "evidence_expected": "El registro serializado conserva rating y se vuelve a leer igual."
+    },
+    {
+      "id": "VM-051",
+      "group": "Historial",
+      "acceptance": "51. Se registra el estado previo.",
+      "acceptance_ref": "AC-HISTORIAL",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/history-serialization.test.ts",
+      "evidence_expected": "previousState se conserva en el ciclo de serialización."
+    },
+    {
+      "id": "VM-052",
+      "group": "Historial",
+      "acceptance": "52. Se registra el estado nuevo.",
+      "acceptance_ref": "AC-HISTORIAL",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/history-serialization.test.ts",
+      "evidence_expected": "newState se conserva en el ciclo de serialización."
+    },
+    {
+      "id": "VM-053",
+      "group": "Historial",
+      "acceptance": "53. Se registra el vencimiento previo.",
+      "acceptance_ref": "AC-HISTORIAL",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/history-serialization.test.ts",
+      "evidence_expected": "previousDue se conserva, incluido el valor null de una carta Nueva."
+    },
+    {
+      "id": "VM-054",
+      "group": "Historial",
+      "acceptance": "54. Se registra el vencimiento nuevo.",
+      "acceptance_ref": "AC-HISTORIAL",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/history-serialization.test.ts",
+      "evidence_expected": "newDue se conserva en el ciclo de serialización."
+    },
+    {
+      "id": "VM-055",
+      "group": "Historial",
+      "acceptance": "55. Se registra el intervalo previo y el nuevo.",
+      "acceptance_ref": "AC-HISTORIAL",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/history-serialization.test.ts",
+      "evidence_expected": "previousIntervalDays y newIntervalDays se conservan."
+    },
+    {
+      "id": "VM-056",
+      "group": "Historial",
+      "acceptance": "56. Se registra la versión del scheduler.",
+      "acceptance_ref": "AC-HISTORIAL",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/history-serialization.test.ts",
+      "evidence_expected": "schedulerId y schedulerVersion se conservan."
+    },
+    {
+      "id": "VM-057",
+      "group": "Historial",
+      "acceptance": "57. Una doble pulsación no genera un registro duplicado.",
+      "acceptance_ref": "AC-HISTORIAL",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "Tras dos pulsaciones seguidas el historial contiene exactamente un registro para esa carta."
+    },
+    {
+      "id": "VM-058",
+      "group": "Answer Buttons",
+      "acceptance": "58. Answer Buttons cuenta las veces que se usó Otra vez.",
+      "acceptance_ref": "AC-ANSWERBUTTONS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "El recuento de 'otra-vez' coincide con los registros del dataset."
+    },
+    {
+      "id": "VM-059",
+      "group": "Answer Buttons",
+      "acceptance": "59. Answer Buttons cuenta las veces que se usó Difícil.",
+      "acceptance_ref": "AC-ANSWERBUTTONS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "El recuento de 'dificil' coincide con los registros del dataset."
+    },
+    {
+      "id": "VM-060",
+      "group": "Answer Buttons",
+      "acceptance": "60. Answer Buttons cuenta las veces que se usó Bien.",
+      "acceptance_ref": "AC-ANSWERBUTTONS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "El recuento de 'bien' coincide con los registros del dataset."
+    },
+    {
+      "id": "VM-061",
+      "group": "Answer Buttons",
+      "acceptance": "61. Answer Buttons cuenta las veces que se usó Fácil.",
+      "acceptance_ref": "AC-ANSWERBUTTONS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "El recuento de 'facil' coincide con los registros del dataset."
+    },
+    {
+      "id": "VM-062",
+      "group": "Answer Buttons",
+      "acceptance": "62. Answer Buttons respeta el ámbito de todos los mazos.",
+      "acceptance_ref": "AC-ANSWERBUTTONS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Con ámbito global el total es la suma de los dos mazos."
+    },
+    {
+      "id": "VM-063",
+      "group": "Answer Buttons",
+      "acceptance": "63. Answer Buttons respeta el ámbito de un mazo.",
+      "acceptance_ref": "AC-ANSWERBUTTONS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Con ámbito de un mazo solo se cuentan sus registros."
+    },
+    {
+      "id": "VM-064",
+      "group": "Answer Buttons",
+      "acceptance": "64. Answer Buttons respeta el periodo de 1 mes.",
+      "acceptance_ref": "AC-ANSWERBUTTONS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Un registro de hace 60 días queda fuera del periodo 1m."
+    },
+    {
+      "id": "VM-065",
+      "group": "Answer Buttons",
+      "acceptance": "65. Answer Buttons respeta el periodo de 3 meses.",
+      "acceptance_ref": "AC-ANSWERBUTTONS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Un registro de hace 60 días entra en 3m y uno de hace 200 no."
+    },
+    {
+      "id": "VM-066",
+      "group": "Answer Buttons",
+      "acceptance": "66. Answer Buttons respeta el periodo de 1 año.",
+      "acceptance_ref": "AC-ANSWERBUTTONS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Un registro de hace 200 días entra en 1y y uno de hace 500 no."
+    },
+    {
+      "id": "VM-067",
+      "group": "Answer Buttons",
+      "acceptance": "67. Answer Buttons respeta el periodo de todo el historial.",
+      "acceptance_ref": "AC-ANSWERBUTTONS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Con 'all' se cuentan todos los registros del ámbito."
+    },
+    {
+      "id": "VM-068",
+      "group": "Retención",
+      "acceptance": "68. Otra vez cuenta como fallo.",
+      "acceptance_ref": "AC-RETENCION",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/rating-semantics.test.ts",
+      "evidence_expected": "Una revisión con 'otra-vez' incrementa los fallos y no los aciertos."
+    },
+    {
+      "id": "VM-069",
+      "group": "Retención",
+      "acceptance": "69. Difícil cuenta como acierto.",
+      "acceptance_ref": "AC-RETENCION",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/rating-semantics.test.ts",
+      "evidence_expected": "Una revisión con 'dificil' incrementa los aciertos y no los fallos."
+    },
+    {
+      "id": "VM-070",
+      "group": "Retención",
+      "acceptance": "70. Bien cuenta como acierto.",
+      "acceptance_ref": "AC-RETENCION",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/rating-semantics.test.ts",
+      "evidence_expected": "Una revisión con 'bien' incrementa los aciertos."
+    },
+    {
+      "id": "VM-071",
+      "group": "Retención",
+      "acceptance": "71. Fácil cuenta como acierto.",
+      "acceptance_ref": "AC-RETENCION",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/rating-semantics.test.ts",
+      "evidence_expected": "Una revisión con 'facil' incrementa los aciertos."
+    },
+    {
+      "id": "VM-072",
+      "group": "Retención",
+      "acceptance": "72. Solo cuenta la primera revisión calificable de cada tarjeta y día.",
+      "acceptance_ref": "AC-RETENCION",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Tres revisiones de la misma carta el mismo día cuentan como un solo evento, el primero."
+    },
+    {
+      "id": "VM-073",
+      "group": "Retención",
+      "acceptance": "73. Se separa la retención de las tarjetas Young.",
+      "acceptance_ref": "AC-RETENCION",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Las revisiones con intervalo previo menor de 21 días caen en Young."
+    },
+    {
+      "id": "VM-074",
+      "group": "Retención",
+      "acceptance": "74. Se separa la retención de las tarjetas Mature.",
+      "acceptance_ref": "AC-RETENCION",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Las revisiones con intervalo previo de 21 días o más caen en Mature."
+    },
+    {
+      "id": "VM-075",
+      "group": "Retención",
+      "acceptance": "75. Se muestra la retención total.",
+      "acceptance_ref": "AC-RETENCION",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "El total es la suma de Young y Mature en aciertos y en fallos."
+    },
+    {
+      "id": "VM-076",
+      "group": "Retención",
+      "acceptance": "76. Los eventos históricos sin calificación quedan excluidos.",
+      "acceptance_ref": "AC-RETENCION",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Un historial con eventos de TASK-006 y sin registros de revisión da retención desconocida, no 0 %."
+    },
+    {
+      "id": "VM-077",
+      "group": "Future Due",
+      "acceptance": "77. Future Due muestra las revisiones programadas para mañana.",
+      "acceptance_ref": "AC-FUTUREDUE",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "El bucket de mañana contiene exactamente las cartas con vencimiento en ese día."
+    },
+    {
+      "id": "VM-078",
+      "group": "Future Due",
+      "acceptance": "78. Future Due cubre el horizonte de 1 mes.",
+      "acceptance_ref": "AC-FUTUREDUE",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Con periodo 1m se cuentan los 30 días siguientes y no más."
+    },
+    {
+      "id": "VM-079",
+      "group": "Future Due",
+      "acceptance": "79. Future Due cubre el horizonte de 3 meses.",
+      "acceptance_ref": "AC-FUTUREDUE",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Con periodo 3m se cuentan los 90 días siguientes."
+    },
+    {
+      "id": "VM-080",
+      "group": "Future Due",
+      "acceptance": "80. Future Due cubre el horizonte de 1 año.",
+      "acceptance_ref": "AC-FUTUREDUE",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Con periodo 1y se cuentan los 365 días siguientes."
+    },
+    {
+      "id": "VM-081",
+      "group": "Future Due",
+      "acceptance": "81. Future Due cubre el horizonte completo.",
+      "acceptance_ref": "AC-FUTUREDUE",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Con periodo 'all' se cuenta también una carta programada a 400 días."
+    },
+    {
+      "id": "VM-082",
+      "group": "Future Due",
+      "acceptance": "82. Future Due respeta el filtro de mazo.",
+      "acceptance_ref": "AC-FUTUREDUE",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Con ámbito de un mazo solo se cuentan sus cartas."
+    },
+    {
+      "id": "VM-083",
+      "group": "Future Due",
+      "acceptance": "83. Una tarjeta eliminada no genera Future Due.",
+      "acceptance_ref": "AC-FUTUREDUE",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/stats-fsrs-flow.test.tsx",
+      "evidence_expected": "Tras eliminar la carta desaparece de Future Due aunque su historial siga."
+    },
+    {
+      "id": "VM-084",
+      "group": "Intervalos",
+      "acceptance": "84. La distribución de intervalos usa los intervalos reales de las cartas.",
+      "acceptance_ref": "AC-INTERVALOS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Cada rango contiene el número de cartas cuyo intervalo cae dentro."
+    },
+    {
+      "id": "VM-085",
+      "group": "Intervalos",
+      "acceptance": "85. Se calcula la mediana de los intervalos.",
+      "acceptance_ref": "AC-INTERVALOS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "La mediana coincide con la calculada a mano para el dataset."
+    },
+    {
+      "id": "VM-086",
+      "group": "Intervalos",
+      "acceptance": "86. Los intervalos están aislados por mazo.",
+      "acceptance_ref": "AC-INTERVALOS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Con ámbito de un mazo no aparecen intervalos de otro."
+    },
+    {
+      "id": "VM-087",
+      "group": "Estabilidad",
+      "acceptance": "87. La estabilidad tiene valores válidos.",
+      "acceptance_ref": "AC-ESTABILIDAD",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Todos los valores considerados son números finitos mayores que cero."
+    },
+    {
+      "id": "VM-088",
+      "group": "Estabilidad",
+      "acceptance": "88. La estabilidad se presenta como distribución con mediana.",
+      "acceptance_ref": "AC-ESTABILIDAD",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Los rangos y la mediana coinciden con lo calculado a mano."
+    },
+    {
+      "id": "VM-089",
+      "group": "Estabilidad",
+      "acceptance": "89. Las cartas nuevas no se cuentan como si tuvieran estabilidad.",
+      "acceptance_ref": "AC-ESTABILIDAD",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Una biblioteca solo de cartas Nuevas produce cero muestras y mediana desconocida, no 0."
+    },
+    {
+      "id": "VM-090",
+      "group": "Dificultad",
+      "acceptance": "90. La dificultad tiene una distribución válida.",
+      "acceptance_ref": "AC-DIFICULTAD",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Los valores caen en el rango 1..10 y los rangos suman el total de muestras."
+    },
+    {
+      "id": "VM-091",
+      "group": "Dificultad",
+      "acceptance": "91. La dificultad no se confunde con la calificación Difícil.",
+      "acceptance_ref": "AC-DIFICULTAD",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/rating-semantics.test.ts",
+      "evidence_expected": "Un dataset con muchas calificaciones Difícil no altera la distribución de dificultad, que sale del estado de las cartas."
+    },
+    {
+      "id": "VM-092",
+      "group": "Retrievability",
+      "acceptance": "92. La retrievability se calcula para un instante fijo.",
+      "acceptance_ref": "AC-RETRIEVABILITY",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Con un reloj fijo el resultado es reproducible y coincide con el valor del scheduler."
+    },
+    {
+      "id": "VM-093",
+      "group": "Retrievability",
+      "acceptance": "93. La retrievability cambia al avanzar el reloj.",
+      "acceptance_ref": "AC-RETRIEVABILITY",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Con el reloj 30 días más tarde la retrievability media baja."
+    },
+    {
+      "id": "VM-094",
+      "group": "Retrievability",
+      "acceptance": "94. La retrievability se filtra por mazo.",
+      "acceptance_ref": "AC-RETRIEVABILITY",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Con ámbito de un mazo solo entran sus cartas."
+    },
+    {
+      "id": "VM-095",
+      "group": "Conteos",
+      "acceptance": "95. Card Counts muestra las Nuevas.",
+      "acceptance_ref": "AC-CONTEOS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "El recuento de 'nueva' coincide con las cartas en ese estado."
+    },
+    {
+      "id": "VM-096",
+      "group": "Conteos",
+      "acceptance": "96. Card Counts muestra las Aprendiendo.",
+      "acceptance_ref": "AC-CONTEOS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "El recuento de 'aprendiendo' coincide con las cartas en ese estado."
+    },
+    {
+      "id": "VM-097",
+      "group": "Conteos",
+      "acceptance": "97. Card Counts muestra las Reaprendiendo.",
+      "acceptance_ref": "AC-CONTEOS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "El recuento de 'reaprendiendo' coincide con las cartas en ese estado."
+    },
+    {
+      "id": "VM-098",
+      "group": "Conteos",
+      "acceptance": "98. Card Counts muestra las Young.",
+      "acceptance_ref": "AC-CONTEOS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Las cartas de repaso con intervalo menor de 21 días cuentan como Young."
+    },
+    {
+      "id": "VM-099",
+      "group": "Conteos",
+      "acceptance": "99. Card Counts muestra las Mature.",
+      "acceptance_ref": "AC-CONTEOS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Las cartas de repaso con intervalo de 21 días o más cuentan como Mature."
+    },
+    {
+      "id": "VM-100",
+      "group": "Conteos",
+      "acceptance": "100. El total es consistente con la suma de los estados.",
+      "acceptance_ref": "AC-CONTEOS",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "nuevas + aprendiendo + reaprendiendo + young + mature es igual al total del ámbito."
+    },
+    {
+      "id": "VM-101",
+      "group": "PDF",
+      "acceptance": "101. El PDF incluye las secciones nuevas cuando hay datos.",
+      "acceptance_ref": "AC-PDF",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-report-pdf.test.ts",
+      "evidence_expected": "El texto extraído del PDF contiene los títulos de las ocho secciones nuevas."
+    },
+    {
+      "id": "VM-102",
+      "group": "PDF",
+      "acceptance": "102. El PDF funciona para todos los mazos.",
+      "acceptance_ref": "AC-PDF",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-report-pdf.test.ts",
+      "evidence_expected": "El reporte global se genera y contiene las secciones nuevas con las cifras globales."
+    },
+    {
+      "id": "VM-103",
+      "group": "PDF",
+      "acceptance": "103. El PDF funciona para un mazo concreto.",
+      "acceptance_ref": "AC-PDF",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-report-pdf.test.ts",
+      "evidence_expected": "El reporte de un mazo se genera con las cifras de ese mazo."
+    },
+    {
+      "id": "VM-104",
+      "group": "PDF",
+      "acceptance": "104. El PDF respeta el periodo seleccionado.",
+      "acceptance_ref": "AC-PDF",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-report-pdf.test.ts",
+      "evidence_expected": "El PDF de 3 meses y el de todo el historial muestran cifras distintas y coherentes con el periodo."
+    },
+    {
+      "id": "VM-105",
+      "group": "PDF",
+      "acceptance": "105. El PDF de un mazo no contiene datos de otro.",
+      "acceptance_ref": "AC-PDF",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/stats-pdf.test.tsx",
+      "evidence_expected": "El texto del PDF del mazo Inglés no contiene el nombre ni las cifras de Matemáticas."
+    },
+    {
+      "id": "VM-106",
+      "group": "PDF",
+      "acceptance": "106. Los valores del PDF coinciden con los del panel.",
+      "acceptance_ref": "AC-PDF",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/stats-pdf.test.tsx",
+      "evidence_expected": "Las cifras de Answer Buttons y de Card Counts del PDF coinciden con las de la pantalla para el mismo ámbito y periodo."
+    },
+    {
+      "id": "VM-107",
+      "group": "PDF",
+      "acceptance": "107. Los datos históricos sin calificación no se tergiversan en el PDF.",
+      "acceptance_ref": "AC-PDF",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-report-pdf.test.ts",
+      "evidence_expected": "Sin calificaciones, las secciones nuevas muestran una nota informativa y no una gráfica de ceros."
+    },
+    {
+      "id": "VM-108",
+      "group": "PDF",
+      "acceptance": "108. El archivo generado es un PDF válido.",
+      "acceptance_ref": "AC-PDF",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-report-pdf.test.ts",
+      "evidence_expected": "El archivo empieza por %PDF-, termina en %%EOF y su xref es consistente."
+    },
+    {
+      "id": "VM-109",
+      "group": "Regresión",
+      "acceptance": "109. Crear un mazo sigue funcionando.",
+      "acceptance_ref": "AC-REGRESION",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/decks-flow.test.tsx",
+      "evidence_expected": "La suite existente de mazos pasa sin cambios de expectativa."
+    },
+    {
+      "id": "VM-110",
+      "group": "Regresión",
+      "acceptance": "110. Renombrar un mazo sigue funcionando.",
+      "acceptance_ref": "AC-REGRESION",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/deck-management.test.tsx",
+      "evidence_expected": "La suite existente de gestión de mazos pasa."
+    },
+    {
+      "id": "VM-111",
+      "group": "Regresión",
+      "acceptance": "111. Eliminar un mazo sigue funcionando.",
+      "acceptance_ref": "AC-REGRESION",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/deck-management.test.tsx",
+      "evidence_expected": "La eliminación en cascada sigue verde."
+    },
+    {
+      "id": "VM-112",
+      "group": "Regresión",
+      "acceptance": "112. Crear una carta sigue funcionando y nace como Nueva.",
+      "acceptance_ref": "AC-REGRESION",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/cards-flow.test.tsx",
+      "evidence_expected": "La carta creada aparece en el mazo con scheduling de carta Nueva."
+    },
+    {
+      "id": "VM-113",
+      "group": "Regresión",
+      "acceptance": "113. Editar una carta sigue funcionando y no altera su programación.",
+      "acceptance_ref": "AC-REGRESION",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/cards-flow.test.tsx",
+      "evidence_expected": "Tras editar frente y reverso, el scheduling de la carta es idéntico."
+    },
+    {
+      "id": "VM-114",
+      "group": "Regresión",
+      "acceptance": "114. Eliminar una carta sigue funcionando.",
+      "acceptance_ref": "AC-REGRESION",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/cards-flow.test.tsx",
+      "evidence_expected": "La carta desaparece de la biblioteca y su historial permanece."
+    },
+    {
+      "id": "VM-115",
+      "group": "Regresión",
+      "acceptance": "115. La importación CSV sigue funcionando y las cartas nacen Nuevas.",
+      "acceptance_ref": "AC-REGRESION",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/import-flow.test.tsx",
+      "evidence_expected": "Las cartas importadas tienen scheduling de carta Nueva."
+    },
+    {
+      "id": "VM-116",
+      "group": "Regresión",
+      "acceptance": "116. La importación XLSX sigue funcionando y las cartas nacen Nuevas.",
+      "acceptance_ref": "AC-REGRESION",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/import-flow.test.tsx",
+      "evidence_expected": "Las cartas importadas tienen scheduling de carta Nueva."
+    },
+    {
+      "id": "VM-117",
+      "group": "Regresión",
+      "acceptance": "117. La importación Markdown sigue funcionando y las cartas nacen Nuevas.",
+      "acceptance_ref": "AC-REGRESION",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/import-flow.test.tsx",
+      "evidence_expected": "Las cartas importadas tienen scheduling de carta Nueva."
+    },
+    {
+      "id": "VM-118",
+      "group": "Regresión",
+      "acceptance": "118. La persistencia de TASK-004 sigue funcionando.",
+      "acceptance_ref": "AC-REGRESION",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/persistence.test.tsx",
+      "evidence_expected": "La suite de persistencia pasa con el documento versión 3."
+    },
+    {
+      "id": "VM-119",
+      "group": "Regresión",
+      "acceptance": "119. Las estadísticas de TASK-006 siguen funcionando.",
+      "acceptance_ref": "AC-REGRESION",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/stats-flow.test.tsx",
+      "evidence_expected": "Las once secciones anteriores siguen mostrando las mismas cifras."
+    },
+    {
+      "id": "VM-120",
+      "group": "Regresión",
+      "acceptance": "120. El PDF anterior sigue funcionando.",
+      "acceptance_ref": "AC-REGRESION",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/stats-pdf.test.tsx",
+      "evidence_expected": "El reporte sigue generándose y conservando sus secciones previas."
+    },
+    {
+      "id": "VM-121",
+      "group": "Regresión",
+      "acceptance": "121. La navegación sigue funcionando.",
+      "acceptance_ref": "AC-REGRESION",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e tests/e2e/persistence-navigation.spec.ts",
+      "evidence_expected": "La suite de navegación y persistencia pasa en los tres proyectos."
+    },
+    {
+      "id": "VM-122",
+      "group": "Final",
+      "acceptance": "122. typecheck pasa.",
+      "acceptance_ref": "AC-FINAL",
+      "method": "static",
+      "command_or_procedure": "npm run typecheck",
+      "evidence_expected": "tsc --noEmit sin errores."
+    },
+    {
+      "id": "VM-123",
+      "group": "Final",
+      "acceptance": "123. lint pasa.",
+      "acceptance_ref": "AC-FINAL",
+      "method": "static",
+      "command_or_procedure": "npm run lint",
+      "evidence_expected": "eslint sin errores."
+    },
+    {
+      "id": "VM-124",
+      "group": "Final",
+      "acceptance": "124. Los tests unitarios pasan.",
+      "acceptance_ref": "AC-FINAL",
+      "method": "unit",
+      "command_or_procedure": "npm run test",
+      "evidence_expected": "La suite unit completa en verde."
+    },
+    {
+      "id": "VM-125",
+      "group": "Final",
+      "acceptance": "125. Los tests de integración pasan.",
+      "acceptance_ref": "AC-FINAL",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration",
+      "evidence_expected": "La suite integration completa en verde."
+    },
+    {
+      "id": "VM-126",
+      "group": "Final",
+      "acceptance": "126. Los tests E2E pasan.",
+      "acceptance_ref": "AC-FINAL",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "Los tres proyectos de Playwright en verde."
+    },
+    {
+      "id": "VM-127",
+      "group": "Final",
+      "acceptance": "127. ./init.sh termina con exit 0.",
+      "acceptance_ref": "AC-FINAL",
+      "method": "smoke",
+      "command_or_procedure": "./init.sh",
+      "evidence_expected": "Exit code 0 y todas las secciones en [OK]."
+    },
+    {
+      "id": "VM-128",
+      "group": "Final",
+      "acceptance": "128. El Reviewer independiente emite APPROVED.",
+      "acceptance_ref": "AC-FINAL",
+      "method": "review",
+      "command_or_procedure": "Reviewer independiente read-only sobre task, contrato, diff y evidencia.",
+      "evidence_expected": "progress/evidence/TASK-007-review.md con veredicto APPROVED."
+    },
+    {
+      "id": "VM-129",
+      "group": "Final",
+      "acceptance": "129. QA independiente emite APPROVED.",
+      "acceptance_ref": "AC-FINAL",
+      "method": "review",
+      "command_or_procedure": "QA independiente sobre el comportamiento observable, con navegador real.",
+      "evidence_expected": "progress/evidence/TASK-007-qa.md con veredicto APPROVED."
+    },
+    {
+      "id": "VM-130",
+      "group": "Final",
+      "acceptance": "130. La evidencia está completa.",
+      "acceptance_ref": "AC-FINAL",
+      "method": "inspection",
+      "command_or_procedure": "python3 scripts/check_evidence.py",
+      "evidence_expected": "EVIDENCE: OK y los tres archivos de evidencia presentes."
+    },
+    {
+      "id": "VM-131",
+      "group": "Golden",
+      "acceptance": "G-1. Los fixtures golden registran versión de la librería, parámetros, retención objetivo, fecha, calificaciones y resultados esperados.",
+      "acceptance_ref": "AC-GOLDEN",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-golden.test.ts",
+      "evidence_expected": "tests/fixtures/scheduler/golden.json contiene los seis metadatos y el test falla si el scheduler activo no coincide con ellos."
+    },
+    {
+      "id": "VM-132",
+      "group": "Golden",
+      "acceptance": "G-2. Una secuencia determinista de calificaciones con avance de reloj reproduce estados encadenados comprobables.",
+      "acceptance_ref": "AC-GOLDEN",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/scheduler-golden.test.ts",
+      "evidence_expected": "La secuencia Bien, Bien, Otra vez, Difícil, Fácil sobre un reloj fijo coincide paso a paso con el fixture."
+    },
+    {
+      "id": "VM-133",
+      "group": "Atomicidad",
+      "acceptance": "AT-1. Un fallo al escribir la biblioteca durante una calificación no registra la revisión ni avanza de tarjeta.",
+      "acceptance_ref": "AC-ATOMICIDAD",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-atomicity.test.tsx",
+      "evidence_expected": "Con el repositorio de biblioteca en fallo, el historial no recibe registro y la carta sigue a la vista."
+    },
+    {
+      "id": "VM-134",
+      "group": "Atomicidad",
+      "acceptance": "AT-2. Un fallo al escribir el historial durante una calificación revierte el estado de scheduling ya guardado.",
+      "acceptance_ref": "AC-ATOMICIDAD",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-atomicity.test.tsx",
+      "evidence_expected": "Con el historial en fallo, la biblioteca vuelve al scheduling anterior y se avisa del problema."
+    },
+    {
+      "id": "VM-135",
+      "group": "Atomicidad",
+      "acceptance": "AT-3. La estrategia de consistencia está documentada.",
+      "acceptance_ref": "AC-ATOMICIDAD",
+      "method": "inspection",
+      "command_or_procedure": "Lectura de docs/DATABASE.md y de progress/evidence/TASK-007-implementation.md",
+      "evidence_expected": "Ambos describen el orden de escritura, la compensación y sus límites."
+    },
+    {
+      "id": "VM-136",
+      "group": "Reloj",
+      "acceptance": "CK-1. Existe una abstracción de reloj y el scheduler no llama a new Date() de forma dispersa.",
+      "acceptance_ref": "AC-RELOJ",
+      "method": "static",
+      "command_or_procedure": "grep -rn \"new Date()\\|Date.now()\" src/features/scheduler src/features/study",
+      "evidence_expected": "Solo aparecen dentro de la abstracción de reloj de src/lib/clock.ts."
+    },
+    {
+      "id": "VM-137",
+      "group": "Reloj",
+      "acceptance": "CK-2. Un test puede fijar 2026-01-01T10:00, calificar, avanzar el reloj y volver a consultar.",
+      "acceptance_ref": "AC-RELOJ",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/clock.test.ts",
+      "evidence_expected": "El reloj de test devuelve el instante fijado y lo avanza de forma controlada."
+    },
+    {
+      "id": "VM-138",
+      "group": "Reloj",
+      "acceptance": "CK-3. Avanzar el reloj hace que una tarjeta futura pase a estar disponible.",
+      "acceptance_ref": "AC-RELOJ",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "Una carta programada a dos días no está en la cola hoy y sí lo está con el reloj adelantado."
+    },
+    {
+      "id": "VM-139",
+      "group": "Aislamiento",
+      "acceptance": "IS-1. Con 10 revisiones en el mazo A y 30 en el B, el ámbito global cuenta 40, A cuenta 10 y B cuenta 30.",
+      "acceptance_ref": "AC-AISLAMIENTO",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Los tres totales coinciden exactamente."
+    },
+    {
+      "id": "VM-140",
+      "group": "Aislamiento",
+      "acceptance": "IS-2. Future Due y Answer Buttons respetan el mismo aislamiento.",
+      "acceptance_ref": "AC-AISLAMIENTO",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-fsrs.test.ts",
+      "evidence_expected": "Las dos secciones dan los mismos totales por ámbito que el recuento de revisiones."
+    },
+    {
+      "id": "VM-141",
+      "group": "Offline",
+      "acceptance": "OF-1. Calcular la programación no hace ninguna petición externa.",
+      "acceptance_ref": "AC-FSRS",
+      "method": "static",
+      "command_or_procedure": "grep -rn \"fetch(\\|XMLHttpRequest\\|https://\" src/features/scheduler",
+      "evidence_expected": "Ninguna coincidencia de red en la capa de scheduler."
+    },
+    {
+      "id": "VM-142",
+      "group": "Rendimiento",
+      "acceptance": "PF-1. El scheduling y las estadísticas se prueban con 1.000 tarjetas.",
+      "acceptance_ref": "AC-RENDIMIENTO",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-performance.test.ts",
+      "evidence_expected": "El informe con 1.000 cartas se construye dentro del presupuesto del test."
+    },
+    {
+      "id": "VM-143",
+      "group": "Rendimiento",
+      "acceptance": "PF-2. El motor procesa 10.000 registros de revisión.",
+      "acceptance_ref": "AC-RENDIMIENTO",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/stats-performance.test.ts",
+      "evidence_expected": "El informe con 10.000 revisiones se construye dentro del presupuesto del test."
+    },
+    {
+      "id": "VM-144",
+      "group": "Importación",
+      "acceptance": "IM-1. No se importa estado FSRS desde CSV, XLSX ni Markdown.",
+      "acceptance_ref": "AC-REGRESION",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/import-validation.test.ts",
+      "evidence_expected": "El modelo de importación solo produce frente y reverso; el scheduling lo asigna la biblioteca."
+    },
+    {
+      "id": "VM-145",
+      "group": "Borrado",
+      "acceptance": "DL-1. El historial de una tarjeta eliminada permanece y sus estadísticas históricas no cambian.",
+      "acceptance_ref": "AC-COLA",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/stats-fsrs-flow.test.tsx",
+      "evidence_expected": "Tras eliminar la carta, Answer Buttons conserva sus revisiones."
+    },
+    {
+      "id": "VM-146",
+      "group": "Borrado",
+      "acceptance": "DL-2. Un mazo eliminado no aparece en la cola ni genera Future Due, y su historial sigue en las estadísticas globales.",
+      "acceptance_ref": "AC-COLA",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/stats-fsrs-flow.test.tsx",
+      "evidence_expected": "Tras eliminar el mazo, Future Due lo excluye y Answer Buttons global mantiene sus revisiones."
+    },
+    {
+      "id": "VM-147",
+      "group": "Resumen",
+      "acceptance": "RS-1. El detalle del mazo muestra Nuevas, Aprendiendo y Repasar derivados del estado del scheduler.",
+      "acceptance_ref": "AC-COLA",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration tests/integration/study-fsrs-flow.test.tsx",
+      "evidence_expected": "Los tres contadores coinciden con el estado de las cartas y no con su posición."
+    },
+    {
+      "id": "VM-148",
+      "group": "Resumen",
+      "acceptance": "RS-2. Una tarjeta con vencimiento futuro no se cuenta en Repasar.",
+      "acceptance_ref": "AC-COLA",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/study-queue.test.ts",
+      "evidence_expected": "El contador de Repasar excluye las cartas con due > now."
+    },
+    {
+      "id": "VM-149",
+      "group": "Metadata",
+      "acceptance": "MD-1. Se persiste qué scheduler se usó, con qué versión y con qué parámetros.",
+      "acceptance_ref": "AC-PERSISTENCIA",
+      "method": "unit",
+      "command_or_procedure": "npm run test tests/unit/storage-serialization.test.ts",
+      "evidence_expected": "El documento serializado contiene el bloque de metadata del scheduler y se recupera al leerlo."
+    }
+  ],
+  "allowed_paths": [
+    "app/**",
+    "src/**",
+    "tests/**",
+    "package.json",
+    "package-lock.json",
+    "app.json",
+    "tsconfig.json",
+    "eslint.config.js",
+    "jest.config.js",
+    "playwright.config.ts",
+    "docs/**",
+    "progress/**",
+    ".harness/**"
+  ],
+  "required_docs": [
+    "docs/PRODUCT.md",
+    "docs/ARCHITECTURE.md",
+    "docs/CONVENTIONS.md",
+    "docs/DESIGN.md",
+    "docs/DATABASE.md",
+    "docs/TESTING.md",
+    "docs/VERIFICATION.md"
+  ],
+  "required_gates": [
+    "baseline: ./init.sh verde antes de editar",
+    "static: npm run typecheck",
+    "static: npm run lint",
+    "unit: npm run test",
+    "integration: npm run test:integration",
+    "e2e: npm run test:e2e",
+    "regression: ./init.sh final exit 0",
+    "review: reviewer independiente APPROVED",
+    "qa: QA independiente APPROVED"
+  ],
+  "technical_decisions": [
+    "Implementación FSRS: ts-fsrs 5.4.1 (MIT, open-spaced-repetition). TypeScript puro, sin dependencias en tiempo de ejecución, publica ESM, CJS, UMD y tipos, engines node >= 20 (el proyecto exige >= 20.19.4). No usa APIs exclusivas de Node: el bundle no referencia process, Buffer, __dirname ni módulos node:. Implementa FSRS-6.0.",
+    "Parámetros: los valores por defecto de la propia librería (generatorParameters) con request_retention 0,90, que ya es su valor por defecto. maximum_interval 36500, learning_steps 1m y 10m, relearning_steps 10m, enable_short_term true. No se copian parámetros optimizados de terceros ni se implementa optimización.",
+    "Fuzz: enable_fuzz es false por defecto en ts-fsrs y se mantiene en false, de modo que el scheduling es determinista y el preview coincide exactamente con la calificación. No se introduce aleatoriedad.",
+    "Abstracción: src/features/scheduler expone SpacedRepetitionScheduler con preview, rate, getRetrievability e isDue sobre tipos propios (CardScheduling, ReviewRating, SchedulingState). src/features/scheduler/fsrsAdapter.ts es el único archivo que importa ts-fsrs.",
+    "Reloj: src/lib/clock.ts expone Clock con now() en milisegundos, un reloj de sistema y un reloj de test controlable. El scheduler recibe el instante como argumento y nunca lee el reloj por su cuenta.",
+    "Modelo persistido: el documento de biblioteca pasa a versión 3, con scheduling por carta y un bloque de metadata del scheduler. La clave sigue siendo flashcards:library:v1. Las versiones 1 y 2 se siguen leyendo y se migran al vuelo.",
+    "Historial: el documento de historial pasa a versión 2 y añade reviews a cada partición mensual. La versión 1 se sigue leyendo y se migra al vuelo con reviews vacío.",
+    "Consistencia de la calificación: se escribe primero la biblioteca y después el historial; si el historial falla se revierte la biblioteca al valor anterior, que se conserva en memoria. Si la biblioteca falla no se escribe nada. En ningún caso se avanza de tarjeta.",
+    "Estrategia de cola: aprendizaje y reaprendizaje vencidos, después repasos vencidos, después nuevas; dentro de cada grupo por vencimiento ascendente y desempate estable por identificador. Una carta que tras calificarse sigue en aprendizaje o reaprendizaje vuelve al final de la cola de la sesión.",
+    "Las métricas de inventario (Card Counts, Review Intervals, Stability, Difficulty, Retrievability) describen el estado actual de la biblioteca y no se filtran por periodo, igual que ya hacían el conteo y el origen en TASK-006. El ámbito sí se aplica. Future Due usa el periodo como horizonte, y Answer Buttons lo usa como ventana de actividad."
+  ],
+  "out_of_scope": [
+    "Configuración avanzada de FSRS, parámetros personalizados, optimización de parámetros y ML optimizer.",
+    "Presets por mazo y retención configurable.",
+    "Límites configurables de nuevas por día y de repasos por día.",
+    "Bury, suspend, leeches, sibling burying, flags y filtros de Anki.",
+    "Custom study, reprogramación manual, set due date y deshacer una calificación.",
+    "Importación de .apkg de Anki.",
+    "Sincronización, cuentas, Supabase y persistencia remota.",
+    "Notificaciones, IA y gamificación.",
+    "Modo oscuro y política de duplicados de flashcards.",
+    "Cualquier feature no descrita, y TASK-008."
+  ],
+  "baseline_required": true,
+  "regression_required": true,
+  "review_required": true,
+  "qa_required": true
+}

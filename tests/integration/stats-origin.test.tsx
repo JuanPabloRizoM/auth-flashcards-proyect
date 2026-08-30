@@ -1,5 +1,6 @@
 import { screen } from 'expo-router/testing-library';
 
+import { newScheduling } from '../../src/features/scheduler/types';
 import type { CardOrigin } from '../../src/features/stats/types';
 import type { FilePicker } from '../../src/lib/files/types';
 import { fixtureFile } from '../fixtures/import/load';
@@ -96,10 +97,11 @@ describe('Tarjetas sin origen conocido', () => {
     await repos.libraryRepository.save({
       decks: [{ id: 'mazo-9', name: 'Anterior', updatedAt: '2026-01-01T00:00:00.000Z' }],
       cards: [
-        { id: 'carta-90', deckId: 'mazo-9', front: 'a', back: 'b' },
-        { id: 'carta-91', deckId: 'mazo-9', front: 'c', back: 'd' },
-        { id: 'carta-92', deckId: 'mazo-9', front: 'e', back: 'f' },
+        { id: 'carta-90', deckId: 'mazo-9', front: 'a', back: 'b', scheduling: { ...newScheduling } },
+        { id: 'carta-91', deckId: 'mazo-9', front: 'c', back: 'd', scheduling: { ...newScheduling } },
+        { id: 'carta-92', deckId: 'mazo-9', front: 'e', back: 'f', scheduling: { ...newScheduling } },
       ],
+    scheduler: null,
     });
 
     montarApp({ ...repos, initialUrl: '/estadisticas' });
@@ -119,9 +121,10 @@ describe('Tarjetas sin origen conocido', () => {
     await repos.libraryRepository.save({
       decks: [{ id: 'mazo-9', name: 'Anterior', updatedAt: '2026-01-01T00:00:00.000Z' }],
       cards: [
-        { id: 'carta-90', deckId: 'mazo-9', front: 'a', back: 'b' },
-        { id: 'carta-91', deckId: 'mazo-9', front: 'c', back: 'd' },
+        { id: 'carta-90', deckId: 'mazo-9', front: 'a', back: 'b', scheduling: { ...newScheduling } },
+        { id: 'carta-91', deckId: 'mazo-9', front: 'c', back: 'd', scheduling: { ...newScheduling } },
       ],
+    scheduler: null,
     });
 
     montarApp({ ...repos, initialUrl: '/estadisticas' });

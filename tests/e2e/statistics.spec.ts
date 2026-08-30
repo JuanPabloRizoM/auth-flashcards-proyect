@@ -41,7 +41,9 @@ async function crearYEstudiar(page: Page, nombre: string, cartas: number) {
   await expect(page.getByTestId('study-card')).toBeVisible();
   for (let index = 0; index < cartas; index += 1) {
     await page.getByTestId('reveal-button').click();
-    await page.getByTestId('next-card-button').click();
+    // Fácil es la única calificación que saca una tarjeta nueva de la sesión de una vez, de
+    // modo que el recorrido termine en un número conocido de pasos.
+    await page.getByTestId('rate-easy').click();
   }
   await expect(page.getByTestId('study-finished')).toBeVisible();
 }

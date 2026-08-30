@@ -15,20 +15,37 @@ import {
   addedBars,
   addedMetrics,
   ALL_DECKS,
+  answerButtonBars,
+  answerButtonMetrics,
   countMetrics,
   deckComparisonColumns,
   deckComparisonRows,
   deferredColumns,
   deferredRows,
+  difficultyBars,
+  difficultyMetrics,
+  futureDueBars,
+  futureDueMetrics,
   hourlyBars,
   hourlyMetrics,
   originColumns,
   originRows,
   periodOptions,
+  ratingNotice,
+  retentionColumns,
+  retentionExclusionNotice,
+  retentionRows,
+  retrievabilityBars,
+  retrievabilityMetrics,
+  reviewIntervalBars,
+  reviewIntervalMetrics,
+  schedulerCountMetrics,
   scopeFromValue,
   scopeOptions,
   speedBars,
   speedMetrics,
+  stabilityBars,
+  stabilityMetrics,
   streakMetrics,
   timeBars,
   timeMetrics,
@@ -37,6 +54,7 @@ import {
 } from '../src/features/stats/view';
 import { savePdfFile } from '../src/lib/files';
 import type { FileSaver } from '../src/lib/files';
+import { systemClock, type Clock } from '../src/lib/clock';
 import { useLibrary } from '../src/lib/LibraryProvider';
 import { useStudyHistory } from '../src/lib/StudyHistoryProvider';
 import { spacing } from '../src/theme';
@@ -48,9 +66,10 @@ import { spacing } from '../src/theme';
  * elegidos, y lo pinta (docs/ARCHITECTURE.md, regla 1). El reporte PDF pide exactamente el
  * mismo informe, de modo que no puedan discrepar.
  *
- * No se muestran Future Due, Review Intervals, Card Ease, Retention ni Answer Buttons:
- * requieren un algoritmo de repetición espaciada que todavía no está decidido. En vez de
- * dibujarlas a cero, se declaran al final con su motivo.
+ * Desde TASK-007 hay un scheduler real, así que aparecen también Future Due, Answer
+ * Buttons, True Retention, Review Intervals, Stability, Difficulty y Retrievability. Todas
+ * se derivan de datos reales del scheduler y del registro de calificaciones; ninguna se
+ * dibuja a cero cuando el dato no existe.
  */
 export type EstadisticasScreenProps = {
   /**
@@ -61,10 +80,19 @@ export type EstadisticasScreenProps = {
    * doble que se queda con los bytes para poder afirmar sobre el PDF de verdad.
    */
   fileSaver?: FileSaver;
+  /**
+   * Reloj inyectable.
+   *
+   * La retrievability y Future Due se miden en el instante actual, no en el día: un test
+   * necesita poder fijarlo y adelantarlo para comprobar que la probabilidad de recuerdo
+   * baja con el tiempo.
+   */
+  clock?: Clock;
 };
 
 export default function EstadisticasScreen({
   fileSaver = savePdfFile,
+  clock = systemClock,
 }: EstadisticasScreenProps = {}) {
   const { library, status: libraryStatus, storageError } = useLibrary();
   const { history, status: historyStatus, historyError } = useStudyHistory();
@@ -99,26 +127,32 @@ export default function EstadisticasScreen({
    * es que una pantalla abierta cuando cambia el día sigue mostrando el día anterior hasta
    * que se vuelve a entrar, que es preferible a que las cifras bailen solas.
    */
-  const [today] = useState(() => localDayOf(Date.now()));
+  const [now] = useState(() => clock.now());
+  const [today] = useState(() => localDayOf(now));
 
   const report = useMemo(
     () =>
       buildStatsReport(
         { library, history },
-        { scope: scopeFromValue(activeScopeValue), period, today },
+        { scope: scopeFromValue(activeScopeValue), period, today, now },
       ),
-    [activeScopeValue, history, library, period, today],
+    [activeScopeValue, history, library, now, period, today],
   );
 
   const onGenerate = useCallback(
     async () => {
       setReportFeedback(undefined);
-      const generatedAt = Date.now();
+      const generatedAt = clock.now();
       // El PDF nace del mismo motor y de la misma función que el dashboard: solo cambian el
       // ámbito y el periodo que se le piden.
       const pdfReport = buildStatsReport(
         { library, history },
-        { scope: scopeFromValue(reportScope), period: reportPeriod, today: localDayOf(generatedAt) },
+        {
+          scope: scopeFromValue(reportScope),
+          period: reportPeriod,
+          today: localDayOf(generatedAt),
+          now: generatedAt,
+        },
       );
       const bytes = buildStatsPdf(pdfReport, { generatedAt });
       const result = await fileSaver(reportFileName(pdfReport), bytes);
@@ -138,7 +172,7 @@ export default function EstadisticasScreen({
         text: `${where} Ámbito: ${pdfReport.scopeLabel}. Periodo: ${pdfReport.periodLabel}.`,
       });
     },
-    [fileSaver, history, library, reportPeriod, reportScope],
+    [clock, fileSaver, history, library, reportPeriod, reportScope],
   );
 
   if (hydrating) {
@@ -293,6 +327,138 @@ export default function EstadisticasScreen({
         title="Conteo de tarjetas"
       >
         <MetricGrid metrics={countMetrics(report)} testID="stats-counts-metrics" />
+        <MetricGrid metrics={schedulerCountMetrics(report)} testID="stats-scheduler-counts" />
+      </Card>
+
+      <Card
+        description={`Repasos que el scheduler tiene programados hacia delante. Horizonte: ${report.periodLabel.toLocaleLowerCase()}. Las tarjetas nuevas no aparecen: todavía no tienen fecha.`}
+        testID="stats-future-due"
+        title="Próximos repasos"
+      >
+        <BarChart
+          emptyMessage="No hay ningún repaso programado en este horizonte."
+          formatPeak={(value) => `${formatNumber(value)} repasos`}
+          points={futureDueBars(report)}
+          testID="stats-future-due-chart"
+        />
+        <MetricGrid metrics={futureDueMetrics(report)} testID="stats-future-due-metrics" />
+      </Card>
+
+      <Card
+        description="Cuántas veces has usado cada calificación en el periodo. La actividad anterior a la calificación se cuenta aparte, nunca como una quinta opción."
+        testID="stats-answer-buttons"
+        title="Calificaciones"
+      >
+        {report.answerButtons.total === 0 ? (
+          <Message testID="stats-answer-buttons-empty" variant="info">
+            {ratingNotice(report)}
+          </Message>
+        ) : (
+          <>
+            <BarChart
+              emptyMessage="Sin calificaciones en este periodo."
+              formatPeak={(value) => `${formatNumber(value)} respuestas`}
+              labelEvery={1}
+              points={answerButtonBars(report)}
+              testID="stats-answer-buttons-chart"
+            />
+            <MetricGrid
+              metrics={answerButtonMetrics(report)}
+              testID="stats-answer-buttons-metrics"
+            />
+          </>
+        )}
+      </Card>
+
+      <Card
+        description="Porcentaje de repasos acertados. Otra vez es un fallo; Difícil, Bien y Fácil son aciertos. Se cuenta el primer repaso de cada tarjeta en cada día, y solo el de tarjetas que ya estaban en repaso."
+        testID="stats-retention"
+        title="Retención real"
+      >
+        {report.trueRetention.rows.every((row) => row.total.total === 0) ? (
+          <Message testID="stats-retention-empty" variant="info">
+            {ratingNotice(report)}
+          </Message>
+        ) : (
+          <StatsTable
+            columns={retentionColumns}
+            emptyMessage="Sin repasos calificados todavía."
+            rows={retentionRows(report)}
+            testID="stats-retention-table"
+          />
+        )}
+        {/* Lo que queda fuera se dice pase lo que pase: es justo cuando la tabla está
+            vacía cuando más falta hace saber por qué. */}
+        {retentionExclusionNotice(report) ? (
+          <Message testID="stats-retention-excluded" variant="info">
+            {retentionExclusionNotice(report)}
+          </Message>
+        ) : null}
+      </Card>
+
+      <Card
+        description="Cuánto tiempo pasa entre repasos de las tarjetas que ya están en repaso. Describe la biblioteca de hoy, no el periodo."
+        testID="stats-intervals"
+        title="Intervalos de repaso"
+      >
+        <BarChart
+          emptyMessage="Todavía no hay ninguna tarjeta en repaso."
+          formatPeak={(value) => `${formatNumber(value)} tarjetas`}
+          labelEvery={2}
+          points={reviewIntervalBars(report)}
+          testID="stats-intervals-chart"
+        />
+        <MetricGrid metrics={reviewIntervalMetrics(report)} testID="stats-intervals-metrics" />
+      </Card>
+
+      <Card
+        description="Estimación de cuánto tarda la probabilidad de recordar una tarjeta en bajar hasta cerca del 90 %. Solo entran las tarjetas que ya tienen historial con el scheduler."
+        testID="stats-stability"
+        title="Estabilidad"
+      >
+        <BarChart
+          emptyMessage="Ninguna tarjeta tiene todavía estabilidad calculada."
+          formatPeak={(value) => `${formatNumber(value)} tarjetas`}
+          labelEvery={2}
+          points={stabilityBars(report)}
+          testID="stats-stability-chart"
+          tone="success"
+        />
+        <MetricGrid metrics={stabilityMetrics(report)} testID="stats-stability-metrics" />
+      </Card>
+
+      <Card
+        description="Cuánto cuesta mantener cada tarjeta en memoria según su historial de repasos, de 1 a 10. No es el botón Difícil: aquello es una respuesta puntual, esto es una propiedad de la tarjeta."
+        testID="stats-difficulty"
+        title="Dificultad"
+      >
+        <BarChart
+          emptyMessage="Ninguna tarjeta tiene todavía dificultad calculada."
+          formatPeak={(value) => `${formatNumber(value)} tarjetas`}
+          labelEvery={1}
+          points={difficultyBars(report)}
+          testID="stats-difficulty-chart"
+        />
+        <MetricGrid metrics={difficultyMetrics(report)} testID="stats-difficulty-metrics" />
+      </Card>
+
+      <Card
+        description="Probabilidad estimada de que recuerdes ahora mismo cada tarjeta en repaso. Se calcula al abrir la pantalla y no se guarda: depende del tiempo transcurrido."
+        testID="stats-retrievability"
+        title="Probabilidad de recuerdo"
+      >
+        <BarChart
+          emptyMessage="Todavía no hay ninguna tarjeta en repaso que medir."
+          formatPeak={(value) => `${formatNumber(value)} tarjetas`}
+          labelEvery={2}
+          points={retrievabilityBars(report)}
+          testID="stats-retrievability-chart"
+          tone="success"
+        />
+        <MetricGrid
+          metrics={retrievabilityMetrics(report)}
+          testID="stats-retrievability-metrics"
+        />
       </Card>
 
       <Card

@@ -22,13 +22,14 @@ import {
  */
 
 const HOY = '2026-08-23';
+const AHORA = Date.parse(`${HOY}T12:00:00Z`);
 const DIA_1 = '2026-08-20';
 const DIA_2 = '2026-08-21';
 
 beforeEach(resetSequence);
 
 function consulta(partes: Partial<StatsQuery> = {}): StatsQuery {
-  return { scope: { kind: 'all' }, period: 'all', today: HOY, ...partes };
+  return { scope: { kind: 'all' }, period: 'all', today: HOY, now: AHORA, ...partes };
 }
 
 /**
@@ -739,16 +740,12 @@ describe('Sin datos', () => {
 });
 
 describe('Métricas diferidas', () => {
-  it('declara las cinco métricas de Anki que todavía no pueden calcularse', () => {
+  it('desde TASK-007 solo queda diferido Card Ease, que FSRS no calcula', () => {
+    // Future Due, Review Intervals, Retention y Answer Buttons ya existen: los hace posibles
+    // el scheduler. Card Ease pertenece a SM-2; en FSRS su equivalente es Difficulty.
     const report = buildStatsReport({ library: biblioteca(), history: historial() }, consulta());
 
-    expect(report.deferred.map((metric) => metric.anki)).toEqual([
-      'Future Due',
-      'Review Intervals',
-      'Card Ease',
-      'Retention',
-      'Answer Buttons',
-    ]);
+    expect(report.deferred.map((metric) => metric.anki)).toEqual(['Card Ease']);
     expect(report.deferred.every((metric) => metric.reason.length > 0)).toBe(true);
   });
 });

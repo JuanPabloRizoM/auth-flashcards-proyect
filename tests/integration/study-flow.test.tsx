@@ -50,7 +50,7 @@ describe('Flujo: estudiar', () => {
     expect(screen.getByTestId('study-button').props.accessibilityState.disabled).toBe(true);
   });
 
-  it('recorre el ciclo Frente, Mostrar respuesta, Frente + Reverso, Siguiente carta', async () => {
+  it('recorre el ciclo Frente, Mostrar respuesta, Frente + Reverso, calificar', async () => {
     await prepararMazoConDosCartas();
 
     await pulsar('study-button');
@@ -59,21 +59,22 @@ describe('Flujo: estudiar', () => {
     // Primera carta: solo el frente.
     expect(screen.getByTestId('study-front')).toBeTruthy();
     expect(screen.queryByTestId('study-back')).toBeNull();
-    expect(screen.getByText('Carta 1 de 2')).toBeTruthy();
+    expect(screen.getByText('2 tarjetas por delante')).toBeTruthy();
     expect(screen.getByTestId('reveal-button')).toBeTruthy();
 
-    // Mostrar respuesta: frente y reverso a la vez.
+    // Mostrar respuesta: frente y reverso a la vez, y aparecen las calificaciones.
     await pulsar('reveal-button');
     expect(screen.getByTestId('study-front')).toBeTruthy();
     expect(screen.getByTestId('study-back')).toBeTruthy();
     expect(screen.getByText('pasar por alto')).toBeTruthy();
     expect(screen.queryByTestId('reveal-button')).toBeNull();
+    expect(screen.getByTestId('rating-buttons')).toBeTruthy();
 
-    // Siguiente carta: otra vez solo el frente.
-    await pulsar('next-card-button');
+    // Calificar Fácil: la tarjeta pasa a repaso y sale de la sesión.
+    await pulsar('rate-easy');
     expect(screen.queryByTestId('study-back')).toBeNull();
     expect(screen.getByText('to withstand')).toBeTruthy();
-    expect(screen.getByText('Carta 2 de 2')).toBeTruthy();
+    expect(screen.getByText('1 respuesta · 1 pendiente')).toBeTruthy();
   });
 
   it('comunica el final de la sesión y permite volver al mazo', async () => {
@@ -83,29 +84,48 @@ describe('Flujo: estudiar', () => {
     await screen.findByTestId('study-card');
 
     await pulsar('reveal-button');
-    await pulsar('next-card-button');
+    await pulsar('rate-easy');
     await pulsar('reveal-button');
-    await pulsar('next-card-button');
+    await pulsar('rate-easy');
 
     expect(await screen.findByTestId('study-finished')).toBeTruthy();
     expect(screen.getByText('Sesión terminada')).toBeTruthy();
-    expect(screen.getByText('Has repasado las 2 cartas de este mazo.')).toBeTruthy();
+    expect(screen.getByText('Has terminado con las 2 tarjetas que tocaban.')).toBeTruthy();
 
     await pulsar('finish-back-button');
 
     expect(await screen.findByTestId('add-card-button')).toBeTruthy();
   });
 
-  it('no ofrece ningún control de calificación durante el estudio', async () => {
+  it('no ofrece ningún control de calificación antes de revelar la respuesta', async () => {
     await prepararMazoConDosCartas();
 
     await pulsar('study-button');
     await screen.findByTestId('study-card');
-    await pulsar('reveal-button');
 
-    ['Otra vez', 'Difícil', 'Bien', 'Fácil', 'Repasar', 'Calificar'].forEach((texto) => {
+    // Con la respuesta oculta no hay nada que calificar, y no se insinúa que lo haya.
+    expect(screen.queryByTestId('rating-buttons')).toBeNull();
+    ['Otra vez', 'Difícil', 'Bien', 'Fácil'].forEach((texto) => {
       expect(screen.queryByText(texto)).toBeNull();
     });
+
+    // Al revelarla aparecen las cuatro, en español.
+    await pulsar('reveal-button');
+    ['Otra vez', 'Difícil', 'Bien', 'Fácil'].forEach((texto) => {
+      expect(screen.getByText(texto)).toBeTruthy();
+    });
+  });
+
+  it('siempre se puede terminar la sesión, aunque queden tarjetas', async () => {
+    await prepararMazoConDosCartas();
+
+    await pulsar('study-button');
+    await screen.findByTestId('study-card');
+    expect(screen.getByTestId('finish-session-button')).toBeTruthy();
+
+    await pulsar('finish-session-button');
+
+    expect(await screen.findByTestId('add-card-button')).toBeTruthy();
   });
 
   // Regresión: volver del estudio al mazo con `replace` dejaba montada la instancia

@@ -14,6 +14,7 @@ import { crearEstudiarMazo, montarApp, repositorios } from './statsHarness';
  */
 
 const HOY = localDayOf(Date.now());
+const AHORA = Date.now();
 
 describe('Recuperación tras reconstruir la aplicación', () => {
   it('el historial se lee del medio, no de un estado que sobrevivió', async () => {
@@ -101,7 +102,7 @@ async function calcular(repos: ReturnType<typeof repositorios>) {
 
   const report = buildStatsReport(
     { library: libraryResult.library, history: historyResult.history },
-    { scope: { kind: 'all' }, period: 'all', today: HOY },
+    { scope: { kind: 'all' }, period: 'all', today: HOY, now: AHORA },
   );
 
   return {

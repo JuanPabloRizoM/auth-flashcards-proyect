@@ -1,5 +1,6 @@
 import { act, fireEvent, screen } from 'expo-router/testing-library';
 
+import { emptyLibrary } from '../../src/features/decks/library';
 import { buildStatsReport } from '../../src/features/stats/engine';
 import { localDayOf } from '../../src/features/stats/time';
 import {
@@ -36,10 +37,10 @@ async function informeGlobal(repos: ReturnType<typeof repositorios>) {
 
   return buildStatsReport(
     {
-      library: library.status === 'ok' ? library.library : { decks: [], cards: [] },
+      library: library.status === 'ok' ? library.library : emptyLibrary,
       history: history.history,
     },
-    { scope: { kind: 'all' }, period: 'all', today: HOY },
+    { scope: { kind: 'all' }, period: 'all', today: HOY, now: Date.now() },
   );
 }
 

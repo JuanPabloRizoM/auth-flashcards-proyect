@@ -1,7 +1,10 @@
 import type { BarChartPoint } from '../../components/stats';
+import { formatIntervalDays } from '../scheduler/format';
+import { reviewRatingLabels, reviewRatings } from '../scheduler/types';
 import type { Deck } from '../../types/domain';
 
 import type { StatsReport } from './engine';
+import type { DistributionStats } from './fsrs';
 import {
   formatAverage,
   formatDayLong,
@@ -142,6 +145,215 @@ export function countMetrics(report: StatsReport) {
     { label: 'Nunca estudiadas', value: formatNumber(counts.neverStudied) },
     { label: 'Estudiadas alguna vez', value: formatNumber(counts.studiedAtLeastOnce) },
     { label: 'Estudiadas hoy', value: formatNumber(counts.studiedToday) },
+  ];
+}
+
+/** Reparto por estado del scheduler. Los cinco suman el total del ámbito. */
+export function schedulerCountMetrics(report: StatsReport) {
+  const { scheduler } = report.counts;
+  return [
+    { label: 'Nuevas', value: formatNumber(scheduler.nuevas), hint: 'Sin calificar todavía' },
+    { label: 'Aprendiendo', value: formatNumber(scheduler.aprendiendo) },
+    { label: 'Reaprendiendo', value: formatNumber(scheduler.reaprendiendo), hint: 'Falladas tras aprenderse' },
+    { label: 'Young', value: formatNumber(scheduler.young), hint: 'Repaso con menos de 21 días' },
+    { label: 'Mature', value: formatNumber(scheduler.mature), hint: 'Repaso con 21 días o más' },
+  ];
+}
+
+// ── Repetición espaciada ─────────────────────────────────────────────────────
+
+/** Frase que sitúa las métricas de calificación: desde cuándo existen. */
+export function ratingNotice(report: StatsReport): string {
+  if (report.ratedSince === null) {
+    return 'Todavía no has calificado ninguna tarjeta en este dispositivo. Estas secciones aparecerán en cuanto estudies con Otra vez, Difícil, Bien o Fácil.';
+  }
+  return `Datos de calificación disponibles desde ${formatInstantLong(report.ratedSince)}. La actividad anterior se registró sin calificación y no se cuenta aquí.`;
+}
+
+export function answerButtonBars(report: StatsReport): BarChartPoint[] {
+  return reviewRatings.map((rating) => {
+    const slice = report.answerButtons.slices.find((entry) => entry.rating === rating);
+    const reviews = slice?.reviews ?? 0;
+    return {
+      key: rating,
+      label: reviewRatingLabels[rating],
+      value: reviews,
+      accessibilityLabel: `${reviewRatingLabels[rating]}: ${plural(reviews, 'respuesta', 'respuestas')}, ${formatPercent(slice?.percent ?? 0)}.`,
+    };
+  });
+}
+
+export function answerButtonMetrics(report: StatsReport) {
+  const { answerButtons } = report;
+  return [
+    { label: 'Respuestas calificadas', value: formatNumber(answerButtons.total) },
+    ...reviewRatings.map((rating) => {
+      const slice = answerButtons.slices.find((entry) => entry.rating === rating);
+      return {
+        label: reviewRatingLabels[rating],
+        value: formatNumber(slice?.reviews ?? 0),
+        hint: formatPercent(slice?.percent ?? 0),
+      };
+    }),
+    {
+      label: 'Sin calificar',
+      value: formatNumber(answerButtons.unrated),
+      hint: 'Actividad anterior a la calificación',
+    },
+  ];
+}
+
+export const retentionColumns = [
+  { key: 'periodo', header: 'Periodo', flex: 3 },
+  { key: 'young', header: 'Young', align: 'right' as const, flex: 2 },
+  { key: 'mature', header: 'Mature', align: 'right' as const, flex: 2 },
+  { key: 'total', header: 'Total', align: 'right' as const, flex: 2 },
+  { key: 'repasos', header: 'Repasos', align: 'right' as const, flex: 2 },
+];
+
+/**
+ * Qué queda fuera de la tabla de retención, y por qué.
+ *
+ * `null` cuando no se ha excluido nada. Existe para que la omisión no sea invisible: si no
+ * se dijera, alguien podría contar sus repasos y no entender por qué la tabla dice menos.
+ */
+export function retentionExclusionNotice(report: StatsReport): string | null {
+  const { excludedLearning } = report.trueRetention;
+  if (excludedLearning === 0) return null;
+  return excludedLearning === 1
+    ? '1 respuesta queda fuera por ser de una tarjeta que todavía se estaba aprendiendo.'
+    : `${formatNumber(excludedLearning)} respuestas quedan fuera por ser de tarjetas que todavía se estaban aprendiendo.`;
+}
+
+export function retentionRows(report: StatsReport) {
+  return report.trueRetention.rows.map((row) => ({
+    key: row.key,
+    muted: row.total.total === 0,
+    cells: [
+      row.label,
+      formatPercent(row.young.retention),
+      formatPercent(row.mature.retention),
+      formatPercent(row.total.retention),
+      formatNumber(row.total.total),
+    ],
+    accessibilityLabel:
+      `${row.label}: retención de tarjetas Young ${formatPercent(row.young.retention)}, ` +
+      `Mature ${formatPercent(row.mature.retention)}, total ${formatPercent(row.total.retention)}, ` +
+      `sobre ${plural(row.total.total, 'repaso', 'repasos')}.`,
+  }));
+}
+
+export function futureDueBars(report: StatsReport): BarChartPoint[] {
+  return report.futureDue.buckets.map((bucket) => ({
+    key: bucket.day,
+    label: bucket.offset === 0 ? 'Hoy' : formatDayShort(bucket.day),
+    value: bucket.reviews,
+    accessibilityLabel: `${formatDayLong(bucket.day)}: ${plural(bucket.reviews, 'repaso programado', 'repasos programados')}.`,
+  }));
+}
+
+export function futureDueMetrics(report: StatsReport) {
+  const { futureDue } = report;
+  return [
+    { label: 'Programadas en el horizonte', value: formatNumber(futureDue.total) },
+    {
+      label: 'Vencidas ahora',
+      value: formatNumber(futureDue.backlog),
+      hint: 'Esperando desde antes',
+    },
+    { label: 'Días con repasos', value: formatNumber(futureDue.daysWithReviews) },
+    { label: 'Media por día', value: formatAverage(futureDue.averagePerDay) },
+    {
+      label: 'Día más cargado',
+      value: futureDue.busiestDay ? formatDayShort(futureDue.busiestDay.day) : UNKNOWN,
+      hint: futureDue.busiestDay ? `${formatNumber(futureDue.busiestDay.reviews)} repasos` : undefined,
+    },
+    {
+      label: 'Más allá del horizonte',
+      value: formatNumber(futureDue.beyondHorizon),
+      hint: futureDue.horizonDays === null ? 'Sin horizonte: todo incluido' : undefined,
+    },
+  ];
+}
+
+/** Barras de una distribución. Sirve para intervalos, estabilidad, dificultad y R. */
+function distributionBars(
+  distribution: DistributionStats,
+  describe: (bucket: DistributionStats['buckets'][number]) => string,
+): BarChartPoint[] {
+  return distribution.buckets.map((bucket) => ({
+    key: bucket.key,
+    label: bucket.label,
+    value: bucket.count,
+    accessibilityLabel: describe(bucket),
+  }));
+}
+
+export function reviewIntervalBars(report: StatsReport): BarChartPoint[] {
+  return distributionBars(
+    report.reviewIntervals,
+    (bucket) => `${bucket.label}: ${plural(bucket.count, 'tarjeta', 'tarjetas')}.`,
+  );
+}
+
+export function reviewIntervalMetrics(report: StatsReport) {
+  const { reviewIntervals } = report;
+  return [
+    { label: 'Tarjetas en repaso', value: formatNumber(reviewIntervals.samples) },
+    { label: 'Intervalo mediano', value: formatIntervalDays(reviewIntervals.median) },
+    { label: 'Intervalo medio', value: formatIntervalDays(reviewIntervals.average) },
+    { label: 'Intervalo máximo', value: formatIntervalDays(reviewIntervals.max) },
+  ];
+}
+
+export function stabilityBars(report: StatsReport): BarChartPoint[] {
+  return distributionBars(
+    report.stability,
+    (bucket) => `${bucket.label}: ${plural(bucket.count, 'tarjeta', 'tarjetas')}.`,
+  );
+}
+
+export function stabilityMetrics(report: StatsReport) {
+  const { stability } = report;
+  return [
+    { label: 'Tarjetas con estado FSRS', value: formatNumber(stability.samples) },
+    { label: 'Estabilidad mediana', value: formatIntervalDays(stability.median) },
+    { label: 'Estabilidad media', value: formatIntervalDays(stability.average) },
+    { label: 'Estabilidad máxima', value: formatIntervalDays(stability.max) },
+  ];
+}
+
+export function difficultyBars(report: StatsReport): BarChartPoint[] {
+  return distributionBars(
+    report.difficulty,
+    (bucket) => `Dificultad ${bucket.label}: ${plural(bucket.count, 'tarjeta', 'tarjetas')}.`,
+  );
+}
+
+export function difficultyMetrics(report: StatsReport) {
+  const { difficulty } = report;
+  return [
+    { label: 'Tarjetas con estado FSRS', value: formatNumber(difficulty.samples) },
+    { label: 'Dificultad mediana', value: formatAverage(difficulty.median) },
+    { label: 'Dificultad media', value: formatAverage(difficulty.average) },
+    { label: 'Dificultad máxima', value: formatAverage(difficulty.max) },
+  ];
+}
+
+export function retrievabilityBars(report: StatsReport): BarChartPoint[] {
+  return distributionBars(
+    report.retrievability,
+    (bucket) => `Entre ${bucket.label} de probabilidad: ${plural(bucket.count, 'tarjeta', 'tarjetas')}.`,
+  );
+}
+
+export function retrievabilityMetrics(report: StatsReport) {
+  const { retrievability } = report;
+  return [
+    { label: 'Tarjetas de repaso', value: formatNumber(retrievability.samples) },
+    { label: 'Probabilidad mediana', value: formatPercent(retrievability.median) },
+    { label: 'Probabilidad media', value: formatPercent(retrievability.average) },
+    { label: 'Mínima', value: formatPercent(retrievability.min) },
   ];
 }
 
