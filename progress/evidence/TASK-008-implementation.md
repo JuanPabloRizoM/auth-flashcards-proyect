@@ -231,10 +231,10 @@ ninguna librería de gráficas, de iconos ni de formularios.
 | A110 | Los tests unitarios pasan. | unit | npm run test | PASS |
 | A111 | Los tests de integración pasan. | integration | npm run test:integration | PASS |
 | A112 | Los tests E2E pasan. | e2e | npm run test:e2e | PASS |
-| A113 | ./init.sh termina con exit code 0. | static | ./init.sh | PENDIENTE — en esta ejecución falla solo por la higiene sobre `.env.example` sin commitear (ver §3). Se comprueba en el cierre. |
-| A114 | Reviewer independiente APPROVED. | review | Revisión read-only registrada en progress/evidence/TASK-008-review.md | PENDIENTE — el implementer no se autoaprueba. |
-| A115 | QA independiente APPROVED. | review | QA read-only registrada en progress/evidence/TASK-008-qa.md | PENDIENTE. |
-| A116 | La evidencia está completa. | inspection | Inspección de progress/evidence/TASK-008-*.md | PENDIENTE — falta la de reviewer y QA. |
+| A113 | ./init.sh termina con exit code 0. | static | ./init.sh | PASS — exit 0 en la ejecución de cierre, con el trabajo ya commiteado. |
+| A114 | Reviewer independiente APPROVED. | review | Revisión read-only registrada en progress/evidence/TASK-008-review.md | PASS — CHANGES_REQUIRED en el pase 1, APPROVED en el pase 2 tras corregir los cuatro hallazgos. |
+| A115 | QA independiente APPROVED. | review | QA read-only registrada en progress/evidence/TASK-008-qa.md | PASS — APPROVED, sin hallazgos que exijan cambio. |
+| A116 | La evidencia está completa. | inspection | Inspección de progress/evidence/TASK-008-*.md | PASS — implementación, revisión y QA registradas; `check_evidence.py` → EVIDENCE: OK. |
 
 ## 5. Gates ejecutados
 

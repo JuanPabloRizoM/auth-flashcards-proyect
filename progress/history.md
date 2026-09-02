@@ -285,3 +285,79 @@ repositorios con sus claves de producción.
 Gates finales: typecheck, lint, **636 unit**, **229 integration**, **204 E2E** (más 6
 skipped condicionales) y `./init.sh` exit 0.
 
+
+## TASK-008 — Autenticación con correo y Google mediante Supabase Auth
+
+Cerrada `DONE` el 2026-09-02. Reviewer APPROVED en el segundo pase, QA APPROVED, `./init.sh`
+exit 0.
+
+### Qué cambia
+
+La aplicación deja de ser anónima. Sin sesión válida solo existen `/login`, `/registro` y el
+callback de OAuth; con sesión, la aplicación es exactamente la de TASK-007.
+
+Supabase entra en el proyecto, y entra **solo como proveedor de identidad**. Los mazos, las
+cartas, la programación FSRS, el historial y las estadísticas siguen siendo locales: no hay
+ninguna tabla de producto en PostgreSQL, y por tanto tampoco RLS de producto que escribir
+todavía. Ningún texto de la interfaz promete sincronización, porque hoy sería mentira.
+
+### Por qué está montado así
+
+**La autenticación vive detrás de una abstracción propia**, igual que el scheduler en
+TASK-007: `UI → AuthProvider → AuthService → SupabaseAuthService → @supabase/supabase-js`, con
+un único archivo que importa la librería. La sesión del dominio lleva identificador, correo y
+caducidad; **los tokens no salen de supabase-js**, porque duplicarlos en el estado de React
+los expondría a cualquier traza sin aportar nada.
+
+**El guard vive en el layout de cada grupo de rutas, no en el raíz.** Las rutas se repartieron
+en `app/(app)/` y `app/(auth)/` —los paréntesis no aparecen en la URL, así que las direcciones
+no cambiaron— y eso es lo que permite **no montar** una pantalla privada sin sesión, en vez de
+montarla y taparla. Es la diferencia entre no haber destello y que el destello dure poco.
+
+**Los datos locales cuelgan del `user.id`, nunca del correo**, porque el correo puede cambiar.
+Biblioteca e historial se derivan del mismo prefijo, de modo que no puede ocurrir que una sea
+de una cuenta y el otro de otra, y los repositorios exigen su espacio como parámetro
+obligatorio: un punto de creación olvidado es ahora un error de compilación y no una fuga
+silenciosa. Al cambiar de cuenta los proveedores se destruyen y se recrean.
+
+**Lo que existía antes de que hubiera cuentas se entrega una sola vez.** Una marca global
+registra qué `user.id` lo recibió; la copia se verifica releyendo del medio antes de escribir
+esa marca; los originales no se borran nunca; y si el destino ya tiene contenido, se respeta.
+Un fallo no destruye nada y el arranque siguiente reintenta.
+
+### Lo que la revisión encontró
+
+El primer pase devolvió **CHANGES_REQUIRED** con cuatro hallazgos. El importante era una
+regresión introducida en esta misma tarea: un `flex: 1` en el sidebar lo hacía crecer de 240 a
+656 px, y ninguna suite lo detectaba porque nada afirmaba sobre su ancho. Ahora hay dos tests
+que lo fijan contra el token del sistema visual.
+
+El segundo hallazgo destapó uno peor. Al escribir el test del enlace de confirmación de correo
+en nativo apareció que, cuando la sesión nacía dentro del primer efecto de la pantalla de
+callback, el guard redirigía **durante el renderizado** y competía con el montaje del
+navegador hasta que React cortaba por «Maximum update depth exceeded». La redirección pasó a
+un efecto. Los hijos siguen sin renderizarse mientras se redirige, así que la ausencia de
+destello no cambió: lo único que cambió es cuándo se navega.
+
+### Lo que no se ha probado
+
+**El flujo real contra Supabase y contra Google no se ha ejecutado.** No hay proyecto ni
+credenciales en este repositorio, y la evidencia lo declara como `CONFIGURATION_REQUIRED` en
+vez de darlo por bueno. Lo probado es el contrato de autenticación: el adaptador contra un
+cliente simulado que declara la superficie real de la API, y la aplicación entera en un
+navegador real contra un doble determinista. La configuración externa que hace falta está en
+`docs/AUTH.md`.
+
+La aplicación tampoco se ha ejecutado en iOS ni en Android. El deep link `flashcards://` está
+configurado y cubierto por tests; no está verificado en ejecución. Es el mismo pendiente que
+ya arrastraban la lectura de archivos y el guardado de PDF.
+
+### Verificación
+
+Gates finales: typecheck, lint, **749 unit**, **287 integration**, **374 E2E** (más 10 skipped
+condicionales) en escritorio, Pixel 5 e iPhone 13, y `./init.sh` exit 0.
+
+El ciclo A → B → A se comprueba en las tres capas, y no solo mirando la pantalla: se leen los
+repositorios directamente y se compara el contenido de cada documento. La migración se prueba
+con documentos reales de una instalación de TASK-007, escritos por el propio serializador del
+proyecto.

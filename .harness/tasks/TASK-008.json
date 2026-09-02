@@ -1,7 +1,7 @@
 {
   "id": "TASK-008",
   "title": "Autenticación con correo y Google mediante Supabase Auth",
-  "status": "REVIEWING",
+  "status": "DONE",
   "created_from_user_request": "Crear y ejecutar TASK-008 completa de principio a fin usando el Harness. La task implementa autenticación real con Supabase Auth: correo y contraseña, Google OAuth, sesión persistente, registro, cierre de sesión, protección de rutas y aislamiento de los datos locales por usuario. Supabase se utiliza EN ESTA TASK únicamente para autenticación: mazos, flashcards, FSRS, historial, estadísticas, PDF e importaciones continúan almacenados localmente y no se mueven a Supabase Database.",
   "goal": "La aplicación deja de ser anónima. Sin sesión válida solo se ven /login, /registro y el callback de OAuth; con sesión válida se ve la aplicación completa, que es exactamente la de TASK-007. La sesión la gestiona Supabase Auth detrás de una abstracción propia, se restaura al arrancar sin enseñar contenido privado por el camino, y se cierra desde la interfaz. Todos los datos locales de producto pasan a estar en un espacio de nombres derivado del user.id, de modo que dos cuentas en el mismo dispositivo no ven los datos de la otra, y la biblioteca creada antes de que existieran cuentas se migra una sola vez, de forma idempotente y sin destruir el original, al primer usuario que inicie sesión.",
   "confirmed_requirements": [

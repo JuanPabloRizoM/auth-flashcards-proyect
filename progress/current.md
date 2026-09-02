@@ -1,7 +1,7 @@
 # Sesión actual
 
 - **Task activa:** ninguna — proyecto en estado IDLE
-- **Última tarea cerrada:** TASK-007 — Repetición espaciada FSRS, cola diaria de estudio y estadísticas de revisión (`DONE`, 2026-08-30)
+- **Última tarea cerrada:** TASK-008 — Autenticación con correo y Google mediante Supabase Auth (`DONE`, 2026-09-02)
 - **Estado del harness:** `./init.sh` exit 0
 - **Repositorio:** rama `main`, remoto `https://github.com/JuanPabloRizoM/auth-flashcards-proyect.git`
 
@@ -15,16 +15,47 @@ No hay tarea en curso. El usuario decide cuál es la siguiente; el harness no pr
 - **Datos** (TASK-004): persistencia local detrás del contrato `LibraryRepository`; unicidad de nombre de mazo; stack de navegación acotado.
 - **Gestión e importación** (TASK-005): renombrar y eliminar mazos con cascada, editar y eliminar cartas, búsqueda y orden en Mis mazos, e importación desde `.csv`, `.xlsx` y `.md` con detección determinista y vista previa obligatoria.
 - **Estadísticas** (TASK-006): sección `/estadisticas` con filtro de ámbito y de periodo; historial de estudio persistente y append-only; motor de estadísticas puro; once secciones; y reporte PDF real multipágina generado por el mismo motor que el panel.
+- **Autenticación** (TASK-008): cuentas reales con Supabase Auth —correo y contraseña, y
+  Google— detrás de la abstracción propia `AuthService`; sesión persistente que se restaura al
+  arrancar sin enseñar contenido privado por el camino; registro con las dos vías y soporte de
+  los dos comportamientos de confirmación de correo; cierre de sesión; rutas repartidas en un
+  grupo público y otro privado con el guard en el layout de cada uno; y datos locales
+  aislados por `user.id`, con migración de una sola vez de lo que existía antes de que hubiera
+  cuentas. Supabase se usa **solo** para autenticación: no hay ninguna tabla de producto.
 - **Repetición espaciada** (TASK-007): scheduler FSRS real (`ts-fsrs` 5.4.1, FSRS-6.0, retención objetivo 0,90, sin fuzz) detrás de la abstracción propia `SpacedRepetitionScheduler`; reloj inyectable; estado de scheduling persistente por carta; cuatro calificaciones en español con el intervalo real de cada una; cola determinista y contadores del mazo derivados del estado; registro de calificaciones append-only; y ocho secciones nuevas de estadísticas —Próximos repasos, Calificaciones, Retención real, Intervalos de repaso, Estabilidad, Dificultad, Probabilidad de recuerdo y conteo por estado— en el panel y en el PDF.
-- **Rutas**: `/`, `/estadisticas`, `/componentes`, `/mazo/[id]`, `/mazo/[id]/estudiar` y `/mazo/[id]/importar`.
-- **Gates**: `typecheck`, `lint`, `test` (636), `test:integration` (229), `test:e2e` (204 + 6 skipped condicionales en desktop-chrome, Pixel 5 e iPhone 13), más `smoke:web` y `e2e:install`.
-- **Almacenamiento**: biblioteca en un documento JSON `version: 3`, con migración desde la 1 y la 2. Historial de estudio aparte, `version: 2`, particionado por mes, con migración desde la 1.
+- **Rutas**: privadas `/`, `/estadisticas`, `/componentes`, `/mazo/[id]`, `/mazo/[id]/estudiar` y `/mazo/[id]/importar`; públicas `/login`, `/registro` y `/auth/callback`. Los grupos `(app)` y `(auth)` no aparecen en la URL.
+- **Gates**: `typecheck`, `lint`, `test` (749), `test:integration` (287), `test:e2e` (374 + 10 skipped condicionales en desktop-chrome, Pixel 5 e iPhone 13), más `smoke:web` y `e2e:install`.
+- **Almacenamiento**: biblioteca en un documento JSON `version: 3`, con migración desde la 1 y la 2. Historial de estudio aparte, `version: 2`, particionado por mes, con migración desde la 1. Desde TASK-008 ambos cuelgan del usuario: `flashcards:user:<USER_ID>:…`.
 
 ## Preguntas abiertas para el usuario
 
 - Ninguna.
 
 ## Pendientes registrados (ninguno bloquea el harness)
+
+### De TASK-008
+
+- **El acceso real contra Supabase y contra Google nunca se ha ejecutado.** No hay proyecto ni
+  credenciales en el repositorio. Está implementado y cubierto por tests deterministas —el
+  adaptador contra un cliente simulado y la aplicación entera contra un doble de
+  autenticación—, pero eso es el contrato de autenticación, no la integración. Para
+  ejecutarlo de verdad hacen falta `EXPO_PUBLIC_SUPABASE_URL` y
+  `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` en un `.env`, el proveedor Google habilitado en el
+  panel de Supabase y las URLs de redirección registradas. Todo está en `docs/AUTH.md`.
+- **El deep link `flashcards://auth/callback` está configurado y probado, no ejecutado.** La
+  aplicación no se ha abierto nunca en iOS ni en Android en esta tarea.
+- **El botón de Google no lleva su logotipo.** Dibujar una aproximación incumpliría sus normas
+  de marca y usar el oficial exige incorporar su recurso. Añadirlo más adelante es cambiar un
+  icono, no el flujo.
+- **La comprobación de higiene de `init.sh` marca `.env.example` mientras está sin
+  commitear**, porque su patrón `\.env\.` también lo caza. Es transitorio —mira
+  `git status --porcelain`— y `init.sh` está fuera de los `allowed_paths` de TASK-008, así que
+  no se tocó. Queda para quien decida la próxima tarea.
+- **`app/_layout.tsx` no se ejercita en Jest**: el arnés de integración monta un layout
+  equivalente para poder inyectar el servicio de autenticación. Sí se ejercita en los E2E.
+- **La contraseña la valida el servidor, no el cliente.** La pantalla solo comprueba que los
+  campos estén y que la confirmación coincida: duplicar aquí la política de longitud de
+  Supabase sería inventarse una regla que podría no ser la suya.
 
 ### De TASK-007
 
@@ -58,7 +89,7 @@ No hay tarea en curso. El usuario decide cuál es la siguiente; el harness no pr
 - **Playwright en máquina nueva**: ejecutar `npm run e2e:install` una vez.
 - **Regenerar las fixtures `.xlsx`** necesita Python con `openpyxl` y `xlsxwriter`, que no son dependencias del proyecto. Ver `tests/fixtures/import/README.md`.
 - **Contrato vs task de TASK-001**: el `allowed_paths` del contrato omite `.claude/**`. Para el planner en una tarea futura.
-- **Decisiones de producto no tomadas**: autenticación, base de datos remota, sincronización, cuentas, configuración avanzada de FSRS, parámetros personalizados, optimización automática, presets por mazo, límites de nuevas y de repasos por día, bury, suspend, leeches, sibling cards, custom study, reprogramación manual, deshacer una calificación, subcategorías, modo oscuro, importación y exportación de Anki, notificaciones, colaboración, IA, papelera, y la política de duplicados de flashcards.
+- **Decisiones de producto no tomadas**: base de datos remota para los datos de producto, sincronización, configuración avanzada de FSRS, parámetros personalizados, optimización automática, presets por mazo, límites de nuevas y de repasos por día, bury, suspend, leeches, sibling cards, custom study, reprogramación manual, deshacer una calificación, subcategorías, modo oscuro, importación y exportación de Anki, notificaciones, colaboración, IA, papelera, y la política de duplicados de flashcards.
 - **Única métrica de Anki todavía no calculable: Card Ease.** Pertenece a SM-2; FSRS no la usa, y su equivalente —Difficulty— sí se muestra. Se declara con su motivo en la pantalla y en el PDF.
 
 ## Evidencia
@@ -70,3 +101,4 @@ No hay tarea en curso. El usuario decide cuál es la siguiente; el harness no pr
 - TASK-005: `progress/evidence/TASK-005-{implementation,review,qa}.md`
 - TASK-006: `progress/evidence/TASK-006-{implementation,review,qa}.md`
 - TASK-007: `progress/evidence/TASK-007-{implementation,review,qa}.md`
+- TASK-008: `progress/evidence/TASK-008-{implementation,review,qa}.md`
