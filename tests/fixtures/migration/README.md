@@ -11,7 +11,13 @@ reconstrucción aproximada.
 - `history-v1-meta.json` — metadatos del historial de TASK-006: `version: 1`, sin
   `ratedSince`.
 - `history-v1-month.json` — partición mensual de TASK-006: `version: 1`, sin `reviews`.
+- `library-v3.json` — biblioteca de TASK-007: `version: 3`, cartas **con** `scheduling` y
+  metadata del scheduler. Es lo que tiene en el almacenamiento quien usó la aplicación antes
+  de que existieran cuentas.
+- `history-v2-meta.json` y `history-v2-month.json` — historial de TASK-007: `version: 2`, con
+  `ratedSince` y con `reviews`.
 
-Las claves con las que se guardan son las reales:
+Las claves con las que se guardan son las reales de **antes de las cuentas**:
 `flashcards:library:v1`, `flashcards:history:v1:meta` y
-`flashcards:history:v1:month:AAAA-MM`.
+`flashcards:history:v1:month:AAAA-MM`. Desde TASK-008 los datos vivos cuelgan del `user.id`
+(`flashcards:user:<id>:…`), y estas claves solo se leen para migrarlas una vez.

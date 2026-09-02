@@ -2,10 +2,10 @@ import { Slot } from 'expo-router';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import { SafeAreaProvider, type Metrics } from 'react-native-safe-area-context';
 
-import ComponentesScreen from '../../app/componentes';
-import MisMazosScreen from '../../app/index';
-import EstudiarScreen from '../../app/mazo/[id]/estudiar';
-import DetalleMazoScreen from '../../app/mazo/[id]/index';
+import ComponentesScreen from '../../app/(app)/componentes';
+import MisMazosScreen from '../../app/(app)/index';
+import EstudiarScreen from '../../app/(app)/mazo/[id]/estudiar';
+import DetalleMazoScreen from '../../app/(app)/mazo/[id]/index';
 import { newScheduling } from '../../src/features/scheduler/types';
 import { AppShell } from '../../src/components/layout';
 import { LibraryProvider } from '../../src/lib/LibraryProvider';
@@ -14,6 +14,7 @@ import { createMemoryHistoryRepository } from '../../src/lib/storage/studyHistor
 import { parseStoredLibrary } from '../../src/lib/storage';
 import { createMemoryRepository } from '../../src/lib/storage/memoryRepository';
 import type { Library } from '../../src/types/domain';
+import { PREFIJO_HISTORIAL } from './statsHarness';
 
 /**
  * Editar y eliminar mazos y cartas, comprobado contra el almacenamiento de verdad.
@@ -35,7 +36,7 @@ function montarApp(repository: Repositorio, initialUrl = '/') {
     return (
       <SafeAreaProvider initialMetrics={metrics}>
         <LibraryProvider repository={repository}>
-          <StudyHistoryProvider repository={createMemoryHistoryRepository()}>
+          <StudyHistoryProvider repository={createMemoryHistoryRepository(PREFIJO_HISTORIAL)}>
           <AppShell>
             <Slot />
           </AppShell>

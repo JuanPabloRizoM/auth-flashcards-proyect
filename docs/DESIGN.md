@@ -89,12 +89,38 @@ Reglas:
 - Con muchos puntos se rotula una etiqueta de cada N; las barras nunca se rotulan todas.
 - Las series llegan agregadas por día o por hora. Nunca se renderiza un punto por evento.
 
+## Pantallas de acceso (TASK-008)
+
+Iniciar sesión y crear cuenta usan la misma identidad visual que el resto: fondo crema,
+superficie blanca, azul tinta para la acción principal y sans-serif. No introducen nada nuevo.
+
+- **No llevan `AppShell`.** Sin sesión no hay destinos que ofrecer, y una barra cuyos enlaces
+  redirigen a esta misma pantalla sería ruido.
+- Una columna centrada de 420 px como máximo, dentro de un `ScrollView`: a 320 px de ancho y
+  con el teclado abierto todo el formulario sigue siendo alcanzable, sin desbordar en
+  horizontal.
+- El separador entre el acceso por correo y el de Google es la palabra «o» entre dos reglas.
+- Los campos son el `Input` de siempre, ampliado con las propiedades que un formulario de
+  acceso necesita de verdad: `secureTextEntry`, `autoComplete`, `textContentType`,
+  `keyboardType` y envío desde el teclado. No es una variante visual nueva.
+
+**El botón de Google no lleva su logotipo.** Dibujar una aproximación del mark de Google
+incumpliría sus normas de marca, y usar el oficial exige incorporar su recurso, que el
+proyecto no tiene. Un botón secundario con el texto «Continuar con Google» dice lo mismo sin
+aparentar una autorización que no existe. Añadirlo más adelante es cambiar un icono, no el
+flujo.
+
 ## Navegación
 
 Desktop: sidebar.
 Mobile: tabs/navegación compacta.
 
 Destinos de primer nivel: Mis mazos, Estadísticas y Componentes.
+
+**Cerrar sesión** no es un destino, así que no entra en esa lista. En desktop vive al pie del
+sidebar, junto al correo de la cuenta; en móvil, en la cabecera. La barra inferior sigue
+siendo solo de destinos: meter ahí un cuarto elemento que no navega a ninguna parte
+confundiría lo que esa barra significa.
 
 El destino activo se marca con color y, además, se anuncia: `accessibilityState.selected`
 para iOS y Android y `aria-current="page"` para web, porque react-native-web no traduce el

@@ -2,8 +2,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { ScreenHeader } from '../../../src/components/layout';
-import { RatingButtons } from '../../../src/components/study';
+import { ScreenHeader } from '../../../../src/components/layout';
+import { RatingButtons } from '../../../../src/components/study';
 import {
   Button,
   EmptyState,
@@ -11,11 +11,11 @@ import {
   FlashcardSurface,
   Loading,
   Message,
-} from '../../../src/components/ui';
-import { cardsOfDeck, findDeck } from '../../../src/features/decks/library';
-import { appScheduler } from '../../../src/features/scheduler';
-import type { ReviewRating, SpacedRepetitionScheduler } from '../../../src/features/scheduler/types';
-import { commitReview, reviewCommitMessage } from '../../../src/features/study/review';
+} from '../../../../src/components/ui';
+import { cardsOfDeck, findDeck } from '../../../../src/features/decks/library';
+import { appScheduler } from '../../../../src/features/scheduler';
+import type { ReviewRating, SpacedRepetitionScheduler } from '../../../../src/features/scheduler/types';
+import { commitReview, reviewCommitMessage } from '../../../../src/features/study/review';
 import {
   applyRating,
   currentCard,
@@ -25,12 +25,12 @@ import {
   revealAnswer,
   startSession,
   type StudySession,
-} from '../../../src/features/study/session';
-import { systemClock, type Clock } from '../../../src/lib/clock';
-import { useLibrary } from '../../../src/lib/LibraryProvider';
-import { useStudyHistory } from '../../../src/lib/StudyHistoryProvider';
-import { goBackOr } from '../../../src/lib/navigation';
-import { spacing } from '../../../src/theme';
+} from '../../../../src/features/study/session';
+import { systemClock, type Clock } from '../../../../src/lib/clock';
+import { useLibrary } from '../../../../src/lib/LibraryProvider';
+import { useStudyHistory } from '../../../../src/lib/StudyHistoryProvider';
+import { goBackOr } from '../../../../src/lib/navigation';
+import { spacing } from '../../../../src/theme';
 
 /**
  * Estudio con repetición espaciada.

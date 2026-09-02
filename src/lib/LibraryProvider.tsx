@@ -26,7 +26,6 @@ import { appScheduler } from '../features/scheduler';
 import type { CardScheduling } from '../features/scheduler/types';
 import type { Library, SchedulerMetadata } from '../types/domain';
 
-import { createAsyncStorageRepository } from './storage/asyncStorageRepository';
 import { storageErrorMessage, type LibraryRepository } from './storage/types';
 
 /**
@@ -95,8 +94,14 @@ const LibraryContext = createContext<LibraryValue | null>(null);
 
 export type LibraryProviderProps = {
   children: ReactNode;
-  /** Inyectable para poder probar con otra implementación del mismo contrato. */
-  repository?: LibraryRepository;
+  /**
+   * De dónde se leen y a dónde se escriben los datos.
+   *
+   * Obligatorio desde TASK-008: la clave depende de quién ha iniciado sesión, así que ya no
+   * existe un repositorio por defecto que el proveedor pueda fabricarse. Quien lo monta es
+   * `UserScopedData`, que sabe el `user.id`. En los tests, el arnés inyecta el suyo.
+   */
+  repository: LibraryRepository;
 };
 
 /**
@@ -177,10 +182,7 @@ function nextCounterFrom(library: Library): number {
 }
 
 export function LibraryProvider({ children, repository }: LibraryProviderProps) {
-  const repositoryRef = useRef<LibraryRepository | null>(repository ?? null);
-  if (repositoryRef.current === null) {
-    repositoryRef.current = createAsyncStorageRepository();
-  }
+  const repositoryRef = useRef<LibraryRepository>(repository);
 
   const [library, setLibrary] = useState<Library>(emptyLibrary);
   /**
@@ -206,7 +208,7 @@ export function LibraryProvider({ children, repository }: LibraryProviderProps) 
     const activeRepository = repositoryRef.current;
 
     const hydrate = async () => {
-      const result = await activeRepository!.load();
+      const result = await activeRepository.load();
       if (cancelled) return;
 
       if (result.status === 'ok') {
@@ -239,7 +241,7 @@ export function LibraryProvider({ children, repository }: LibraryProviderProps) 
     if (writesSuspended.current) {
       return;
     }
-    repositoryRef.current!.save(next).catch(() => {
+    repositoryRef.current.save(next).catch(() => {
       setStorageError('No se han podido guardar los últimos cambios en este dispositivo.');
     });
   }, []);
@@ -312,7 +314,7 @@ export function LibraryProvider({ children, repository }: LibraryProviderProps) 
       const next = stamped(result.library);
       if (!writesSuspended.current) {
         try {
-          await repositoryRef.current!.save(next);
+          await repositoryRef.current.save(next);
         } catch {
           setStorageError('No se han podido guardar las tarjetas importadas en este dispositivo.');
           return { ok: false, error: 'escritura-fallida' };
@@ -338,7 +340,7 @@ export function LibraryProvider({ children, repository }: LibraryProviderProps) 
       // incluyen la calificación, y quien llama decide qué hacer.
       if (!writesSuspended.current) {
         try {
-          await repositoryRef.current!.save(next);
+          await repositoryRef.current.save(next);
         } catch {
           setStorageError('No se han podido guardar los últimos cambios en este dispositivo.');
           return false;

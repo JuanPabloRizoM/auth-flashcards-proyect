@@ -13,19 +13,22 @@ import type { LibraryRepository, LoadResult } from './types';
  * almacenamiento nativo, con la misma API, así que no hacen falta adaptadores distintos.
  */
 /**
+ * @param key Clave completa bajo la que vive la biblioteca. Desde TASK-008 la determina el
+ * usuario autenticado (`libraryKeyFor`): dos cuentas del mismo dispositivo no comparten
+ * documento. Es obligatoria a propósito, para que ningún punto de creación olvidado escriba
+ * en el espacio anterior a las cuentas.
+ *
  * La clave conserva el sufijo `v1` con el que nació en TASK-004 aunque el documento vaya ya
- * por la versión 2. La versión vive dentro del documento, que es donde puede migrarse;
- * cambiar la clave dejaría huérfana la biblioteca de quien ya estuviera usando la aplicación.
+ * por la versión 3. La versión vive dentro del documento, que es donde puede migrarse.
  */
-export const STORAGE_KEY = 'flashcards:library:v1';
-
 export function createAsyncStorageRepository(
+  key: string,
   storage: Pick<typeof AsyncStorage, 'getItem' | 'setItem'> = AsyncStorage,
 ): LibraryRepository {
   return {
     async load(): Promise<LoadResult> {
       try {
-        const raw = await storage.getItem(STORAGE_KEY);
+        const raw = await storage.getItem(key);
         return parseStoredLibrary(raw);
       } catch {
         // El medio falló al leer. No se toca lo que hubiera guardado.
@@ -34,7 +37,7 @@ export function createAsyncStorageRepository(
     },
 
     async save(library: Library): Promise<void> {
-      await storage.setItem(STORAGE_KEY, serializeLibrary(library));
+      await storage.setItem(key, serializeLibrary(library));
     },
   };
 }

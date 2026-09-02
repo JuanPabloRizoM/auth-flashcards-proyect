@@ -1,0 +1,903 @@
+{
+  "task_id": "TASK-008",
+  "goal": "La aplicación deja de ser anónima. Sin sesión válida solo se ven /login, /registro y el callback de OAuth; con sesión válida se ve la aplicación completa, que es exactamente la de TASK-007. La sesión la gestiona Supabase Auth detrás de una abstracción propia, se restaura al arrancar sin enseñar contenido privado por el camino, y se cierra desde la interfaz. Todos los datos locales de producto pasan a estar en un espacio de nombres derivado del user.id, de modo que dos cuentas en el mismo dispositivo no ven los datos de la otra, y la biblioteca creada antes de que existieran cuentas se migra una sola vez, de forma idempotente y sin destruir el original, al primer usuario que inicie sesión.",
+  "requirements_snapshot": [
+    "R1 — La autenticación es real y la proporciona Supabase Auth. No se simula ni se escribe un backend propio.",
+    "R2 — Se puede iniciar sesión con correo y contraseña mediante signInWithPassword.",
+    "R3 — Se puede iniciar sesión con Google mediante el flujo OAuth que la documentación oficial vigente de Supabase recomienda para Expo en cada plataforma. No se implementa OAuth a mano ni se manejan tokens de Google, secretos, state ni PKCE por nuestra cuenta.",
+    "R4 — Se puede registrar una cuenta con correo y contraseña mediante signUp, y también con Google.",
+    "R5 — La primera vista de /registro ofrece las dos opciones; el formulario de correo aparece después, dentro de la misma ruta o en otra, según convenga.",
+    "R6 — La aplicación soporta los dos comportamientos válidos de Supabase: sesión inmediata, y usuario creado a la espera de confirmar el correo. En el segundo caso se informa y no se simula sesión.",
+    "R7 — La sesión persiste entre reinicios de la aplicación mientras siga siendo válida, con el mecanismo de persistencia de supabase-js.",
+    "R8 — Existe cierre de sesión accesible tanto en desktop como en móvil, que llama a signOut y devuelve a /login.",
+    "R9 — Las rutas privadas actuales (/, /estadisticas, /mazo/[id], /mazo/[id]/estudiar, /mazo/[id]/importar y /componentes) exigen sesión. /login, /registro y la ruta de callback son públicas.",
+    "R10 — Durante la restauración de sesión no se muestra contenido privado en ningún instante.",
+    "R11 — Existe una abstracción propia AuthService; solo la capa de infraestructura conoce supabase-js. La dirección es UI -> AuthProvider -> AuthService -> SupabaseAuthService -> @supabase/supabase-js.",
+    "R12 — AuthService es sustituible por un doble de pruebas, y los tests deterministas no dependen de Google ni de red.",
+    "R13 — Los datos locales de producto quedan aislados por user.id: biblioteca, cartas, programación FSRS, historial, estadísticas y los datos que alimentan el PDF cambian de espacio a la vez.",
+    "R14 — El identificador de espacio es user.id, nunca el correo.",
+    "R15 — Los datos creados antes de que existieran cuentas se migran al primer usuario autenticado, de forma idempotente, sin destruir el original y sin entregarse nunca a una segunda cuenta.",
+    "R16 — Al cambiar de sesión los proveedores de datos se desmontan y se reinicializan, de modo que ninguna operación del usuario anterior escriba en el espacio del nuevo.",
+    "R17 — La configuración llega por EXPO_PUBLIC_SUPABASE_URL y EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY. Existe .env.example solo con marcadores; .env no se commitea.",
+    "R18 — Si falta configuración la aplicación no rompe: muestra un error controlado y no crea ninguna sesión falsa.",
+    "R19 — No se usa nunca service_role en el cliente, ni se commitean secretos, tokens ni contraseñas.",
+    "R20 — Los errores de credenciales usan un mensaje genérico que no revela si una dirección existe, y no se muestran excepciones internas.",
+    "R21 — Las pantallas conservan la identidad visual académica existente y funcionan desde 320 px de ancho, con etiquetas reales y objetivos táctiles adecuados.",
+    "R22 — No se promete sincronización: ningún texto dice sincronizado, guardado en la nube ni disponible en todos tus dispositivos.",
+    "R23 — La configuración externa necesaria (Supabase Dashboard, Google Cloud, redirect URLs, deep links y orígenes web) queda documentada con valores derivados de la identidad real de la aplicación, sin inventar URLs."
+  ],
+  "open_questions": [],
+  "acceptance": [
+    "A001 — Existe una pantalla pública de inicio de sesión en /login con el título \"Iniciar sesión\".",
+    "A002 — La pantalla de login tiene un campo de correo electrónico con etiqueta real y autocompletado de correo.",
+    "A003 — La pantalla de login tiene un campo de contraseña con etiqueta real.",
+    "A004 — El campo de contraseña oculta el texto introducido.",
+    "A005 — Existe un botón \"Iniciar sesión\" que envía el formulario.",
+    "A006 — Mientras la autenticación está en curso el botón muestra estado de carga y queda inactivo.",
+    "A007 — Un segundo envío mientras hay uno en curso no produce una segunda llamada al servicio de autenticación.",
+    "A008 — Con credenciales válidas se crea sesión.",
+    "A009 — Con credenciales inválidas no se crea sesión.",
+    "A010 — El error de credenciales se muestra con un mensaje genérico, no revela si la dirección existe y nunca expone la excepción interna de Supabase.",
+    "A011 — Tras iniciar sesión correctamente la aplicación navega a la aplicación privada.",
+    "A012 — En /login hay un botón \"Continuar con Google\" visible.",
+    "A013 — El botón de Google invoca el adaptador OAuth del servicio de autenticación; la pantalla no implementa OAuth a mano.",
+    "A014 — Un callback OAuth correcto produce sesión.",
+    "A015 — Un callback OAuth con error se traduce a un error controlado.",
+    "A016 — La cancelación del flujo OAuth se traduce a un estado cancelado y deja la pantalla utilizable.",
+    "A017 — En web, tras procesar el callback no quedan tokens ni parámetros de autenticación en la URL.",
+    "A018 — Un OAuth correcto deja sesión persistente igual que el login por correo.",
+    "A019 — En /login hay un enlace \"Registrarse\" que lleva a /registro.",
+    "A020 — /registro muestra primero la pantalla de opciones: registrarse con correo o continuar con Google.",
+    "A021 — Pulsar \"Registrarse con correo electrónico\" muestra el formulario de correo.",
+    "A022 — El formulario de registro tiene campo de correo electrónico con etiqueta real.",
+    "A023 — El formulario de registro tiene campo de contraseña oculto.",
+    "A024 — El formulario de registro tiene campo de confirmación de contraseña oculto.",
+    "A025 — Si la contraseña y la confirmación no coinciden se rechaza el envío y no se llama al servicio.",
+    "A026 — Con datos válidos se llama a la operación real de registro del servicio.",
+    "A027 — Si el registro requiere verificación de correo se informa y no se simula sesión.",
+    "A028 — Si el registro devuelve sesión inmediata se entra a la aplicación.",
+    "A029 — El botón Google de /registro usa el mismo flujo OAuth que el de /login.",
+    "A030 — Desde el formulario de correo se puede volver, y desde /registro se puede ir a /login.",
+    "A031 — Al arrancar, la aplicación restaura la sesión existente sin pedir credenciales otra vez.",
+    "A032 — En web, recargar la página mantiene la sesión y la pantalla privada.",
+    "A033 — Desmontar y volver a montar la aplicación sobre el mismo almacenamiento restaura la sesión.",
+    "A034 — Mientras la sesión se resuelve se muestra un estado de carga.",
+    "A035 — Durante el arranque no se muestra en ningún momento contenido privado.",
+    "A036 — Un cambio de estado de autenticación emitido por el servicio actualiza la aplicación.",
+    "A037 — Una sesión expirada o revocada deja la aplicación en estado no autenticado.",
+    "A038 — Cerrar sesión deja la aplicación sin sesión y en /login.",
+    "A039 — La ruta / es privada.",
+    "A040 — La ruta /estadisticas es privada.",
+    "A041 — La ruta /mazo/[id] es privada.",
+    "A042 — La ruta /mazo/[id]/estudiar es privada.",
+    "A043 — La ruta /mazo/[id]/importar es privada.",
+    "A044 — La ruta /componentes es privada.",
+    "A045 — La ruta /login es pública.",
+    "A046 — La ruta /registro es pública.",
+    "A047 — Un usuario autenticado que abre /login o /registro acaba en la aplicación.",
+    "A048 — No existen bucles de redirección.",
+    "A049 — Las claves del almacenamiento local de datos de producto incluyen el user.id autenticado.",
+    "A050 — La biblioteca queda aislada por usuario.",
+    "A051 — Las cartas quedan aisladas por usuario.",
+    "A052 — El estado de programación FSRS queda aislado por usuario.",
+    "A053 — El historial de estudio queda aislado por usuario.",
+    "A054 — Las estadísticas quedan aisladas por usuario.",
+    "A055 — El reporte PDF usa los datos del usuario actual.",
+    "A056 — El usuario A no ve los datos del usuario B.",
+    "A057 — El usuario B no ve los datos del usuario A.",
+    "A058 — Cerrar sesión no borra los datos locales.",
+    "A059 — Volver a iniciar sesión con el mismo usuario recupera sus datos.",
+    "A060 — Se detectan los datos locales anteriores a TASK-008.",
+    "A061 — El primer usuario autenticado después de TASK-008 recibe la migración.",
+    "A062 — La migración conserva los identificadores.",
+    "A063 — La migración conserva los mazos.",
+    "A064 — La migración conserva las cartas.",
+    "A065 — La migración conserva el estado de programación.",
+    "A066 — La migración conserva el historial de estudio.",
+    "A067 — La migración conserva las estadísticas derivadas.",
+    "A068 — Una segunda cuenta no recibe los datos legacy.",
+    "A069 — La migración es idempotente.",
+    "A070 — Un fallo de la migración no destruye los datos legacy.",
+    "A071 — No se usa la clave service_role en el cliente.",
+    "A072 — No se commitean secretos.",
+    "A073 — .env está ignorado por git.",
+    "A074 — Existe .env.example solo con marcadores de posición.",
+    "A075 — La contraseña nunca se persiste.",
+    "A076 — Los tokens no se registran en logs.",
+    "A077 — La evidencia no contiene tokens.",
+    "A078 — Los mensajes de error no exponen información innecesaria.",
+    "A079 — Una URL privada abierta directamente está protegida.",
+    "A080 — Las pantallas de autenticación funcionan en desktop.",
+    "A081 — Las pantallas de autenticación funcionan en Pixel 5.",
+    "A082 — Las pantallas de autenticación funcionan en iPhone 13 / WebKit.",
+    "A083 — Las pantallas de autenticación funcionan a 320 px de ancho.",
+    "A084 — Los formularios son utilizables con teclado.",
+    "A085 — No hay desbordamiento horizontal en ninguna de las anchuras probadas.",
+    "A086 — Los objetivos táctiles cumplen el tamaño mínimo del sistema visual.",
+    "A087 — Los campos tienen etiquetas accesibles.",
+    "A088 — Crear un mazo sigue funcionando.",
+    "A089 — Editar un mazo sigue funcionando.",
+    "A090 — Eliminar un mazo sigue funcionando.",
+    "A091 — Crear una carta sigue funcionando.",
+    "A092 — Editar una carta sigue funcionando.",
+    "A093 — Eliminar una carta sigue funcionando.",
+    "A094 — La importación CSV sigue funcionando.",
+    "A095 — La importación XLSX sigue funcionando.",
+    "A096 — La importación Markdown sigue funcionando.",
+    "A097 — El scheduler FSRS sigue funcionando.",
+    "A098 — Las calificaciones siguen funcionando.",
+    "A099 — Las estadísticas siguen funcionando.",
+    "A100 — El reporte PDF sigue funcionando.",
+    "A101 — La navegación sigue funcionando.",
+    "A102 — La falta de variables de entorno se maneja de forma controlada.",
+    "A103 — El cliente de Supabase solo se crea con configuración válida.",
+    "A104 — Se usan las APIs actuales de Supabase Auth.",
+    "A105 — El redirect de Google queda documentado.",
+    "A106 — El deep link nativo queda documentado y configurado.",
+    "A107 — El redirect web queda documentado y configurado.",
+    "A108 — typecheck pasa.",
+    "A109 — lint pasa.",
+    "A110 — Los tests unitarios pasan.",
+    "A111 — Los tests de integración pasan.",
+    "A112 — Los tests E2E pasan.",
+    "A113 — ./init.sh termina con exit code 0.",
+    "A114 — Reviewer independiente APPROVED.",
+    "A115 — QA independiente APPROVED.",
+    "A116 — La evidencia está completa."
+  ],
+  "verification_matrix": [
+    {
+      "acceptance": "A001 — Existe una pantalla pública de inicio de sesión en /login con el título \"Iniciar sesión\".",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-login.spec.ts",
+      "evidence_expected": "El navegador abre /login sin sesión y muestra el encabezado \"Iniciar sesión\"."
+    },
+    {
+      "acceptance": "A002 — La pantalla de login tiene un campo de correo electrónico con etiqueta real y autocompletado de correo.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-login.spec.ts",
+      "evidence_expected": "El input login-email existe, es alcanzable por su etiqueta accesible \"Correo electrónico\" y declara autocomplete de email."
+    },
+    {
+      "acceptance": "A003 — La pantalla de login tiene un campo de contraseña con etiqueta real.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-login.spec.ts",
+      "evidence_expected": "El input login-password existe y es alcanzable por su etiqueta accesible \"Contraseña\"."
+    },
+    {
+      "acceptance": "A004 — El campo de contraseña oculta el texto introducido.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-login.spec.ts",
+      "evidence_expected": "El campo de contraseña se renderiza con type=password en web."
+    },
+    {
+      "acceptance": "A005 — Existe un botón \"Iniciar sesión\" que envía el formulario.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-login.spec.ts",
+      "evidence_expected": "Pulsar login-submit con credenciales válidas produce sesión."
+    },
+    {
+      "acceptance": "A006 — Mientras la autenticación está en curso el botón muestra estado de carga y queda inactivo.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-login-flow.test.tsx",
+      "evidence_expected": "Con una promesa de autenticación pendiente el botón queda con accessibilityState.busy y disabled."
+    },
+    {
+      "acceptance": "A007 — Un segundo envío mientras hay uno en curso no produce una segunda llamada al servicio de autenticación.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-login-flow.test.tsx",
+      "evidence_expected": "Dos pulsaciones seguidas dejan el contador de llamadas del servicio en 1."
+    },
+    {
+      "acceptance": "A008 — Con credenciales válidas se crea sesión.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -- tests/unit/auth-service-supabase.test.ts tests/unit/auth-fake-service.test.ts",
+      "evidence_expected": "signInWithEmail devuelve ok con la sesión del usuario, tanto en el adaptador de Supabase contra su cliente simulado como en el doble de pruebas."
+    },
+    {
+      "acceptance": "A009 — Con credenciales inválidas no se crea sesión.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -- tests/unit/auth-service-supabase.test.ts",
+      "evidence_expected": "Un error invalid_credentials del cliente Supabase se traduce a { ok: false, error: 'credenciales-invalidas' } y no hay sesión."
+    },
+    {
+      "acceptance": "A010 — El error de credenciales se muestra con un mensaje genérico, no revela si la dirección existe y nunca expone la excepción interna de Supabase.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-login-flow.test.tsx ; npm run test -- tests/unit/auth-errors.test.ts",
+      "evidence_expected": "La pantalla muestra \"No pudimos iniciar sesión con esos datos.\"; el mapeo de errores no filtra el mensaje original ni distingue usuario inexistente de contraseña incorrecta."
+    },
+    {
+      "acceptance": "A011 — Tras iniciar sesión correctamente la aplicación navega a la aplicación privada.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-login.spec.ts",
+      "evidence_expected": "Después del login la URL es / y se ve el encabezado \"Mis mazos\"."
+    },
+    {
+      "acceptance": "A012 — En /login hay un botón \"Continuar con Google\" visible.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-login.spec.ts",
+      "evidence_expected": "El botón login-google es visible en la pantalla pública."
+    },
+    {
+      "acceptance": "A013 — El botón de Google invoca el adaptador OAuth del servicio de autenticación; la pantalla no implementa OAuth a mano.",
+      "method": "inspection",
+      "command_or_procedure": "Inspección de app/login.tsx, app/registro.tsx y src/features/auth/**",
+      "evidence_expected": "Ninguna pantalla construye URLs de OAuth, ni maneja tokens de Google, state, PKCE ni secretos; solo llaman a signInWithGoogle del proveedor."
+    },
+    {
+      "acceptance": "A014 — Un callback OAuth correcto produce sesión.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -- tests/unit/auth-google-oauth.test.ts",
+      "evidence_expected": "El adaptador nativo abre la sesión del navegador, extrae los tokens del redirect y llama a setSession; el adaptador web delega el redirect en supabase-js."
+    },
+    {
+      "acceptance": "A015 — Un callback OAuth con error se traduce a un error controlado.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -- tests/unit/auth-google-oauth.test.ts",
+      "evidence_expected": "Un redirect con error o un fallo del proveedor devuelve { ok: false, error: 'oauth-fallido' } sin lanzar."
+    },
+    {
+      "acceptance": "A016 — La cancelación del flujo OAuth se traduce a un estado cancelado y deja la pantalla utilizable.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -- tests/unit/auth-google-oauth.test.ts ; npm run test:integration -- tests/integration/auth-login-flow.test.tsx",
+      "evidence_expected": "Un resultado dismiss/cancel devuelve 'oauth-cancelado', la pantalla no muestra error rojo de fallo y el botón vuelve a estar activo."
+    },
+    {
+      "acceptance": "A017 — En web, tras procesar el callback no quedan tokens ni parámetros de autenticación en la URL.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -- tests/unit/auth-callback-url.test.ts",
+      "evidence_expected": "La limpieza de la URL de callback elimina hash y query de autenticación y conserva la ruta."
+    },
+    {
+      "acceptance": "A018 — Un OAuth correcto deja sesión persistente igual que el login por correo.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-login.spec.ts",
+      "evidence_expected": "Tras entrar con Google, recargar la página mantiene la sesión y la pantalla privada."
+    },
+    {
+      "acceptance": "A019 — En /login hay un enlace \"Registrarse\" que lleva a /registro.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-registro.spec.ts",
+      "evidence_expected": "Pulsar el enlace cambia la URL a /registro."
+    },
+    {
+      "acceptance": "A020 — /registro muestra primero la pantalla de opciones: registrarse con correo o continuar con Google.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-registro.spec.ts",
+      "evidence_expected": "La primera vista muestra \"Crear cuenta\", el botón de correo y el botón de Google, y todavía no los campos."
+    },
+    {
+      "acceptance": "A021 — Pulsar \"Registrarse con correo electrónico\" muestra el formulario de correo.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-registro.spec.ts",
+      "evidence_expected": "Aparecen los tres campos del formulario sin cambiar de ruta."
+    },
+    {
+      "acceptance": "A022 — El formulario de registro tiene campo de correo electrónico con etiqueta real.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-registro.spec.ts",
+      "evidence_expected": "El input registro-email es alcanzable por su etiqueta accesible."
+    },
+    {
+      "acceptance": "A023 — El formulario de registro tiene campo de contraseña oculto.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-registro.spec.ts",
+      "evidence_expected": "El input registro-password se renderiza con type=password."
+    },
+    {
+      "acceptance": "A024 — El formulario de registro tiene campo de confirmación de contraseña oculto.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-registro.spec.ts",
+      "evidence_expected": "El input registro-password-confirm se renderiza con type=password."
+    },
+    {
+      "acceptance": "A025 — Si la contraseña y la confirmación no coinciden se rechaza el envío y no se llama al servicio.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-registro-flow.test.tsx",
+      "evidence_expected": "Se muestra el error de confirmación y el contador de llamadas a signUp del servicio queda en 0."
+    },
+    {
+      "acceptance": "A026 — Con datos válidos se llama a la operación real de registro del servicio.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -- tests/unit/auth-service-supabase.test.ts",
+      "evidence_expected": "signUpWithEmail invoca supabase.auth.signUp con el correo y la contraseña recibidos."
+    },
+    {
+      "acceptance": "A027 — Si el registro requiere verificación de correo se informa y no se simula sesión.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-registro-flow.test.tsx",
+      "evidence_expected": "La pantalla muestra \"Revisa tu correo para confirmar tu cuenta.\", la aplicación sigue sin sesión y no se navega a la zona privada."
+    },
+    {
+      "acceptance": "A028 — Si el registro devuelve sesión inmediata se entra a la aplicación.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-registro-flow.test.tsx",
+      "evidence_expected": "Con autoconfirmación la aplicación pasa a estado autenticado y muestra Mis mazos."
+    },
+    {
+      "acceptance": "A029 — El botón Google de /registro usa el mismo flujo OAuth que el de /login.",
+      "method": "inspection",
+      "command_or_procedure": "Inspección de app/registro.tsx y app/login.tsx",
+      "evidence_expected": "Ambas pantallas llaman a la misma operación signInWithGoogle del proveedor; no existe un segundo flujo OAuth."
+    },
+    {
+      "acceptance": "A030 — Desde el formulario de correo se puede volver, y desde /registro se puede ir a /login.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-registro.spec.ts",
+      "evidence_expected": "\"Volver\" devuelve a la pantalla de opciones y el enlace \"Iniciar sesión\" cambia la URL a /login."
+    },
+    {
+      "acceptance": "A031 — Al arrancar, la aplicación restaura la sesión existente sin pedir credenciales otra vez.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-session.test.tsx",
+      "evidence_expected": "Con una sesión guardada, el árbol montado desde cero llega a estado autenticado sin pasar por /login."
+    },
+    {
+      "acceptance": "A032 — En web, recargar la página mantiene la sesión y la pantalla privada.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-session.spec.ts",
+      "evidence_expected": "page.reload() sobre /estadisticas sigue mostrando Estadísticas."
+    },
+    {
+      "acceptance": "A033 — Desmontar y volver a montar la aplicación sobre el mismo almacenamiento restaura la sesión.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-session.test.tsx",
+      "evidence_expected": "Tras unmount y un montaje nuevo sobre el mismo medio, el usuario sigue autenticado."
+    },
+    {
+      "acceptance": "A034 — Mientras la sesión se resuelve se muestra un estado de carga.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-session.test.tsx",
+      "evidence_expected": "Con getSession pendiente se renderiza el indicador auth-bootstrap."
+    },
+    {
+      "acceptance": "A035 — Durante el arranque no se muestra en ningún momento contenido privado.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-session.test.tsx",
+      "evidence_expected": "Mientras el estado es loading no existe ningún nodo de Mis mazos, ni con sesión válida ni sin ella."
+    },
+    {
+      "acceptance": "A036 — Un cambio de estado de autenticación emitido por el servicio actualiza la aplicación.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-session.test.tsx",
+      "evidence_expected": "Emitir una sesión nula desde el listener lleva la aplicación a /login sin recargar."
+    },
+    {
+      "acceptance": "A037 — Una sesión expirada o revocada deja la aplicación en estado no autenticado.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-session.test.tsx",
+      "evidence_expected": "Una sesión ya caducada al arrancar se trata como ausencia de sesión."
+    },
+    {
+      "acceptance": "A038 — Cerrar sesión deja la aplicación sin sesión y en /login.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-session.spec.ts",
+      "evidence_expected": "Pulsar \"Cerrar sesión\" acaba en /login y ya no se ve Mis mazos."
+    },
+    {
+      "acceptance": "A039 — La ruta / es privada.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-guard.spec.ts",
+      "evidence_expected": "Sin sesión, abrir / directamente acaba en /login."
+    },
+    {
+      "acceptance": "A040 — La ruta /estadisticas es privada.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-guard.spec.ts",
+      "evidence_expected": "Sin sesión, abrir /estadisticas directamente acaba en /login."
+    },
+    {
+      "acceptance": "A041 — La ruta /mazo/[id] es privada.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-guard.spec.ts",
+      "evidence_expected": "Sin sesión, abrir /mazo/mazo-1 directamente acaba en /login."
+    },
+    {
+      "acceptance": "A042 — La ruta /mazo/[id]/estudiar es privada.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-guard.spec.ts",
+      "evidence_expected": "Sin sesión, abrir /mazo/mazo-1/estudiar directamente acaba en /login."
+    },
+    {
+      "acceptance": "A043 — La ruta /mazo/[id]/importar es privada.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-guard.spec.ts",
+      "evidence_expected": "Sin sesión, abrir /mazo/mazo-1/importar directamente acaba en /login."
+    },
+    {
+      "acceptance": "A044 — La ruta /componentes es privada.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-guard.spec.ts",
+      "evidence_expected": "Sin sesión, abrir /componentes directamente acaba en /login."
+    },
+    {
+      "acceptance": "A045 — La ruta /login es pública.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-guard.spec.ts",
+      "evidence_expected": "Sin sesión, /login se muestra y no redirige."
+    },
+    {
+      "acceptance": "A046 — La ruta /registro es pública.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-guard.spec.ts",
+      "evidence_expected": "Sin sesión, /registro se muestra y no redirige."
+    },
+    {
+      "acceptance": "A047 — Un usuario autenticado que abre /login o /registro acaba en la aplicación.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-guard.spec.ts",
+      "evidence_expected": "Con sesión, abrir /login acaba en / con Mis mazos visible."
+    },
+    {
+      "acceptance": "A048 — No existen bucles de redirección.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -- tests/unit/auth-guard.test.ts",
+      "evidence_expected": "La función pura de decisión del guard devuelve un destino distinto del actual o ningún destino; aplicarla dos veces seguidas es un punto fijo en los ocho casos de la tabla."
+    },
+    {
+      "acceptance": "A049 — Las claves del almacenamiento local de datos de producto incluyen el user.id autenticado.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -- tests/unit/storage-namespace.test.ts",
+      "evidence_expected": "libraryKeyFor y historyPrefixFor devuelven claves que contienen el identificador y no el correo."
+    },
+    {
+      "acceptance": "A050 — La biblioteca queda aislada por usuario.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-data-isolation.test.tsx",
+      "evidence_expected": "Los mazos del usuario A viven bajo su clave y no aparecen al montar la aplicación como B."
+    },
+    {
+      "acceptance": "A051 — Las cartas quedan aisladas por usuario.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-data-isolation.test.tsx",
+      "evidence_expected": "Las cartas del usuario A no son legibles desde el repositorio de B."
+    },
+    {
+      "acceptance": "A052 — El estado de programación FSRS queda aislado por usuario.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-data-isolation.test.tsx",
+      "evidence_expected": "El scheduling persistido de A no aparece en el documento de B."
+    },
+    {
+      "acceptance": "A053 — El historial de estudio queda aislado por usuario.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-data-isolation.test.tsx",
+      "evidence_expected": "Las particiones del historial se escriben bajo el prefijo del usuario y B no ve los eventos de A."
+    },
+    {
+      "acceptance": "A054 — Las estadísticas quedan aisladas por usuario.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-data-isolation.test.tsx",
+      "evidence_expected": "La pantalla de Estadísticas del usuario B no cuenta la actividad de A."
+    },
+    {
+      "acceptance": "A055 — El reporte PDF usa los datos del usuario actual.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-data-isolation.test.tsx",
+      "evidence_expected": "El PDF generado como B no contiene el nombre del mazo de A."
+    },
+    {
+      "acceptance": "A056 — El usuario A no ve los datos del usuario B.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-account-switch.spec.ts",
+      "evidence_expected": "Tras el ciclo A -> B -> A del contrato, \"Privado B\" no aparece en la sesión de A."
+    },
+    {
+      "acceptance": "A057 — El usuario B no ve los datos del usuario A.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-account-switch.spec.ts",
+      "evidence_expected": "En la sesión de B, \"Privado A\" no aparece y la biblioteca empieza vacía."
+    },
+    {
+      "acceptance": "A058 — Cerrar sesión no borra los datos locales.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-data-isolation.test.tsx",
+      "evidence_expected": "Después de signOut las claves del usuario siguen conteniendo su biblioteca y su historial."
+    },
+    {
+      "acceptance": "A059 — Volver a iniciar sesión con el mismo usuario recupera sus datos.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-account-switch.spec.ts",
+      "evidence_expected": "Al volver a entrar como A, \"Privado A\" vuelve a estar visible."
+    },
+    {
+      "acceptance": "A060 — Se detectan los datos locales anteriores a TASK-008.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -- tests/unit/legacy-migration.test.ts",
+      "evidence_expected": "La detección encuentra la clave de biblioteca y el prefijo de historial previos a las cuentas."
+    },
+    {
+      "acceptance": "A061 — El primer usuario autenticado después de TASK-008 recibe la migración.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -- tests/unit/legacy-migration.test.ts",
+      "evidence_expected": "Tras migrar, las claves del usuario contienen exactamente el contenido legacy."
+    },
+    {
+      "acceptance": "A062 — La migración conserva los identificadores.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-legacy-migration.test.tsx",
+      "evidence_expected": "Los ids de mazos y cartas del fixture legacy son los mismos después de migrar."
+    },
+    {
+      "acceptance": "A063 — La migración conserva los mazos.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-legacy-migration.test.tsx",
+      "evidence_expected": "Los mazos del fixture aparecen en Mis mazos con su nombre y su fecha."
+    },
+    {
+      "acceptance": "A064 — La migración conserva las cartas.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-legacy-migration.test.tsx",
+      "evidence_expected": "Las cartas del fixture aparecen en el detalle de su mazo."
+    },
+    {
+      "acceptance": "A065 — La migración conserva el estado de programación.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-legacy-migration.test.tsx",
+      "evidence_expected": "Estabilidad, dificultad, estado y vencimiento de las cartas del fixture se conservan."
+    },
+    {
+      "acceptance": "A066 — La migración conserva el historial de estudio.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-legacy-migration.test.tsx",
+      "evidence_expected": "Las sesiones, los eventos y las calificaciones del fixture siguen contando."
+    },
+    {
+      "acceptance": "A067 — La migración conserva las estadísticas derivadas.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-legacy-migration.test.tsx",
+      "evidence_expected": "La pantalla de Estadísticas muestra las mismas cifras que el fixture legacy producía."
+    },
+    {
+      "acceptance": "A068 — Una segunda cuenta no recibe los datos legacy.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -- tests/unit/legacy-migration.test.ts",
+      "evidence_expected": "Tras migrar a A, migrar como B no escribe nada bajo el espacio de B."
+    },
+    {
+      "acceptance": "A069 — La migración es idempotente.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -- tests/unit/legacy-migration.test.ts",
+      "evidence_expected": "Ejecutarla dos veces para el mismo usuario deja el almacenamiento byte a byte igual y no sobrescribe cambios posteriores."
+    },
+    {
+      "acceptance": "A070 — Un fallo de la migración no destruye los datos legacy.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -- tests/unit/legacy-migration.test.ts",
+      "evidence_expected": "Con un medio que falla al escribir, las claves legacy siguen intactas, no se marca la migración y el intento siguiente vuelve a intentarlo."
+    },
+    {
+      "acceptance": "A071 — No se usa la clave service_role en el cliente.",
+      "method": "static",
+      "command_or_procedure": "grep -rn 'service_role' en el árbol versionado",
+      "evidence_expected": "Ninguna coincidencia fuera de la documentación que prohíbe usarla."
+    },
+    {
+      "acceptance": "A072 — No se commitean secretos.",
+      "method": "static",
+      "command_or_procedure": "git status/diff y grep de patrones de clave",
+      "evidence_expected": "El diff no contiene claves de Google, secretos de cliente, tokens ni contraseñas."
+    },
+    {
+      "acceptance": "A073 — .env está ignorado por git.",
+      "method": "static",
+      "command_or_procedure": "git check-ignore -v .env",
+      "evidence_expected": ".gitignore excluye .env y .env.* salvo .env.example."
+    },
+    {
+      "acceptance": "A074 — Existe .env.example solo con marcadores de posición.",
+      "method": "inspection",
+      "command_or_procedure": "Inspección de .env.example",
+      "evidence_expected": "Contiene EXPO_PUBLIC_SUPABASE_URL y EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY vacías, sin valores reales."
+    },
+    {
+      "acceptance": "A075 — La contraseña nunca se persiste.",
+      "method": "inspection",
+      "command_or_procedure": "Inspección de src/features/auth/** y de las pantallas",
+      "evidence_expected": "La contraseña vive solo en el estado del formulario; no se escribe en ningún almacén ni se propaga al proveedor tras el envío."
+    },
+    {
+      "acceptance": "A076 — Los tokens no se registran en logs.",
+      "method": "static",
+      "command_or_procedure": "grep de console.* en src/ y app/",
+      "evidence_expected": "No hay ninguna traza que imprima sesión, token ni respuesta de autenticación."
+    },
+    {
+      "acceptance": "A077 — La evidencia no contiene tokens.",
+      "method": "inspection",
+      "command_or_procedure": "Inspección de progress/evidence/TASK-008-*.md",
+      "evidence_expected": "La evidencia no incluye access_token, refresh_token ni claves de proyecto."
+    },
+    {
+      "acceptance": "A078 — Los mensajes de error no exponen información innecesaria.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -- tests/unit/auth-errors.test.ts",
+      "evidence_expected": "El mapeo produce mensajes propios en español; no se reenvía el mensaje del proveedor ni se distingue usuario inexistente de contraseña incorrecta."
+    },
+    {
+      "acceptance": "A079 — Una URL privada abierta directamente está protegida.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-guard.spec.ts",
+      "evidence_expected": "Sin sesión, la navegación directa a cada ruta privada acaba en /login."
+    },
+    {
+      "acceptance": "A080 — Las pantallas de autenticación funcionan en desktop.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- --project=desktop-chrome tests/e2e/auth-responsive.spec.ts",
+      "evidence_expected": "En 1280x800 login y registro se ven completos y sin desbordamiento."
+    },
+    {
+      "acceptance": "A081 — Las pantallas de autenticación funcionan en Pixel 5.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- --project=mobile-chrome tests/e2e/auth-responsive.spec.ts",
+      "evidence_expected": "En el perfil Pixel 5 login y registro se ven completos y sin desbordamiento."
+    },
+    {
+      "acceptance": "A082 — Las pantallas de autenticación funcionan en iPhone 13 / WebKit.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- --project=mobile-safari tests/e2e/auth-responsive.spec.ts",
+      "evidence_expected": "En el perfil iPhone 13 login y registro se ven completos y sin desbordamiento."
+    },
+    {
+      "acceptance": "A083 — Las pantallas de autenticación funcionan a 320 px de ancho.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-responsive.spec.ts",
+      "evidence_expected": "Con viewport de 320 px no hay desbordamiento horizontal y todos los controles siguen visibles."
+    },
+    {
+      "acceptance": "A084 — Los formularios son utilizables con teclado.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-responsive.spec.ts",
+      "evidence_expected": "Se puede recorrer correo, contraseña y botón con Tab, y enviar desde el campo de contraseña."
+    },
+    {
+      "acceptance": "A085 — No hay desbordamiento horizontal en ninguna de las anchuras probadas.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-responsive.spec.ts",
+      "evidence_expected": "scrollWidth - clientWidth es 0 en todas las anchuras del test."
+    },
+    {
+      "acceptance": "A086 — Los objetivos táctiles cumplen el tamaño mínimo del sistema visual.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-responsive.spec.ts",
+      "evidence_expected": "Botones y enlaces de login y registro miden al menos 44 px de alto."
+    },
+    {
+      "acceptance": "A087 — Los campos tienen etiquetas accesibles.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e -- tests/e2e/auth-responsive.spec.ts",
+      "evidence_expected": "Cada campo es localizable por su etiqueta accesible en español."
+    },
+    {
+      "acceptance": "A088 — Crear un mazo sigue funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "La suite de mazos pasa con sesión iniciada."
+    },
+    {
+      "acceptance": "A089 — Editar un mazo sigue funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "La suite de gestión de mazos pasa."
+    },
+    {
+      "acceptance": "A090 — Eliminar un mazo sigue funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "La suite de gestión de mazos pasa."
+    },
+    {
+      "acceptance": "A091 — Crear una carta sigue funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "La suite de flashcards pasa."
+    },
+    {
+      "acceptance": "A092 — Editar una carta sigue funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "La suite de gestión pasa."
+    },
+    {
+      "acceptance": "A093 — Eliminar una carta sigue funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "La suite de gestión pasa."
+    },
+    {
+      "acceptance": "A094 — La importación CSV sigue funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "La suite de importación pasa."
+    },
+    {
+      "acceptance": "A095 — La importación XLSX sigue funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "La suite de importación pasa."
+    },
+    {
+      "acceptance": "A096 — La importación Markdown sigue funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "La suite de importación pasa."
+    },
+    {
+      "acceptance": "A097 — El scheduler FSRS sigue funcionando.",
+      "method": "unit",
+      "command_or_procedure": "npm run test",
+      "evidence_expected": "Los tests de scheduler y golden fixtures pasan sin cambios."
+    },
+    {
+      "acceptance": "A098 — Las calificaciones siguen funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "La suite de estudio FSRS pasa."
+    },
+    {
+      "acceptance": "A099 — Las estadísticas siguen funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "La suite de estadísticas pasa."
+    },
+    {
+      "acceptance": "A100 — El reporte PDF sigue funcionando.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration",
+      "evidence_expected": "Los tests de PDF pasan."
+    },
+    {
+      "acceptance": "A101 — La navegación sigue funcionando.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "La suite de navegación responsive y de persistencia pasa."
+    },
+    {
+      "acceptance": "A102 — La falta de variables de entorno se maneja de forma controlada.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration -- tests/integration/auth-sin-configuracion.test.tsx ; npm run test -- tests/unit/auth-config.test.ts",
+      "evidence_expected": "Sin las variables, la aplicación no lanza, muestra un aviso controlado en /login y no crea ninguna sesión."
+    },
+    {
+      "acceptance": "A103 — El cliente de Supabase solo se crea con configuración válida.",
+      "method": "unit",
+      "command_or_procedure": "npm run test -- tests/unit/auth-config.test.ts",
+      "evidence_expected": "La fábrica devuelve el servicio no configurado y no invoca createClient cuando falta cualquiera de las dos variables."
+    },
+    {
+      "acceptance": "A104 — Se usan las APIs actuales de Supabase Auth.",
+      "method": "inspection",
+      "command_or_procedure": "Inspección de src/features/auth/supabase/** contra la documentación oficial vigente",
+      "evidence_expected": "signInWithPassword, signUp, signInWithOAuth, setSession, exchangeCodeForSession, signOut, getSession y onAuthStateChange; ninguna API de la v1."
+    },
+    {
+      "acceptance": "A105 — El redirect de Google queda documentado.",
+      "method": "inspection",
+      "command_or_procedure": "Inspección de docs/AUTH.md",
+      "evidence_expected": "El documento enumera las URLs exactas que hay que registrar en Supabase y en Google Cloud, derivadas del scheme y del host reales."
+    },
+    {
+      "acceptance": "A106 — El deep link nativo queda documentado y configurado.",
+      "method": "inspection",
+      "command_or_procedure": "Inspección de app.json y docs/AUTH.md",
+      "evidence_expected": "El scheme flashcards existe en app.json y el documento indica el patrón flashcards://** a registrar."
+    },
+    {
+      "acceptance": "A107 — El redirect web queda documentado y configurado.",
+      "method": "inspection",
+      "command_or_procedure": "Inspección de docs/AUTH.md y de la ruta /auth/callback",
+      "evidence_expected": "Existe la ruta pública de callback y el documento indica la URL de redirección web."
+    },
+    {
+      "acceptance": "A108 — typecheck pasa.",
+      "method": "static",
+      "command_or_procedure": "npm run typecheck",
+      "evidence_expected": "Exit code 0."
+    },
+    {
+      "acceptance": "A109 — lint pasa.",
+      "method": "static",
+      "command_or_procedure": "npm run lint",
+      "evidence_expected": "Exit code 0."
+    },
+    {
+      "acceptance": "A110 — Los tests unitarios pasan.",
+      "method": "unit",
+      "command_or_procedure": "npm run test",
+      "evidence_expected": "Toda la suite unitaria en verde."
+    },
+    {
+      "acceptance": "A111 — Los tests de integración pasan.",
+      "method": "integration",
+      "command_or_procedure": "npm run test:integration",
+      "evidence_expected": "Toda la suite de integración en verde."
+    },
+    {
+      "acceptance": "A112 — Los tests E2E pasan.",
+      "method": "e2e",
+      "command_or_procedure": "npm run test:e2e",
+      "evidence_expected": "Los tres perfiles de Playwright en verde."
+    },
+    {
+      "acceptance": "A113 — ./init.sh termina con exit code 0.",
+      "method": "static",
+      "command_or_procedure": "./init.sh",
+      "evidence_expected": "Exit code 0 en la ejecución final."
+    },
+    {
+      "acceptance": "A114 — Reviewer independiente APPROVED.",
+      "method": "review",
+      "command_or_procedure": "Revisión read-only registrada en progress/evidence/TASK-008-review.md",
+      "evidence_expected": "Veredicto APPROVED sin findings que exijan cambios."
+    },
+    {
+      "acceptance": "A115 — QA independiente APPROVED.",
+      "method": "review",
+      "command_or_procedure": "QA read-only registrada en progress/evidence/TASK-008-qa.md",
+      "evidence_expected": "Veredicto APPROVED sin hallazgos que exijan cambios."
+    },
+    {
+      "acceptance": "A116 — La evidencia está completa.",
+      "method": "inspection",
+      "command_or_procedure": "Inspección de progress/evidence/TASK-008-*.md",
+      "evidence_expected": "Cada acceptance de este contrato tiene método, comando y resultado registrado."
+    }
+  ],
+  "allowed_paths": [
+    "app/**",
+    "src/**",
+    "tests/**",
+    "app.json",
+    "package.json",
+    "package-lock.json",
+    "jest.config.js",
+    "playwright.config.ts",
+    "eslint.config.js",
+    ".env.example",
+    ".gitignore"
+  ],
+  "required_docs": [
+    "docs/ARCHITECTURE.md",
+    "docs/CONVENTIONS.md",
+    "docs/DESIGN.md",
+    "docs/DATABASE.md",
+    "docs/SECURITY.md",
+    "docs/TESTING.md",
+    "docs/VERIFICATION.md"
+  ],
+  "required_gates": [
+    "npm run typecheck",
+    "npm run lint",
+    "npm run test",
+    "npm run test:integration",
+    "npm run test:e2e",
+    "./init.sh"
+  ],
+  "out_of_scope": [
+    "Supabase Database para mazos, cartas, programación, historial o estadísticas; tablas de producto y sus políticas RLS.",
+    "Sincronización entre dispositivos, tiempo real y almacenamiento remoto de archivos.",
+    "Apple, Microsoft, GitHub y Facebook como proveedores de acceso.",
+    "Magic link, OTP, teléfono y SMS.",
+    "Recuperación de contraseña, cambio de contraseña y cambio de correo.",
+    "Borrado de cuenta, administración de cuentas, roles y panel de administración.",
+    "Perfiles, avatares, nombre de usuario, nombre público y edición de perfil.",
+    "Vinculación manual de cuentas (account linking).",
+    "Compartir mazos, colaboración, suscripción, pagos, onboarding, tutorial y notificaciones.",
+    "Cualquier feature no pedida explícitamente en esta petición."
+  ],
+  "external_verification_required": {
+    "estado": "CONFIGURATION_REQUIRED",
+    "motivo": "El repositorio no tiene proyecto Supabase ni credenciales: no existe .env, ni variables EXPO_PUBLIC_SUPABASE_* en el entorno. Las comprobaciones de esta lista necesitan un proyecto real y no forman parte del acceptance congelado de TASK-008; se declaran aquí para que no puedan confundirse con lo que sí se ha demostrado.",
+    "no_verificable_sin_credenciales": [
+      "LIVE-1 — Alta e inicio de sesión reales por correo contra un proyecto Supabase, con sesión, recarga, restauración y cierre en web.",
+      "LIVE-2 — Flujo real de Google OAuth extremo a extremo en web: botón, consentimiento de Google, callback, sesión y entrada a la aplicación.",
+      "LIVE-3 — Flujo real de Google OAuth en iOS y en Android con deep link sobre dispositivo o simulador.",
+      "LIVE-4 — Comportamiento real de confirmación de correo del proyecto (autoconfirmación o verificación requerida) y su redirect."
+    ],
+    "regla": "Ninguna de estas comprobaciones puede declararse PASS sin credenciales. La evidencia distingue AUTOMATED AUTH CONTRACT de LIVE SUPABASE VERIFICATION."
+  },
+  "baseline_required": true,
+  "regression_required": true,
+  "review_required": true,
+  "qa_required": true
+}

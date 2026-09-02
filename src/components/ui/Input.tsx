@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { colors, radius, sizes, spacing, typography } from '../../theme';
 
@@ -12,6 +12,22 @@ export type InputProps = {
   error?: string;
   helperText?: string;
   testID?: string;
+  /**
+   * Semántica del campo para el teclado, el autocompletado y los gestores de contraseñas.
+   *
+   * Se añadió en TASK-008: un formulario de acceso sin `secureTextEntry` enseña la
+   * contraseña, y sin `autoComplete` obliga a teclear a mano lo que el sistema ya sabe. Son
+   * propiedades del `TextInput` que ya existía, no una variante visual nueva
+   * (docs/DESIGN.md: antes de crear un componente, comprobar si uno existente se extiende).
+   */
+  secureTextEntry?: boolean;
+  autoComplete?: TextInputProps['autoComplete'];
+  textContentType?: TextInputProps['textContentType'];
+  keyboardType?: TextInputProps['keyboardType'];
+  autoCapitalize?: TextInputProps['autoCapitalize'];
+  autoCorrect?: boolean;
+  returnKeyType?: TextInputProps['returnKeyType'];
+  onSubmitEditing?: () => void;
 };
 
 export function Input({
@@ -22,6 +38,14 @@ export function Input({
   error,
   helperText,
   testID,
+  secureTextEntry,
+  autoComplete,
+  textContentType,
+  keyboardType,
+  autoCapitalize,
+  autoCorrect,
+  returnKeyType,
+  onSubmitEditing,
 }: InputProps) {
   const hasError = Boolean(error);
 
@@ -30,11 +54,19 @@ export function Input({
       <Text style={styles.label}>{label}</Text>
       <TextInput
         accessibilityLabel={label}
+        autoCapitalize={autoCapitalize}
+        autoComplete={autoComplete}
+        autoCorrect={autoCorrect}
+        keyboardType={keyboardType}
         onChangeText={onChangeText}
+        onSubmitEditing={onSubmitEditing}
         placeholder={placeholder}
         placeholderTextColor={colors.textMuted}
+        returnKeyType={returnKeyType}
+        secureTextEntry={secureTextEntry}
         style={[styles.field, hasError ? styles.fieldError : null]}
         testID={testID}
+        textContentType={textContentType}
         value={value}
       />
       {hasError ? (

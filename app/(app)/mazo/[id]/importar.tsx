@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { ScreenHeader } from '../../../src/components/layout';
+import { ScreenHeader } from '../../../../src/components/layout';
 import {
   Button,
   Card,
@@ -10,8 +10,8 @@ import {
   Loading,
   Message,
   Select,
-} from '../../../src/components/ui';
-import { findDeck, libraryErrorMessage } from '../../../src/features/decks/library';
+} from '../../../../src/components/ui';
+import { findDeck, libraryErrorMessage } from '../../../../src/features/decks/library';
 import {
   buildPreview,
   describePreview,
@@ -23,14 +23,14 @@ import {
   validateMapping,
   type FieldMapping,
   type ParsedWorkbook,
-} from '../../../src/features/import';
-import { pickImportFile } from '../../../src/lib/files';
-import type { FilePicker } from '../../../src/lib/files/types';
-import type { CardOrigin } from '../../../src/features/stats/types';
-import { useLibrary } from '../../../src/lib/LibraryProvider';
-import { useStudyHistory } from '../../../src/lib/StudyHistoryProvider';
-import { goBackOr } from '../../../src/lib/navigation';
-import { colors, spacing, typography } from '../../../src/theme';
+} from '../../../../src/features/import';
+import { pickImportFile } from '../../../../src/lib/files';
+import type { FilePicker } from '../../../../src/lib/files/types';
+import type { CardOrigin } from '../../../../src/features/stats/types';
+import { useLibrary } from '../../../../src/lib/LibraryProvider';
+import { useStudyHistory } from '../../../../src/lib/StudyHistoryProvider';
+import { goBackOr } from '../../../../src/lib/navigation';
+import { colors, spacing, typography } from '../../../../src/theme';
 
 /**
  * Importar tarjetas a un mazo desde un archivo .csv, .xlsx o .md.

@@ -1,14 +1,14 @@
 import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { ScreenHeader } from '../src/components/layout';
-import { BarChart, CalendarHeatmap, MetricGrid, StatsTable } from '../src/components/stats';
-import { Button, Card, EmptyState, Loading, Message, Select } from '../src/components/ui';
-import { buildStatsReport } from '../src/features/stats/engine';
-import { formatDayLong, formatDuration, formatNumber, formatSeconds } from '../src/features/stats/format';
-import { buildStatsPdf, reportFileName } from '../src/features/stats/pdf/report';
-import { localDayOf } from '../src/features/stats/time';
-import type { StatsPeriod } from '../src/features/stats/types';
+import { ScreenHeader } from '../../src/components/layout';
+import { BarChart, CalendarHeatmap, MetricGrid, StatsTable } from '../../src/components/stats';
+import { Button, Card, EmptyState, Loading, Message, Select } from '../../src/components/ui';
+import { buildStatsReport } from '../../src/features/stats/engine';
+import { formatDayLong, formatDuration, formatNumber, formatSeconds } from '../../src/features/stats/format';
+import { buildStatsPdf, reportFileName } from '../../src/features/stats/pdf/report';
+import { localDayOf } from '../../src/features/stats/time';
+import type { StatsPeriod } from '../../src/features/stats/types';
 import {
   activityBars,
   activityMetrics,
@@ -52,13 +52,13 @@ import {
   timeMetrics,
   todayMetrics,
   trackingNotice,
-} from '../src/features/stats/view';
-import { savePdfFile } from '../src/lib/files';
-import type { FileSaver } from '../src/lib/files';
-import { systemClock, type Clock } from '../src/lib/clock';
-import { useLibrary } from '../src/lib/LibraryProvider';
-import { useStudyHistory } from '../src/lib/StudyHistoryProvider';
-import { spacing } from '../src/theme';
+} from '../../src/features/stats/view';
+import { savePdfFile } from '../../src/lib/files';
+import type { FileSaver } from '../../src/lib/files';
+import { systemClock, type Clock } from '../../src/lib/clock';
+import { useLibrary } from '../../src/lib/LibraryProvider';
+import { useStudyHistory } from '../../src/lib/StudyHistoryProvider';
+import { spacing } from '../../src/theme';
 
 /**
  * Estadísticas.

@@ -2,9 +2,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { DeckCardRow, DeckRenameForm } from '../../../src/components/decks';
-import { ScreenHeader } from '../../../src/components/layout';
-import { DeckSummary } from '../../../src/components/study';
+import { DeckCardRow, DeckRenameForm } from '../../../../src/components/decks';
+import { ScreenHeader } from '../../../../src/components/layout';
+import { DeckSummary } from '../../../../src/components/study';
 import {
   Button,
   Card,
@@ -13,14 +13,14 @@ import {
   Input,
   Loading,
   Message,
-} from '../../../src/components/ui';
-import { cardsOfDeck, findDeck, libraryErrorMessage } from '../../../src/features/decks/library';
-import { deckStudySummary } from '../../../src/features/study/queue';
-import { systemClock, type Clock } from '../../../src/lib/clock';
-import { useLibrary } from '../../../src/lib/LibraryProvider';
-import { useStudyHistory } from '../../../src/lib/StudyHistoryProvider';
-import { goBackOr } from '../../../src/lib/navigation';
-import { spacing } from '../../../src/theme';
+} from '../../../../src/components/ui';
+import { cardsOfDeck, findDeck, libraryErrorMessage } from '../../../../src/features/decks/library';
+import { deckStudySummary } from '../../../../src/features/study/queue';
+import { systemClock, type Clock } from '../../../../src/lib/clock';
+import { useLibrary } from '../../../../src/lib/LibraryProvider';
+import { useStudyHistory } from '../../../../src/lib/StudyHistoryProvider';
+import { goBackOr } from '../../../../src/lib/navigation';
+import { spacing } from '../../../../src/theme';
 
 export type DetalleMazoScreenProps = {
   /** Reloj inyectable: los contadores dependen de qué está vencido ahora mismo. */

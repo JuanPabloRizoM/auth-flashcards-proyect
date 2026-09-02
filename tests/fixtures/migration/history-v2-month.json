@@ -1,0 +1,63 @@
+{
+  "version": 2,
+  "month": "2026-08",
+  "sessions": [
+    {
+      "id": "sesion-1",
+      "deckId": "mazo-1",
+      "startedAt": 1787652000000,
+      "endedAt": 1787652300000,
+      "activeMs": 300000,
+      "completedCards": 1,
+      "localDay": "2026-08-25"
+    }
+  ],
+  "cardEvents": [
+    {
+      "id": "evento-1",
+      "sessionId": "sesion-1",
+      "deckId": "mazo-1",
+      "cardId": "carta-1",
+      "shownAt": 1787652000000,
+      "revealedAt": 1787652005000,
+      "completedAt": 1787652030000,
+      "activeMs": 30000,
+      "localDay": "2026-08-25",
+      "localHour": 4
+    }
+  ],
+  "cardAdditions": [
+    {
+      "id": "alta-1",
+      "deckId": "mazo-1",
+      "cardId": "carta-1",
+      "origin": "manual",
+      "addedAt": 1787130000000,
+      "localDay": "2026-08-19"
+    }
+  ],
+  "reviews": [
+    {
+      "id": "revision-1",
+      "sessionId": "sesion-1",
+      "deckId": "mazo-1",
+      "cardId": "carta-1",
+      "reviewedAt": 1787652000000,
+      "rating": "bien",
+      "previousState": "aprendiendo",
+      "newState": "repaso",
+      "previousDue": 1787565600000,
+      "newDue": 1788516000000,
+      "previousIntervalDays": 1,
+      "newIntervalDays": 10,
+      "elapsedDays": 3,
+      "stability": 10.5,
+      "difficulty": 5.25,
+      "durationMs": 30000,
+      "schedulerId": "fsrs",
+      "schedulerVersion": "ts-fsrs v5.4.1 using FSRS-6.0",
+      "localDay": "2026-08-25",
+      "localHour": 4
+    }
+  ]
+}

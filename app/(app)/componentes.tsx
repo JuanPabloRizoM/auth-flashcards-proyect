@@ -9,8 +9,8 @@ import {
   Input,
   Loading,
   Message,
-} from '../src/components/ui';
-import { colors, spacing, typography } from '../src/theme';
+} from '../../src/components/ui';
+import { colors, spacing, typography } from '../../src/theme';
 
 /**
  * Catálogo del sistema visual.

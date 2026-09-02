@@ -34,8 +34,11 @@
 
 ## Reglas
 
-- RLS obligatorio para datos privados.
-- Un usuario no puede leer/modificar datos de otro.
+- RLS obligatorio para datos privados. **Todavía no aplica**: TASK-008 no crea ninguna tabla
+  de producto en PostgreSQL, así que no hay datos remotos que proteger. Las tablas del
+  esquema `auth` las gestiona Supabase.
+- Un usuario no puede leer/modificar datos de otro. Hoy esto se cumple **en local**, con el
+  espacio de nombres por `user.id` que describe la sección de almacenamiento.
 - Toda modificación de esquema crea migración versionada.
 - Preferir integration tests reales para políticas RLS importantes.
 
@@ -44,10 +47,45 @@
 Hasta que exista una decisión de base de datos remota, todo vive en el almacenamiento local
 del dispositivo o navegador, detrás de dos contratos de repositorio.
 
+Desde TASK-008 existen cuentas, y los datos de producto **cuelgan del usuario autenticado**.
+Supabase sabe quién eres; qué estudias sigue siendo local (docs/PRODUCT.md, 2026-09-02).
+
+### Espacio de nombres por usuario (TASK-008)
+
+```text
+flashcards:user:<USER_ID>:library:v1
+flashcards:user:<USER_ID>:history:v1:meta
+flashcards:user:<USER_ID>:history:v1:month:AAAA-MM
+```
+
+- El identificador es **`user.id`**, nunca el correo: el correo puede cambiar, y con él
+  cambiaría el espacio y la persona perdería de vista sus propios datos.
+- Biblioteca e historial se derivan **del mismo prefijo**, de modo que no puede ocurrir que
+  la biblioteca sea de una cuenta y el historial de otra.
+- `src/lib/storage/keys.ts` rechaza un identificador vacío o con `:`, que podría fabricar la
+  clave de otro espacio.
+- Al cambiar de sesión, `src/lib/UserScopedData.tsx` destruye y recrea los proveedores con
+  `key={user.id}`: ninguna escritura en vuelo del usuario anterior alcanza al siguiente.
+
+### Datos anteriores a las cuentas, y su migración (TASK-008)
+
+Quien venía usando la aplicación tiene sus datos en las claves de antes, sin dueño:
+`flashcards:library:v1` y `flashcards:history:v1:*`. Se entregan **una sola vez** al primer
+usuario que inicia sesión (`src/lib/storage/legacyMigration.ts`):
+
+1. **Una sola vez.** `flashcards:legacy-migration:v1` registra qué `user.id` los recibió.
+   Cualquier cuenta posterior encuentra la marca y no recibe nada. Una marca ilegible también
+   cuenta como marca: en la duda, no se reparte.
+2. **No destructiva.** Las claves originales no se borran nunca.
+3. **No sobrescribe.** Si el destino ya tiene contenido, se respeta.
+4. **Verificada antes de marcar.** Se relee del medio todo lo copiado antes de escribir la
+   marca. Un fallo deja el original intacto, sin marca, y el arranque siguiente reintenta.
+5. **Idempotente.** Repetirla no cambia nada.
+
 ### Biblioteca (TASK-004, TASK-005)
 
 ```text
-clave:   flashcards:library:v1
+clave:   flashcards:user:<USER_ID>:library:v1
 formato: { "version": 3,
            "decks": [{ id, name, updatedAt }],
            "cards": [{ id, deckId, front, back, scheduling }],
@@ -94,11 +132,11 @@ pueda compararlos en vez de adivinarlos.
 ### Historial de estudio (TASK-006)
 
 ```text
-clave:   flashcards:history:v1:meta
+clave:   flashcards:user:<USER_ID>:history:v1:meta
 formato: { "version": 2, "trackedSince": 1787…, "ratedSince": 1788… | null,
             "decks": [{ deckId, name, lastSeenAt }] }
 
-clave:   flashcards:history:v1:month:AAAA-MM
+clave:   flashcards:user:<USER_ID>:history:v1:month:AAAA-MM
 formato: { "version": 2, "month": "2026-08",
             "sessions":      [{ id, deckId, startedAt, endedAt, activeMs, completedCards, localDay }],
             "cardEvents":    [{ id, sessionId, deckId, cardId, shownAt, revealedAt,

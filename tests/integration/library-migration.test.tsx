@@ -7,12 +7,11 @@ import { buildStatsReport } from '../../src/features/stats/engine';
 import { localDayOf } from '../../src/features/stats/time';
 import { createTestClock } from '../../src/lib/clock';
 import { createMemoryRepository } from '../../src/lib/storage/memoryRepository';
-import {
-  HISTORY_META_KEY,
-  monthKey,
-} from '../../src/lib/storage/historySerialization';
+import { historyKeys } from '../../src/lib/storage/historySerialization';
 import { createMemoryHistoryRepository } from '../../src/lib/storage/studyHistoryRepository';
-import { montarApp } from './statsHarness';
+import { montarApp, PREFIJO_HISTORIAL } from './statsHarness';
+
+const claves = historyKeys(PREFIJO_HISTORIAL);
 
 /**
  * Migración desde una instalación anterior a TASK-007.
@@ -33,9 +32,9 @@ function entornoAnterior() {
   return {
     clock: createTestClock(AHORA),
     libraryRepository: createMemoryRepository(fixture('library-v2.json')),
-    historyRepository: createMemoryHistoryRepository({
-      [HISTORY_META_KEY]: fixture('history-v1-meta.json'),
-      [monthKey('2026-08')]: fixture('history-v1-month.json'),
+    historyRepository: createMemoryHistoryRepository(PREFIJO_HISTORIAL, {
+      [claves.meta]: fixture('history-v1-meta.json'),
+      [claves.month('2026-08')]: fixture('history-v1-month.json'),
     }),
   };
 }

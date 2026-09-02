@@ -13,12 +13,9 @@ import { emptyHistory } from '../../features/stats/types';
 import {
   emptyMeta,
   emptyPartition,
-  HISTORY_META_KEY,
-  isMonthKey,
+  historyKeys,
   mergeHistory,
-  monthKey,
   monthOfEntry,
-  monthOfKey,
   parseMeta,
   parsePartition,
   serializeMeta,
@@ -91,14 +88,23 @@ export type KeyValueStore = {
   getAllKeys: () => Promise<readonly string[]>;
 };
 
+/**
+ * @param prefix Espacio de nombres del historial. Desde TASK-008 lo determina el usuario
+ * autenticado (`historyPrefixFor`), de modo que dos cuentas del mismo dispositivo escriban
+ * en bitácoras distintas. Es un parámetro obligatorio a propósito: un valor por defecto
+ * dejaría que un punto de creación olvidado escribiera en el espacio de todos.
+ */
 export function createStudyHistoryRepository(
+  prefix: string,
   storage: KeyValueStore = AsyncStorage,
 ): StudyHistoryRepository {
+  const keys = historyKeys(prefix);
+
   const readMeta = async (): Promise<HistoryMeta | null> =>
-    parseMeta(await storage.getItem(HISTORY_META_KEY));
+    parseMeta(await storage.getItem(keys.meta));
 
   const readPartition = async (month: string): Promise<HistoryPartition | null> =>
-    parsePartition(month, await storage.getItem(monthKey(month)));
+    parsePartition(month, await storage.getItem(keys.month(month)));
 
   /**
    * Cola de escritura.
@@ -121,19 +127,19 @@ export function createStudyHistoryRepository(
     flush: () => queue,
 
     async load(): Promise<HistoryLoadResult> {
-      let keys: readonly string[];
+      let allKeys: readonly string[];
       let metaRaw: string | null;
       try {
-        [keys, metaRaw] = await Promise.all([
+        [allKeys, metaRaw] = await Promise.all([
           storage.getAllKeys(),
-          storage.getItem(HISTORY_META_KEY),
+          storage.getItem(keys.meta),
         ]);
       } catch {
         // El medio falló. No se toca nada de lo que hubiera guardado.
         return { status: 'error', reason: 'ilegible' };
       }
 
-      const months = keys.filter(isMonthKey).map(monthOfKey).sort();
+      const months = allKeys.filter(keys.isMonth).map(keys.monthOf).sort();
       const meta = parseMeta(metaRaw);
 
       if (meta === null && metaRaw === null && months.length === 0) {
@@ -204,7 +210,7 @@ export function createStudyHistoryRepository(
             reviews.filter((entry) => monthOfEntry(entry) === month),
           ),
         };
-        await storage.setItem(monthKey(month), serializePartition(next));
+        await storage.setItem(keys.month(month), serializePartition(next));
       }
       // ── Metadatos ────────────────────────────────────────────────────────────
       // Después de las particiones a propósito: `ratedSince` marca que existen
@@ -225,7 +231,7 @@ export function createStudyHistoryRepository(
           }
         }
         await storage.setItem(
-          HISTORY_META_KEY,
+          keys.meta,
           serializeMeta({
             // El inicio del tracking se fija una sola vez. Moverlo hacia adelante borraría
             // la frontera entre lo que se registró y lo que nunca existió.
@@ -247,6 +253,7 @@ export function createStudyHistoryRepository(
  * historial se recupera del medio y no de un estado de React que sobrevivió.
  */
 export function createMemoryHistoryRepository(
+  prefix: string,
   initial: Record<string, string> = {},
 ): StudyHistoryRepository & { peek: () => Record<string, string> } {
   const map = new Map(Object.entries(initial));
@@ -258,7 +265,7 @@ export function createMemoryHistoryRepository(
     getAllKeys: async () => [...map.keys()],
   };
   return {
-    ...createStudyHistoryRepository(store),
+    ...createStudyHistoryRepository(prefix, store),
     peek: () => Object.fromEntries(map),
   };
 }

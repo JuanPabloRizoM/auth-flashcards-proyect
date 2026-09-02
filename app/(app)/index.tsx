@@ -2,18 +2,18 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { ScreenHeader } from '../src/components/layout';
-import { Button, Card, EmptyState, Input, Loading, Message, Select } from '../src/components/ui';
-import { libraryErrorMessage } from '../src/features/decks/library';
+import { ScreenHeader } from '../../src/components/layout';
+import { Button, Card, EmptyState, Input, Loading, Message, Select } from '../../src/components/ui';
+import { libraryErrorMessage } from '../../src/features/decks/library';
 import {
   buildDeckSummaries,
   deckSortOptions,
   defaultDeckSortOrder,
   formatUpdatedAt,
   type DeckSortOrder,
-} from '../src/features/decks/libraryView';
-import { useLibrary } from '../src/lib/LibraryProvider';
-import { spacing } from '../src/theme';
+} from '../../src/features/decks/libraryView';
+import { useLibrary } from '../../src/lib/LibraryProvider';
+import { spacing } from '../../src/theme';
 
 /** Mis mazos: biblioteca con búsqueda y orden, y creación de mazos nuevos. */
 export default function MisMazosScreen() {

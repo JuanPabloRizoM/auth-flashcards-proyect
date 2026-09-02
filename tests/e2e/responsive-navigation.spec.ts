@@ -1,7 +1,17 @@
 import { expect, test, type Page } from '@playwright/test';
+import { conSesion } from './support/auth';
+
+// Estas pruebas no van de acceso, pero desde TASK-008 la aplicación lo exige: se parte
+// de una sesión ya iniciada. El acceso tiene sus propias suites.
+test.beforeEach(async ({ page }) => {
+  await conSesion(page);
+});
 
 /** Mínimo táctil declarado en src/theme/tokens.ts (sizes.touchTarget). */
 const TOUCH_TARGET = 44;
+
+/** Ancho del sidebar declarado en src/theme/tokens.ts (sizes.sidebarWidth). */
+const SIDEBAR_WIDTH = 240;
 
 const ROUTES = ['/', '/estadisticas', '/componentes'] as const;
 
@@ -42,6 +52,38 @@ test.describe('Navegación base', () => {
 });
 
 test.describe('Disposición responsive', () => {
+  test('el sidebar mide lo que declara el sistema visual, y el contenido ocupa el resto', async ({
+    page,
+  }, testInfo) => {
+    test.skip(isMobileProject(testInfo.project.name), 'En móvil no hay sidebar.');
+
+    await page.goto('/');
+    await expect(page.getByTestId('app-sidebar')).toBeVisible();
+
+    // El ancho es fijo por diseño. Sin esta comprobación, darle `flex` al sidebar lo hacía
+    // crecer hasta repartirse la pantalla con el contenido y ninguna suite lo notaba.
+    const sidebar = await page.getByTestId('app-sidebar').boundingBox();
+    expect(sidebar?.width).toBe(SIDEBAR_WIDTH);
+
+    const ventana = page.viewportSize();
+    const contenido = await page.getByTestId('app-scroll').boundingBox();
+    expect(contenido?.width).toBe((ventana?.width ?? 0) - SIDEBAR_WIDTH);
+  });
+
+  test('la cuenta y el cierre de sesión quedan al pie del sidebar', async ({ page }, testInfo) => {
+    test.skip(isMobileProject(testInfo.project.name), 'En móvil viven en la cabecera.');
+
+    await page.goto('/');
+    const sidebar = await page.getByTestId('app-sidebar').boundingBox();
+    const cerrar = await page.getByTestId('cerrar-sesion').boundingBox();
+
+    // Al pie: por debajo de la mitad del sidebar, y dentro de él.
+    expect(cerrar?.y ?? 0).toBeGreaterThan((sidebar?.height ?? 0) / 2);
+    expect((cerrar?.y ?? 0) + (cerrar?.height ?? 0)).toBeLessThanOrEqual(
+      (sidebar?.y ?? 0) + (sidebar?.height ?? 0),
+    );
+  });
+
   test('muestra la navegación propia del tamaño de pantalla', async ({ page }, testInfo) => {
     await page.goto('/');
 

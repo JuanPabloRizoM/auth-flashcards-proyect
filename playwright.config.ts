@@ -32,6 +32,14 @@ export default defineConfig({
   ],
   webServer: {
     command: `npx expo start --web --port ${PORT}`,
+    /**
+     * El servidor de pruebas usa el doble de autenticación en vez de Supabase.
+     *
+     * Es lo que hace que los E2E sean deterministas y funcionen sin red, sin credenciales y
+     * sin Google. La bandera solo tiene efecto en desarrollo (`src/features/auth/service.ts`),
+     * así que no puede colarse en un bundle de producción.
+     */
+    env: { ...process.env, EXPO_PUBLIC_AUTH_FAKE: '1' } as Record<string, string>,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

@@ -2,17 +2,18 @@ import { Slot } from 'expo-router';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import { SafeAreaProvider, type Metrics } from 'react-native-safe-area-context';
 
-import ComponentesScreen from '../../app/componentes';
-import EstadisticasScreen from '../../app/estadisticas';
-import MisMazosScreen from '../../app/index';
-import EstudiarScreen from '../../app/mazo/[id]/estudiar';
-import ImportarScreen from '../../app/mazo/[id]/importar';
-import DetalleMazoScreen from '../../app/mazo/[id]/index';
+import ComponentesScreen from '../../app/(app)/componentes';
+import EstadisticasScreen from '../../app/(app)/estadisticas';
+import MisMazosScreen from '../../app/(app)/index';
+import EstudiarScreen from '../../app/(app)/mazo/[id]/estudiar';
+import ImportarScreen from '../../app/(app)/mazo/[id]/importar';
+import DetalleMazoScreen from '../../app/(app)/mazo/[id]/index';
 import { AppShell } from '../../src/components/layout';
 import { systemClock, type Clock } from '../../src/lib/clock';
 import { LibraryHistoryBridge } from '../../src/lib/LibraryHistoryBridge';
 import { LibraryProvider } from '../../src/lib/LibraryProvider';
 import { StudyHistoryProvider } from '../../src/lib/StudyHistoryProvider';
+import { historyPrefixFor, libraryKeyFor } from '../../src/lib/storage/keys';
 import { createMemoryRepository } from '../../src/lib/storage/memoryRepository';
 import {
   createMemoryHistoryRepository,
@@ -29,6 +30,17 @@ import type { FilePicker, FileSaver } from '../../src/lib/files/types';
  * comprobar que el historial se recupera del almacenamiento y no de un estado de React que
  * sobrevivió.
  */
+
+/**
+ * Espacio de nombres de los datos en los tests.
+ *
+ * Desde TASK-008 la biblioteca y el historial cuelgan del `user.id`. Los arneses usan uno
+ * fijo: lo que estos tests comprueban es el comportamiento de las pantallas, no el aislamiento
+ * entre cuentas, que tiene su propia suite.
+ */
+export const USUARIO_DE_PRUEBA = 'usuario-prueba';
+export const CLAVE_BIBLIOTECA = libraryKeyFor(USUARIO_DE_PRUEBA);
+export const PREFIJO_HISTORIAL = historyPrefixFor(USUARIO_DE_PRUEBA);
 
 const metrics: Metrics = {
   frame: { x: 0, y: 0, width: 1280, height: 900 },
@@ -102,7 +114,7 @@ export function montarApp({
 export function repositorios() {
   return {
     libraryRepository: createMemoryRepository(),
-    historyRepository: createMemoryHistoryRepository(),
+    historyRepository: createMemoryHistoryRepository(PREFIJO_HISTORIAL),
   };
 }
 

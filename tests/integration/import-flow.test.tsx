@@ -2,9 +2,9 @@ import { Slot } from 'expo-router';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import { SafeAreaProvider, type Metrics } from 'react-native-safe-area-context';
 
-import MisMazosScreen from '../../app/index';
-import ImportarScreen from '../../app/mazo/[id]/importar';
-import DetalleMazoScreen from '../../app/mazo/[id]/index';
+import MisMazosScreen from '../../app/(app)/index';
+import ImportarScreen from '../../app/(app)/mazo/[id]/importar';
+import DetalleMazoScreen from '../../app/(app)/mazo/[id]/index';
 import { AppShell } from '../../src/components/layout';
 import type { FilePicker } from '../../src/lib/files/types';
 import { LibraryProvider } from '../../src/lib/LibraryProvider';
@@ -18,6 +18,7 @@ import {
 import type { LibraryRepository } from '../../src/lib/storage/types';
 import type { Library } from '../../src/types/domain';
 import { fixtureFile } from '../fixtures/import/load';
+import { PREFIJO_HISTORIAL } from './statsHarness';
 
 /**
  * El flujo de importación de punta a punta, con archivos reales del disco.
@@ -44,7 +45,7 @@ function montarApp(repository: LibraryRepository, filePicker: FilePicker, initia
     return (
       <SafeAreaProvider initialMetrics={metrics}>
         <LibraryProvider repository={repository}>
-          <StudyHistoryProvider repository={createMemoryHistoryRepository()}>
+          <StudyHistoryProvider repository={createMemoryHistoryRepository(PREFIJO_HISTORIAL)}>
           <AppShell>
             <Slot />
           </AppShell>

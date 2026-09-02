@@ -1,9 +1,9 @@
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
-import ComponentesScreen from '../../app/componentes';
-import MisMazosScreen from '../../app/index';
-import EstudiarScreen from '../../app/mazo/[id]/estudiar';
-import DetalleMazoScreen from '../../app/mazo/[id]/index';
+import ComponentesScreen from '../../app/(app)/componentes';
+import MisMazosScreen from '../../app/(app)/index';
+import EstudiarScreen from '../../app/(app)/mazo/[id]/estudiar';
+import DetalleMazoScreen from '../../app/(app)/mazo/[id]/index';
 import { AppShell } from '../../src/components/layout';
 import { LibraryProvider } from '../../src/lib/LibraryProvider';
 import { StudyHistoryProvider } from '../../src/lib/StudyHistoryProvider';
@@ -17,6 +17,7 @@ import {
 
 import { Slot } from 'expo-router';
 import { SafeAreaProvider, type Metrics } from 'react-native-safe-area-context';
+import { PREFIJO_HISTORIAL } from './statsHarness';
 
 const metrics: Metrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -35,7 +36,7 @@ function montarApp(repository: LibraryRepository, initialUrl = '/') {
     return (
       <SafeAreaProvider initialMetrics={metrics}>
         <LibraryProvider repository={repository}>
-          <StudyHistoryProvider repository={createMemoryHistoryRepository()}>
+          <StudyHistoryProvider repository={createMemoryHistoryRepository(PREFIJO_HISTORIAL)}>
           <AppShell>
             <Slot />
           </AppShell>

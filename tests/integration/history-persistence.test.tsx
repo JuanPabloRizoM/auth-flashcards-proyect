@@ -2,7 +2,7 @@ import { screen } from 'expo-router/testing-library';
 
 import { buildStatsReport } from '../../src/features/stats/engine';
 import { localDayOf } from '../../src/features/stats/time';
-import { crearEstudiarMazo, montarApp, repositorios } from './statsHarness';
+import { crearEstudiarMazo, montarApp, PREFIJO_HISTORIAL, repositorios } from './statsHarness';
 
 /**
  * El historial sobrevive a la aplicación.
@@ -87,8 +87,9 @@ describe('Recuperación tras reconstruir la aplicación', () => {
     const claves = Object.keys(repos.historyRepository.peek());
     const mesActual = HOY.slice(0, 7);
 
-    expect(claves).toContain('flashcards:history:v1:meta');
-    expect(claves).toContain(`flashcards:history:v1:month:${mesActual}`);
+    // Las claves cuelgan del usuario autenticado desde TASK-008.
+    expect(claves).toContain(`${PREFIJO_HISTORIAL}:meta`);
+    expect(claves).toContain(`${PREFIJO_HISTORIAL}:month:${mesActual}`);
   });
 });
 

@@ -29,7 +29,6 @@ import type { CardScheduling, SchedulingOutcome } from '../features/scheduler/ty
 import type { Deck } from '../types/domain';
 
 import {
-  createStudyHistoryRepository,
   damagedHistoryMessage,
   historyErrorMessage,
   type StudyHistoryRepository,
@@ -95,8 +94,13 @@ const StudyHistoryContext = createContext<StudyHistoryValue | null>(null);
 
 export type StudyHistoryProviderProps = {
   children: ReactNode;
-  /** Inyectable para probar con otra implementación del mismo contrato. */
-  repository?: StudyHistoryRepository;
+  /**
+   * Dónde vive la bitácora.
+   *
+   * Obligatorio desde TASK-008, por la misma razón que en `LibraryProvider`: el prefijo lo
+   * determina el usuario autenticado y el proveedor no puede inventárselo.
+   */
+  repository: StudyHistoryRepository;
   /** Inyectable para que los tests puedan fijar instantes concretos. */
   now?: () => number;
 };
@@ -106,10 +110,7 @@ export function StudyHistoryProvider({
   repository,
   now = Date.now,
 }: StudyHistoryProviderProps) {
-  const repositoryRef = useRef<StudyHistoryRepository | null>(repository ?? null);
-  if (repositoryRef.current === null) {
-    repositoryRef.current = createStudyHistoryRepository();
-  }
+  const repositoryRef = useRef<StudyHistoryRepository>(repository);
 
   const [history, setHistory] = useState<StudyHistory>(emptyHistory);
   const [status, setStatus] = useState<StudyHistoryStatus>('loading');
@@ -144,7 +145,7 @@ export function StudyHistoryProvider({
     setHistory(next);
 
     if (writesSuspended.current) return;
-    repositoryRef.current!.append(change).catch(() => {
+    repositoryRef.current.append(change).catch(() => {
       setHistoryError('No se ha podido guardar la actividad de estudio en este dispositivo.');
     });
   }, []);
@@ -162,8 +163,8 @@ export function StudyHistoryProvider({
     // docs/DATABASE.md, y mientras dura la pantalla muestra el aviso del problema.
     if (!writesSuspended.current) {
       try {
-        await repositoryRef.current!.append(change);
-        await repositoryRef.current!.flush();
+        await repositoryRef.current.append(change);
+        await repositoryRef.current.flush();
       } catch {
         setHistoryError('No se ha podido guardar la actividad de estudio en este dispositivo.');
         return false;
@@ -177,7 +178,7 @@ export function StudyHistoryProvider({
 
   useEffect(() => {
     let cancelled = false;
-    const activeRepository = repositoryRef.current!;
+    const activeRepository = repositoryRef.current;
 
     const hydrate = async () => {
       const result = await activeRepository.load();

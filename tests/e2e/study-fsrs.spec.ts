@@ -1,4 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
+import { conSesion } from './support/auth';
+
+// Estas pruebas no van de acceso, pero desde TASK-008 la aplicación lo exige: se parte
+// de una sesión ya iniciada. El acceso tiene sus propias suites.
+test.beforeEach(async ({ page }) => {
+  await conSesion(page);
+});
 
 /** Mínimo táctil declarado en src/theme/tokens.ts (sizes.touchTarget). */
 const TOUCH_TARGET = 44;

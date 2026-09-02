@@ -1,10 +1,8 @@
 import {
   emptyPartition,
-  HISTORY_META_KEY,
+  historyKeys,
   HISTORY_VERSION,
-  isMonthKey,
   mergeHistory,
-  monthKey,
   monthOfEntry,
   parseMeta,
   parsePartition,
@@ -12,11 +10,22 @@ import {
   serializePartition,
   upsertById,
 } from '../../src/lib/storage/historySerialization';
+import { historyPrefixFor } from '../../src/lib/storage/keys';
 import {
   createMemoryHistoryRepository,
   createStudyHistoryRepository,
 } from '../../src/lib/storage/studyHistoryRepository';
 import { alta, evento, resetSequence, revision, sesion, snapshot } from '../fixtures/stats/builders';
+
+/**
+ * Todo el historial vive bajo el espacio de nombres de un usuario (TASK-008). Los tests usan
+ * uno fijo para poder afirmar sobre claves concretas.
+ */
+const PREFIJO = historyPrefixFor('usuario-a');
+const claves = historyKeys(PREFIJO);
+const HISTORY_META_KEY = claves.meta;
+const monthKey = claves.month;
+const isMonthKey = claves.isMonth;
 
 /**
  * Formato y particionado del historial.
@@ -30,11 +39,13 @@ beforeEach(resetSequence);
 
 describe('Claves y particiones', () => {
   it('la clave de un mes es reconocible y reversible', () => {
-    expect(monthKey('2026-08')).toBe('flashcards:history:v1:month:2026-08');
-    expect(isMonthKey('flashcards:history:v1:month:2026-08')).toBe(true);
+    expect(monthKey('2026-08')).toBe('flashcards:user:usuario-a:history:v1:month:2026-08');
+    expect(isMonthKey('flashcards:user:usuario-a:history:v1:month:2026-08')).toBe(true);
     expect(isMonthKey(HISTORY_META_KEY)).toBe(false);
-    expect(isMonthKey('flashcards:library:v1')).toBe(false);
-    expect(isMonthKey('flashcards:history:v1:month:agosto')).toBe(false);
+    expect(isMonthKey('flashcards:user:usuario-a:library:v1')).toBe(false);
+    expect(isMonthKey('flashcards:user:usuario-a:history:v1:month:agosto')).toBe(false);
+    // La bitácora de otra cuenta no es de esta.
+    expect(isMonthKey('flashcards:user:usuario-b:history:v1:month:2026-08')).toBe(false);
   });
 
   it('cada registro sabe a qué mes pertenece por su día local', () => {
@@ -155,7 +166,7 @@ describe('Mezcla', () => {
 
 describe('Repositorio particionado', () => {
   it('escribe cada mes en su propia clave y no toca los demás', async () => {
-    const repository = createMemoryHistoryRepository();
+    const repository = createMemoryHistoryRepository(PREFIJO);
 
     await repository.append({
       trackedSince: 1_766_000_000_000,
@@ -180,12 +191,12 @@ describe('Repositorio particionado', () => {
   });
 
   it('un primer arranque sin nada guardado se reporta como vacío', async () => {
-    const repository = createMemoryHistoryRepository();
+    const repository = createMemoryHistoryRepository(PREFIJO);
     expect(await repository.load()).toEqual({ status: 'empty' });
   });
 
   it('el inicio del tracking se fija una vez y no se mueve después', async () => {
-    const repository = createMemoryHistoryRepository();
+    const repository = createMemoryHistoryRepository(PREFIJO);
 
     await repository.append({ trackedSince: 1_000 });
     await repository.append({ trackedSince: 9_999_999 });
@@ -196,7 +207,7 @@ describe('Repositorio particionado', () => {
   });
 
   it('el snapshot de un mazo avanza al renombrarlo y no crea un historial nuevo', async () => {
-    const repository = createMemoryHistoryRepository();
+    const repository = createMemoryHistoryRepository(PREFIJO);
 
     await repository.append({
       trackedSince: 1_000,
@@ -217,7 +228,7 @@ describe('Repositorio particionado', () => {
   });
 
   it('un snapshot más viejo no pisa a uno más reciente', async () => {
-    const repository = createMemoryHistoryRepository();
+    const repository = createMemoryHistoryRepository(PREFIJO);
 
     await repository.append({ deckSnapshots: [snapshot('mazo-a', 'English', '2026-08-22')] });
     await repository.append({ deckSnapshots: [snapshot('mazo-a', 'Inglés', '2026-08-01')] });
@@ -227,7 +238,7 @@ describe('Repositorio particionado', () => {
   });
 
   it('un mes dañado se omite e informa, y los demás se siguen leyendo intactos', async () => {
-    const repository = createMemoryHistoryRepository();
+    const repository = createMemoryHistoryRepository(PREFIJO);
     await repository.append({
       trackedSince: 1_000,
       cardEvents: [
@@ -236,7 +247,7 @@ describe('Repositorio particionado', () => {
       ],
     });
 
-    const dañado = createMemoryHistoryRepository({
+    const dañado = createMemoryHistoryRepository(PREFIJO, {
       ...repository.peek(),
       [monthKey('2026-07')]: '{"version":1, roto',
     });
@@ -253,13 +264,13 @@ describe('Repositorio particionado', () => {
   });
 
   it('sobrevive a que los metadatos sean ilegibles sin perder los eventos', async () => {
-    const repository = createMemoryHistoryRepository();
+    const repository = createMemoryHistoryRepository(PREFIJO);
     await repository.append({
       trackedSince: 1_000,
       cardEvents: [evento({ deckId: 'mazo-a', day: '2026-08-20' })],
     });
 
-    const conMetaRota = createMemoryHistoryRepository({
+    const conMetaRota = createMemoryHistoryRepository(PREFIJO, {
       ...repository.peek(),
       [HISTORY_META_KEY]: 'no es json',
     });
@@ -278,7 +289,7 @@ describe('Repositorio particionado', () => {
       ...emptyPartition('2025-01'),
       cardEvents: [evento({ deckId: 'mazo-a', day: '2025-01-05' })],
     });
-    const repository = createMemoryHistoryRepository({ [monthKey('2025-01')]: partition });
+    const repository = createMemoryHistoryRepository(PREFIJO, { [monthKey('2025-01')]: partition });
 
     const result = await repository.load();
     expect(result.status).toBe('ok');
@@ -446,7 +457,7 @@ describe('escritura del historial', () => {
 
   it('escribe la partición del mes antes que los metadatos', async () => {
     const observado = almacenObservado();
-    const repositorio = createStudyHistoryRepository(observado.store);
+    const repositorio = createStudyHistoryRepository(PREFIJO, observado.store);
 
     await repositorio.append({
       ratedSince: Date.parse('2026-08-20T10:00:00.000Z'),
@@ -458,7 +469,7 @@ describe('escritura del historial', () => {
   });
 
   it('reintentar una revisión con el mismo identificador no la duplica', async () => {
-    const repositorio = createMemoryHistoryRepository();
+    const repositorio = createMemoryHistoryRepository(PREFIJO);
     const review = revision({
       deckId: 'mazo-a',
       cardId: 'c-1',
@@ -477,7 +488,7 @@ describe('escritura del historial', () => {
   });
 
   it('dos revisiones distintas sí se guardan las dos', async () => {
-    const repositorio = createMemoryHistoryRepository();
+    const repositorio = createMemoryHistoryRepository(PREFIJO);
 
     await repositorio.append({
       reviews: [revision({ deckId: 'mazo-a', cardId: 'c-1', day: '2026-08-20', id: 'evento-7-review' })],

@@ -122,16 +122,38 @@ Añade aquí únicamente decisiones que el usuario haya tomado explícitamente.
 - [2026-08-30] El scheduler y la calificación funcionan por completo sin conexión, sobre la
   persistencia local existente. Calcular la programación de una tarjeta nunca hace una petición
   externa.
+- [2026-09-02] La aplicación tendrá cuentas de usuario.
+- [2026-09-02] El proveedor de autenticación será Supabase Auth.
+- [2026-09-02] El usuario puede iniciar sesión mediante correo electrónico y contraseña.
+- [2026-09-02] El usuario puede iniciar sesión mediante Google.
+- [2026-09-02] El usuario puede registrarse mediante correo electrónico y contraseña.
+- [2026-09-02] El usuario puede registrarse mediante Google.
+- [2026-09-02] La sesión debe persistir entre reinicios de la aplicación cuando siga siendo válida.
+- [2026-09-02] Sin sesión válida no se puede acceder a las pantallas privadas.
+- [2026-09-02] El usuario puede cerrar sesión.
+- [2026-09-02] Supabase se utiliza en TASK-008 únicamente para autenticación.
+- [2026-09-02] Los mazos, cartas, scheduling FSRS, historial y estadísticas continúan almacenados
+  localmente.
+- [2026-09-02] No existe todavía sincronización entre dispositivos.
+- [2026-09-02] Los datos locales deben quedar aislados por usuario autenticado.
+- [2026-09-02] Dos usuarios distintos que utilicen el mismo dispositivo no deben ver los datos locales
+  del otro.
+- [2026-09-02] El acceso mediante Google en Login y Registro utiliza el mismo proveedor OAuth
+  subyacente, aunque la presentación corresponda a cada pantalla.
+- [2026-09-02] No se implementa Apple Sign In en esta task.
+- [2026-09-02] No se implementa recuperación de contraseña en esta task.
+- [2026-09-02] No se implementan perfiles sociales ni nombres de usuario en esta task.
+- [2026-09-02] No se implementa edición de perfil en esta task.
+- [2026-09-02] No se mueve ningún dato de producto a Supabase Database en esta task.
 ```
 
 ## Decisiones todavía NO tomadas
 
 No asumir ni completar automáticamente temas como:
 
-- autenticación, y su método (correo/contraseña, Google, Apple u otros);
-- base de datos remota y persistencia en la nube (Supabase incluida);
+- base de datos remota y persistencia en la nube de los datos de producto (Supabase Database
+  incluida);
 - sincronización entre dispositivos;
-- cuentas de usuario y colaboración;
 - modelo de suscripción;
 - configuración avanzada de FSRS;
 - parámetros personalizados de FSRS;

@@ -7,7 +7,7 @@ import { createMemoryHistoryRepository } from '../../src/lib/storage/studyHistor
 import { createMemoryRepository } from '../../src/lib/storage/memoryRepository';
 import type { LibraryRepository, LoadResult } from '../../src/lib/storage/types';
 import type { Library } from '../../src/types/domain';
-import { abrirMazo, anadirCarta, crearMazo, irA, montarApp } from './statsHarness';
+import { abrirMazo, anadirCarta, crearMazo, irA, montarApp, PREFIJO_HISTORIAL } from './statsHarness';
 
 /**
  * Consistencia al calificar.
@@ -47,7 +47,7 @@ function repositorioQueFallaAlGuardar(aPartirDe: number): LibraryRepository & {
 
 /** Historial que registra bien hasta que se le dice que empiece a fallar. */
 function historialConInterruptor() {
-  const base = createMemoryHistoryRepository();
+  const base = createMemoryHistoryRepository(PREFIJO_HISTORIAL);
   let falla = false;
   return {
     ...base,

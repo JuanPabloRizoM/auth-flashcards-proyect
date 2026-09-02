@@ -101,6 +101,52 @@ El estado de scheduling vive **con la carta**, en la biblioteca, porque su ciclo
 exactamente el de la carta. El registro de calificaciones vive **en el historial**, porque es
 una bitácora que solo crece y que sobrevive al borrado de la carta.
 
+## Autenticación (TASK-008)
+
+Supabase entra en el proyecto, y entra **solo como proveedor de identidad**. Detrás de una
+abstracción propia, como el scheduler:
+
+```text
+Pantallas (/login, /registro, /auth/callback, cerrar sesión)
+        │
+        ▼
+   AuthProvider          estado: loading / authenticated / unauthenticated
+        │
+        ▼
+   AuthService           contrato propio, en español, sin tokens
+        │
+        ├── SupabaseAuthService ──► client.ts ──► @supabase/supabase-js
+        └── FakeAuthService                       (tests deterministas)
+```
+
+- **`src/features/auth/types.ts`** define el contrato: `signInWithEmail`, `signUpWithEmail`,
+  `signInWithGoogle`, `signOut`, `getSession` y `onAuthStateChange`.
+- **`src/features/auth/supabase/client.ts`** es el único archivo que importa la librería.
+  Cambiar de proveedor de identidad se reduce a escribir otro adaptador.
+- **La sesión del dominio no lleva tokens.** Se queda con identificador, correo y caducidad;
+  los tokens viven dentro de supabase-js, que es quien firma las peticiones.
+
+Las rutas se separan en dos grupos de Expo Router, y el guard vive en el layout de cada uno:
+
+```text
+app/_layout.tsx     AuthProvider + Stack
+app/(auth)/         público    /login  /registro  /auth/callback
+app/(app)/          privado    /  /estadisticas  /componentes  /mazo/[id]…
+```
+
+Los paréntesis no aparecen en la URL. Que el guard esté en el layout del grupo, y no en el
+raíz, es lo que permite **no montar** una pantalla privada sin sesión, en vez de montarla y
+taparla.
+
+Los proveedores de datos dejan de estar en el layout raíz y pasan a
+`src/lib/UserScopedData.tsx`, dentro del grupo privado, con `key={user.id}`: al cambiar de
+cuenta el subárbol se destruye y se vuelve a crear con el espacio de nombres del usuario
+nuevo. Sin eso, una escritura en vuelo del usuario anterior acabaría en el espacio del
+siguiente.
+
+La configuración externa —panel de Supabase, Google Cloud, redirects y deep links— está en
+`docs/AUTH.md`.
+
 ## Reglas
 
 1. UI no contiene lógica compleja de negocio.
@@ -114,4 +160,9 @@ una bitácora que solo crece y que sobrevive al borrado de la carta.
 
 ## Dirección
 
-UI -> feature logic -> data access -> Supabase
+UI -> feature logic -> data access -> almacenamiento local
+
+UI -> AuthProvider -> AuthService -> SupabaseAuthService -> Supabase Auth
+
+Los datos de producto **no** pasan por Supabase: Supabase sabe quién eres, no qué estudias
+(docs/PRODUCT.md, 2026-09-02).

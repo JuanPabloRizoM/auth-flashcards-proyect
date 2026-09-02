@@ -18,12 +18,17 @@ import { cardOrigins } from '../../features/stats/types';
  * documento por mes natural.
  *
  * ```text
- * flashcards:history:v1:meta          { "version": 2, "trackedSince": 1766…, "ratedSince": 1787…,
- *                                       "decks": [...] }
- * flashcards:history:v1:month:2026-08 { "version": 2, "month": "2026-08",
- *                                       "sessions": [...], "cardEvents": [...],
- *                                       "cardAdditions": [...], "reviews": [...] }
+ * <PREFIJO>:meta          { "version": 2, "trackedSince": 1766…, "ratedSince": 1787…,
+ *                           "decks": [...] }
+ * <PREFIJO>:month:2026-08 { "version": 2, "month": "2026-08",
+ *                           "sessions": [...], "cardEvents": [...],
+ *                           "cardAdditions": [...], "reviews": [...] }
  * ```
+ *
+ * Desde TASK-008 el prefijo es el del usuario autenticado (`src/lib/storage/keys.ts`), y no
+ * una constante: dos cuentas en el mismo dispositivo no pueden compartir bitácora. El
+ * prefijo anterior a las cuentas se conserva como `LEGACY_HISTORY_PREFIX`, y solo se lee
+ * para migrarlo.
  *
  * **Estrategia de crecimiento.** Completar una carta reescribe solo la partición del mes
  * en curso, así que el coste de escribir depende de la actividad de ese mes y no de todo
@@ -55,20 +60,34 @@ export const HISTORY_VERSION = 2;
 /** Versiones que esta build sabe leer. Escribir, escribe siempre la actual. */
 const READABLE_HISTORY_VERSIONS = [1, HISTORY_VERSION];
 
-export const HISTORY_META_KEY = 'flashcards:history:v1:meta';
-export const HISTORY_MONTH_PREFIX = 'flashcards:history:v1:month:';
+/**
+ * Las claves concretas de un espacio de nombres.
+ *
+ * Se construyen a partir del prefijo en vez de ser constantes del módulo porque el prefijo
+ * depende de quién ha iniciado sesión. Agruparlas evita que el repositorio y los tests
+ * vuelvan a componer la misma cadena por su cuenta y acaben discrepando en un separador.
+ */
+export type HistoryKeys = {
+  readonly prefix: string;
+  readonly meta: string;
+  readonly monthPrefix: string;
+  month: (month: string) => string;
+  isMonth: (key: string) => boolean;
+  monthOf: (key: string) => string;
+};
 
-export function monthKey(month: string): string {
-  return `${HISTORY_MONTH_PREFIX}${month}`;
-}
+export function historyKeys(prefix: string): HistoryKeys {
+  const monthPrefix = `${prefix}:month:`;
+  const monthOf = (key: string): string => key.slice(monthPrefix.length);
 
-/** ¿Es esta clave del almacenamiento una partición mensual del historial? */
-export function isMonthKey(key: string): boolean {
-  return key.startsWith(HISTORY_MONTH_PREFIX) && /^\d{4}-\d{2}$/.test(monthOfKey(key));
-}
-
-export function monthOfKey(key: string): string {
-  return key.slice(HISTORY_MONTH_PREFIX.length);
+  return {
+    prefix,
+    meta: `${prefix}:meta`,
+    monthPrefix,
+    month: (month) => `${monthPrefix}${month}`,
+    isMonth: (key) => key.startsWith(monthPrefix) && /^\d{4}-\d{2}$/.test(monthOf(key)),
+    monthOf,
+  };
 }
 
 /** Metadatos: cuándo empezó el tracking y el último nombre conocido de cada mazo. */

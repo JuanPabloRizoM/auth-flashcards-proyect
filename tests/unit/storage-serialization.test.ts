@@ -1,8 +1,8 @@
 import { newScheduling } from '../../src/features/scheduler/types';
 import {
+  libraryKeyFor,
   parseStoredLibrary,
   serializeLibrary,
-  STORAGE_KEY,
   STORAGE_VERSION,
 } from '../../src/lib/storage';
 import { createAsyncStorageRepository } from '../../src/lib/storage/asyncStorageRepository';
@@ -12,6 +12,9 @@ import {
 } from '../../src/lib/storage/memoryRepository';
 import type { LibraryRepository } from '../../src/lib/storage/types';
 import type { Library } from '../../src/types/domain';
+
+/** La biblioteca vive bajo el espacio de nombres de un usuario desde TASK-008. */
+const CLAVE = libraryKeyFor('usuario-a');
 
 const biblioteca: Library = {
   decks: [{ id: 'mazo-1', name: 'Inglés', updatedAt: '2026-08-20T10:00:00.000Z' }],
@@ -159,7 +162,7 @@ describe('repositorio que falla', () => {
  */
 describe.each([
   ['memoria', () => createMemoryRepository()],
-  ['AsyncStorage', () => createAsyncStorageRepository()],
+  ['AsyncStorage', () => createAsyncStorageRepository(CLAVE)],
 ])('contrato de LibraryRepository: %s', (_nombre, crear) => {
   let repositorio: LibraryRepository;
 
@@ -224,7 +227,7 @@ describe('asyncStorageRepository: fallos del medio', () => {
       setItem: async () => undefined,
     };
 
-    const repositorio = createAsyncStorageRepository(medioRoto);
+    const repositorio = createAsyncStorageRepository(CLAVE, medioRoto);
 
     await expect(repositorio.load()).resolves.toEqual({
       status: 'error',
@@ -240,7 +243,7 @@ describe('asyncStorageRepository: fallos del medio', () => {
       },
     };
 
-    await expect(createAsyncStorageRepository(medioRoto).save(biblioteca)).rejects.toThrow();
+    await expect(createAsyncStorageRepository(CLAVE, medioRoto).save(biblioteca)).rejects.toThrow();
   });
 
   it('escribe bajo la clave versionada esperada', async () => {
@@ -252,10 +255,10 @@ describe('asyncStorageRepository: fallos del medio', () => {
       },
     };
 
-    await createAsyncStorageRepository(medio).save(biblioteca);
+    await createAsyncStorageRepository(CLAVE, medio).save(biblioteca);
 
     expect(escrituras).toHaveLength(1);
-    expect(escrituras[0]?.clave).toBe(STORAGE_KEY);
+    expect(escrituras[0]?.clave).toBe(CLAVE);
     expect(parseStoredLibrary(escrituras[0]?.valor ?? null)).toEqual({
       status: 'ok',
       library: biblioteca,
@@ -436,8 +439,10 @@ describe('migración a la versión 3: scheduling de las cartas', () => {
     expect(resultado.library.scheduler).toBeNull();
   });
 
-  it('la clave de almacenamiento no cambia: la versión vive dentro del documento', () => {
-    expect(STORAGE_KEY).toBe('flashcards:library:v1');
+  it('la clave lleva el usuario y conserva el sufijo con el que nació', () => {
+    // La versión del documento vive dentro del documento; la clave solo dice de quién es.
+    expect(CLAVE).toBe('flashcards:user:usuario-a:library:v1');
+    expect(libraryKeyFor('usuario-b')).not.toBe(CLAVE);
   });
 });
 

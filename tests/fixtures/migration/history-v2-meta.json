@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "trackedSince": 1787130000000,
+  "ratedSince": 1787652000000,
+  "decks": [
+    {
+      "deckId": "mazo-1",
+      "name": "Inglés",
+      "lastSeenAt": 1787652000000
+    },
+    {
+      "deckId": "mazo-2",
+      "name": "Matemáticas",
+      "lastSeenAt": 1787652000000
+    }
+  ]
+}
